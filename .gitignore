@@ -1,0 +1,66 @@
+# ---------------------------------------------------------------------------
+# Patient-derived data must never enter git history.
+# Rule of thumb: if a file can contain a StudyInstanceUID, a SeriesInstanceUID,
+# a report string, or a pixel, it is ignored here.
+# ---------------------------------------------------------------------------
+
+# Competition data and any local copy of it.
+# Note the `/*` rather than `/`: git cannot re-include a file inside an
+# excluded *directory*, so excluding the contents is what lets .gitkeep survive.
+data/*
+!data/.gitkeep
+
+# Derived data: caches, metadata parquets, OOF predictions, fold assignments.
+# These embed StudyInstanceUIDs and are therefore patient-derived.
+artifacts/*
+!artifacts/.gitkeep
+
+# Belt and braces: these extensions are never committed, wherever they live
+*.dcm
+*.dicom
+*.nii
+*.nii.gz
+*.npy
+*.npz
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.parquet
+*.feather
+*.h5
+*.hdf5
+*.zip
+*.tar
+*.tar.gz
+*.7z
+
+# CSVs are the sharp edge: train.csv / reports carry UIDs and free text.
+# Everything is ignored except explicitly whitelisted reference tables that
+# contain no patient data (e.g. the bilingual lexicon term table).
+*.csv
+!src/lexicons/*.csv
+!docs/**/*.csv
+
+# Credentials
+kaggle.json
+.kaggle/
+access_token
+.env
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/

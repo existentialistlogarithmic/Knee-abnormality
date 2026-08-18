@@ -79,3 +79,22 @@ push creates a *second* kernel rather than updating the first.
 Rule: after the first push of any kernel, set `id` to the slug in the URL the
 push prints, and leave it alone. Also note the Kaggle account here is
 `achelijndiamantidis`, which is not the GitHub username.
+
+## Kaggle API rate limits — pace the polling
+
+The API returns **HTTP 429** readily, and this project has tripped it three
+times: paging the competition file listing, polling submission status, and
+downloading kernel output.
+
+Practical rules learned the hard way:
+
+- **Poll status no faster than every 30 s**, and prefer a single check after a
+  realistic delay over a tight loop. Submission scoring re-runs the whole kernel
+  against the hidden test set, so it takes minutes, not seconds.
+- **Never download a whole kernel output when you only want the manifest.** Use
+  `kaggle kernels output --file-pattern '.*\.(json|parquet)$'`. A cache-build
+  kernel emits gigabytes of `.npy` that belong in a Dataset, not on a laptop.
+- **Long paginated reads need checkpointing**, not just retries — see
+  `eda/phase0_01_auth_and_files.py`, which writes its page token every 25 pages
+  so a 429 costs a resume rather than the whole listing.
+- Back off exponentially and honour `Retry-After` when present.

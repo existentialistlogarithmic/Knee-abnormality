@@ -129,3 +129,35 @@ def test_training_does_not_flip_left_right():
     source = _source(TRAIN)
     augment = source[source.index("if self.augment:"):source.index("return (torch.from_numpy")]
     assert "[..., ::-1]" not in augment, "left-right flip would undo laterality correction"
+
+
+def test_checkpoint_round_trips_from_training_into_inference():
+    """Weights saved by the training kernel must load into the inference model.
+
+    This is train/inference skew in its purest form: a DataParallel prefix, a
+    backbone mismatch, or an EMA/live mixup all produce a checkpoint that either
+    fails to load or — worse — loads partially and predicts noise.
+    """
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+    train_ns = runpy.run_path(str(TRAIN), run_name="__not_main__")
+    infer_ns = runpy.run_path(str(INFER), run_name="__not_main__")
+
+    trained = train_ns["build_model"]("resnet18", 3, 12)
+    # exactly the shape the training kernel writes
+    checkpoint = {"model": {k: v.clone() for k, v in trained.state_dict().items()},
+                  "backbone": "resnet18", "epoch": 3, "macro_auc": 0.7}
+
+    assert not any(k.startswith("module.") for k in checkpoint["model"]), \
+        "checkpoint carries DataParallel prefixes"
+
+    rebuilt = infer_ns["build_model"](checkpoint["backbone"], 3, 12)
+    missing, unexpected = rebuilt.load_state_dict(checkpoint["model"], strict=False)
+    assert not missing and not unexpected, f"missing={missing[:3]} unexpected={unexpected[:3]}"
+
+    rebuilt.eval()
+    volume = torch.zeros(1, 3, 20, 192, 192)
+    with torch.no_grad():
+        out = torch.sigmoid(rebuilt(volume))
+    assert out.shape == (1, 12)
+    assert torch.isfinite(out).all()

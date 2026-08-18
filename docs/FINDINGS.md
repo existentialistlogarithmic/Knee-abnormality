@@ -21,9 +21,11 @@ digit. Three things it did not say, and each one changes the build:
 1. **Reports do not exist at inference time.** `test.csv` has exactly one column,
    `StudyInstanceUID`. The report labeler is a training-time device only; the
    submission kernel is image-only. (§2.6)
-2. **There is no site, scanner, or institution column anywhere in the CSVs.**
-   Site-grouped folds and the leakage audit are now blocked on the DICOM header
-   scan rather than being a CSV `groupby`. (§3.6)
+2. **There is no site column anywhere — and the DICOM headers are
+   de-identified too**, so `InstitutionName`, `StationName`, `DeviceSerialNumber`
+   and all dates are gone. A true site label does not exist in this dataset. What
+   does exist is a strong *scanner fingerprint*, and that becomes the grouping
+   key. (§3.6, §5)
 3. **The host already provides series-level plane and sequence metadata**, so the
    header scan does not have to derive orientation from
    `ImageOrientationPatient` for series selection. (§3.8)
@@ -74,8 +76,8 @@ digit. Three things it did not say, and each one changes the build:
 | 3.3 | **Exactly 58 studies carry expert labels** | `VERIFIED` | 58 rows have all 12 findings populated; 58 have at least one. There is no partially-labelled middle ground — a study is fully labelled or not at all. |
 | 3.4 | **Every training study has a report** | `VERIFIED` | `Report` is non-null for all 4,407 rows. The brief implied some studies might lack one; none do. |
 | 3.5 | **Reports are multilingual** | `VERIFIED` | detected over 4,000 sampled reports: en 39.3%, es 15.6%, tr 12.4%, el 7.4%, hr 7.3%, de 5.9%, bg 5.0%, nl 3.5%, fr 1.9%, bs 1.8%, la ~0%. That is 10 languages with real mass. Croatian/Bosnian are near-identical and the detector will confuse them; "la" (Latin) is near-certainly a misdetection of short anatomical text. So "~12 languages" is the right order of magnitude, and the exact count depends on how one splits Croatian/Bosnian/Serbian. |
-| 3.6 | **Site / scanner / institution metadata in the CSVs** | `CONTRADICTED` | `train.csv` has 14 columns (UID, Report, 12 findings) and `train_series.csv` has 5 (UID, SeriesUID, Fluid_Sensitive, Fat_Suppression, Anatomical_Plane). **No site column exists.** Grouped folds must come from DICOM headers. |
-| 3.7 | Site metadata in both train and test | `UNVERIFIED` | needs the header scan on both splits |
+| 3.6 | **Site / scanner / institution metadata in the CSVs** | `CONTRADICTED` | `train.csv` has 14 columns (UID, Report, 12 findings) and `train_series.csv` has 5 (UID, SeriesUID, Fluid_Sensitive, Fat_Suppression, Anatomical_Plane). **No site column exists.** |
+| 3.7 | Scanner metadata present in both train and test headers | `VERIFIED (on a 7-file sample: 4 train, 3 test)` | the fingerprint fields below were populated in both splits |
 | 3.8 | **Series-level metadata is provided by the host** | `VERIFIED` | `train_series.csv`: 24,371 series over 4,407 studies. `Anatomical_Plane` ∈ {Sagittal 9,864, Coronal 8,609, Axial 5,898}. |
 | 3.9 | **Series per study** | `VERIFIED` | mean 5.53, median 5, min 3, max 14; p25 = 5, p75 = 6, p99 = 10. Every training study has at least 3 series. |
 | 3.10 | **`Fluid_Sensitive` and `Fat_Suppression` are the same column** | `VERIFIED` | identical on all 24,371 rows (14,010 ones, 10,361 zeros; off-diagonal counts are zero). Two column names, one bit of information. Treat as a single flag and do not build a feature that assumes they differ. |
@@ -83,6 +85,73 @@ digit. Three things it did not say, and each one changes the build:
 | 3.12 | Public test set size | `VERIFIED` | `test.csv` has 3 rows, `test_series.csv` 15 rows (5 series per study). This is a placeholder; the rescored hidden test is larger and its size is `UNVERIFIED` — which is exactly why the inference kernel needs runtime headroom. |
 | 3.13 | Train and test studies are disjoint | `VERIFIED` | zero `StudyInstanceUID` overlap between `test.csv` and `train.csv` |
 | 3.14 | Data layout | `VERIFIED` | top-level `train_series/` and `test_series/` directories of `.dcm`, plus 5 root CSVs. (Not `train_images/`, as the brief assumed.) |
+
+---
+
+## 5. DICOM headers — sampled, 7 files from 7 studies (4 train, 3 test)
+
+69 distinct tags across the sample. Read with `stop_before_pixels=True`; no pixel
+data was decoded.
+
+### 5.1 What de-identification removed — `VERIFIED`
+
+Absent from **all** sampled files:
+
+`InstitutionName`, `InstitutionAddress`, `InstitutionalDepartmentName`,
+`StationName`, `PerformedStationName`, `DeviceSerialNumber`, `ProtocolName`,
+`StudyDate`, `SeriesDate`, `PatientAge`, `PatientSize`, `PatientWeight`.
+
+**There is no site identifier in this dataset, in any file, in any form.** Any
+plan that assumed a site label — including a straightforward site-grouped
+K-fold — has to be rebuilt around a proxy.
+
+### 5.2 The scanner fingerprint — `VERIFIED`
+
+These survive and are populated:
+
+| tag | present | example values from the sample |
+|---|---:|---|
+| `Manufacturer` | 7/7 | SIEMENS, Siemens Healthineers, GE MEDICAL SYSTEMS, Philips Healthcare, TOSHIBA |
+| `ManufacturerModelName` | 7/7 | MAGNETOM Vida, MAGNETOM Lumina, MAGNETOM Avanto fit, Aera, SIGNA Artist, Ingenia, Vantage |
+| `SoftwareVersions` | 6/7 | syngo MR XA60, syngo MR E11, 5.6.1 |
+| `MagneticFieldStrength` | 6/7 | 1.5, 3 |
+| `ImagingFrequency` | 6/7 | 63.881601, 63.870660, 63.685261, 63.648174, 123.255723, 123.238133 |
+| `TransmitCoilName` | 5/7 | TxRx_Knee_18, TxRx_15Ch_Knee, 16Knee |
+
+**`ImagingFrequency` is the load-bearing field.** It is the Larmor frequency in
+MHz, set by the magnet's exact field, and it separates two nominally identical
+1.5 T scanners at the fourth decimal — 63.881601 vs 63.870660 vs 63.685261 vs
+63.648174 are four different magnets. Concatenated with manufacturer, model,
+software version and coil, it behaves like a hardware serial number.
+
+Seven random files produced **seven distinct fingerprints and five
+manufacturers**, which independently corroborates the "many sites, many
+scanners" claim.
+
+The fingerprint degrades gracefully but not uniformly: the TOSHIBA Vantage file
+had no software version, field strength, frequency or coil name, so for that
+vendor the key collapses to manufacturer + model. How much of the dataset sits
+in that degraded state is `UNVERIFIED` until the full scan runs.
+
+### 5.3 Other useful survivors — `VERIFIED`
+
+| tag | present | note |
+|---|---:|---|
+| `Laterality` | 6/7 | values `L`, `R`, and one empty. Needed for mirroring right knees; the empty case is real and must be handled. `SeriesDescription` sometimes encodes it too (e.g. `LT_t2_tse_fs_cor_obl_ACL`). |
+| `SeriesDescription` | 7/7 | free text, informative, vendor-specific — e.g. `LT_t2_tse_fs_cor_obl_ACL`, `pd_tse_tra_d`, `SG PD FatSat` |
+| `PatientID` | 7/7 | pseudonymised (e.g. `fd7379f0-da7`). **Whether one pseudonym spans several studies is `UNVERIFIED`** — if it does, folds must group on patient as well as scanner, or the same knee appears on both sides of a split. The scan checks this. |
+| `PixelSpacing`, `SliceThickness`, `SpacingBetweenSlices` | 7/7, 7/7, 6/7 | needed for resampling to fixed mm-per-pixel |
+| `ImageOrientationPatient` | 7/7 | lets the scan cross-check the host's `Anatomical_Plane` |
+| `PatientSex` | 6/7 | |
+| `BodyPartExamined` | 7/7 | |
+| `EchoTime`, `RepetitionTime`, `EchoTrainLength`, `ScanningSequence`, `SequenceVariant` | 6/7 | sequence identity beyond the host's single fluid-sensitive bit |
+
+### 5.4 Scan cost — `VERIFIED (extrapolated)`
+
+The kernel read 7 series in 0.04 s (0.006 s/series) on warm local files. At that
+rate 24,371 training series is a few minutes of CPU, though a cold Kaggle mount
+over ~800k files will be slower. The kernel shards by study and stops cleanly on
+a wall-clock budget, so a slow mount costs a re-run, not a lost session.
 
 ---
 
@@ -121,7 +190,7 @@ that. Every number computed on it gets an interval printed next to it.
 |---|---|---|---|
 | 5.1 | Ground truth is image-derived (2 MSK radiologists + adjudicator) | `UNVERIFIED` | needs the Data page description |
 | 5.2 | Report-derived labels agree ~82% with image labels | `UNVERIFIED` | measurable in Phase 1 against the 58, with the interval from §4 |
-| 5.3 | Random K-fold inflates AUC by 0.05–0.14 | `UNVERIFIED` | **now blocked on the header scan**, since no site column exists (§3.6) |
+| 5.3 | Random K-fold inflates AUC by 0.05–0.14 | `UNVERIFIED` | blocked on the header scan. Note the audit now compares random K-fold against **scanner-fingerprint**-grouped K-fold, since no true site label exists (§5.1). |
 | 5.4 | Public baseline ~0.809 | `UNVERIFIED` | needs the leaderboard |
 
 ---
@@ -135,12 +204,17 @@ that. Every number computed on it gets an interval printed next to it.
    (§2.5).
 4. **Is the ROC-AUC macro-averaged over the 12 findings?** The API says only
    "Roc Auc Score". Needs the Evaluation page.
-5. **Where does site/scanner grouping come from?** Only the DICOM headers now.
-   Until the scan runs, every fold scheme is unvalidated.
-6. **Is laterality recoverable?** No column in any CSV; must come from headers.
-7. **Are the 58 gold studies site-diverse?** Unanswerable until sites are known.
-   If they cluster in one or two sites, calibration claims weaken sharply.
-8. **How large is the hidden test set?** Drives the inference-kernel budget.
+5. ~~Where does site/scanner grouping come from?~~ **Answered:** a scanner
+   fingerprint built from the headers (§5.2). A true site label does not exist.
+6. ~~Is laterality recoverable?~~ **Answered:** `Laterality` is in the headers,
+   populated in 6 of 7 sampled files, with `SeriesDescription` as a fallback.
+7. **Does one `PatientID` span several studies?** If so, folds must group on
+   patient too. The header scan answers this.
+8. **What fraction of series have a degraded fingerprint** (missing frequency
+   or software version, as the TOSHIBA file did)?
+9. **Are the 58 gold studies scanner-diverse?** If they cluster on one or two
+   scanners, calibration claims weaken sharply.
+10. **How large is the hidden test set?** Drives the inference-kernel budget.
 
 ---
 
@@ -150,5 +224,6 @@ that. Every number computed on it gets an interval printed next to it.
 |---|---|
 | Kaggle API, authenticated | primary source for §1–§2 |
 | `train.csv`, `train_series.csv`, `sample_submission.csv`, `test.csv`, `test_series.csv` | primary source for §2.5, §3, §4 |
+| 7 sampled DICOM files (4 train, 3 test), headers only | primary source for §5 |
 | Competition overview page | client-rendered; only title/meta readable without a browser session |
 | Kickoff brief | second-hand; scored above — mostly right, wrong on §3.6 and silent on §2.6 |

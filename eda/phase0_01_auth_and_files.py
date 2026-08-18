@@ -8,6 +8,7 @@ StudyInstanceUIDs):
     competition_meta.json     raw competition metadata as the API reports it
     competition_files.csv     one row per file: name, bytes, creation date
     step1_summary.md          a block to paste/merge into docs/FINDINGS.md
+    step1_summary_public.md   same, with nested (UID-bearing) paths redacted
 
 Every printed number comes from the API. Nothing is inferred or filled in.
 
@@ -24,7 +25,7 @@ import json
 import os
 import sys
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 COMPETITION = "rsna-knee-abnormality-detection"
@@ -96,6 +97,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--competition", default=COMPETITION)
     parser.add_argument("--page-size", type=int, default=200, help="API max is 200")
+    parser.add_argument("--out-dir", default=str(OUT_DIR))
     parser.add_argument(
         "--max-pages",
         type=int,
@@ -103,6 +105,8 @@ def main() -> int:
         help="0 = page through everything. Set a limit to sample a huge listing.",
     )
     args = parser.parse_args()
+
+    out_dir = Path(args.out_dir)
 
     source = describe_credential_source()
     print(f"credential source : {source}")
@@ -125,7 +129,7 @@ def main() -> int:
         return 2
     print("authenticated     : yes")
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     # ---- competition metadata --------------------------------------------- #
     meta: dict[str, object] = {}
@@ -215,13 +219,13 @@ def main() -> int:
     # ---- write outputs ----------------------------------------------------- #
     import csv
 
-    files_csv = OUT_DIR / "competition_files.csv"
+    files_csv = out_dir / "competition_files.csv"
     with files_csv.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
         writer.writerow(["name", "total_bytes", "creation_date"])
         writer.writerows(rows)
 
-    (OUT_DIR / "competition_meta.json").write_text(
+    (out_dir / "competition_meta.json").write_text(
         json.dumps(meta, indent=2, default=str), encoding="utf-8"
     )
 
@@ -248,45 +252,69 @@ def main() -> int:
         key=lambda r: r[0],
     )
 
-    md: list[str] = [
-        f"# Phase 0 step 1 — file inventory for `{args.competition}`",
-        "",
-        f"Generated {datetime.now(timezone.utc).isoformat(timespec='seconds')} "
-        f"by `eda/phase0_01_auth_and_files.py`. Nothing was downloaded.",
-        "",
-        "## Competition metadata (verbatim from the Kaggle API)",
-        "",
-        "| field | value |",
-        "|---|---|",
-    ]
-    md += [f"| `{k}` | {v} |" for k, v in meta.items()]
-    md += [
-        "",
-        "## Totals",
-        "",
-        f"- files listed: **{len(rows):,}**{'  (PARTIAL LISTING)' if partial else ''}",
-        f"- total size: **{human_bytes(total_bytes)}** ({total_bytes:,} bytes)",
-        "",
-        "## By top-level directory",
-        "",
-    ]
-    md += table("directory", by_dir_count, by_dir_bytes)
-    md += ["", "## By extension", ""]
-    md += table("extension", by_ext_count, by_ext_bytes)
-    md += [
-        "",
-        "## Small non-image files (these are the only ones worth downloading locally)",
-        "",
-        "| file | size |",
-        "|---|---:|",
-    ]
-    md += [f"| `{n}` | {human_bytes(s)} |" for n, s, _ in small_files[:100]]
-    if len(small_files) > 100:
-        md.append(f"| … {len(small_files) - 100:,} more | |")
-    md.append("")
+    def build_md(public_safe: bool) -> str:
+        """Render the summary.
 
-    summary_path = OUT_DIR / "step1_summary.md"
-    summary_path.write_text("\n".join(md), encoding="utf-8")
+        public_safe=True omits every nested file path. File paths under the
+        image directories embed StudyInstanceUIDs, so only aggregates and
+        root-level file names may leave a private context (competition data
+        may not be redistributed outside the team).
+        """
+        md: list[str] = [
+            f"# Phase 0 step 1 — file inventory for `{args.competition}`",
+            "",
+            f"Generated {datetime.now(UTC).isoformat(timespec='seconds')} "
+            f"by `eda/phase0_01_auth_and_files.py`. Nothing was downloaded.",
+            "",
+        ]
+        if public_safe:
+            md += [
+                "> Redacted view: aggregates and root-level file names only. "
+                "Nested paths embed StudyInstanceUIDs and stay out of this file.",
+                "",
+            ]
+        md += [
+            "## Competition metadata (verbatim from the Kaggle API)",
+            "",
+            "| field | value |",
+            "|---|---|",
+        ]
+        md += [f"| `{k}` | {v} |" for k, v in meta.items()]
+        md += [
+            "",
+            "## Totals",
+            "",
+            f"- files listed: **{len(rows):,}**"
+            f"{'  (PARTIAL LISTING)' if partial else ''}",
+            f"- total size: **{human_bytes(total_bytes)}** ({total_bytes:,} bytes)",
+            "",
+            "## By top-level directory",
+            "",
+        ]
+        md += table("directory", by_dir_count, by_dir_bytes)
+        md += ["", "## By extension", ""]
+        md += table("extension", by_ext_count, by_ext_bytes)
+        md += [
+            "",
+            "## Small non-image files (the only ones worth downloading locally)",
+            "",
+            "| file | size |",
+            "|---|---:|",
+        ]
+        shown = [r for r in small_files if not (public_safe and "/" in r[0])]
+        md += [f"| `{n}` | {human_bytes(s)} |" for n, s, _ in shown[:100]]
+        if len(shown) > 100:
+            md.append(f"| … {len(shown) - 100:,} more | |")
+        hidden = len(small_files) - len(shown)
+        if hidden:
+            md.append(f"| … {hidden:,} nested paths redacted | |")
+        md.append("")
+        return "\n".join(md)
+
+    summary_path = out_dir / "step1_summary.md"
+    summary_path.write_text(build_md(public_safe=False), encoding="utf-8")
+    public_path = out_dir / "step1_summary_public.md"
+    public_path.write_text(build_md(public_safe=True), encoding="utf-8")
 
     # ---- console report ---------------------------------------------------- #
     print(f"\n  total size: {human_bytes(total_bytes)} ({total_bytes:,} bytes)")
@@ -300,9 +328,10 @@ def main() -> int:
     for name, size, _ in small_files[:40]:
         print(f"    {name:60s} {human_bytes(size):>12s}")
 
-    print(f"\nwrote {files_csv.relative_to(REPO_ROOT)}")
-    print(f"wrote {(OUT_DIR / 'competition_meta.json').relative_to(REPO_ROOT)}")
-    print(f"wrote {summary_path.relative_to(REPO_ROOT)}  <- merge into docs/FINDINGS.md")
+    print(f"\nwrote {files_csv}")
+    print(f"wrote {(out_dir / 'competition_meta.json')}")
+    print(f"wrote {summary_path}  <- merge into docs/FINDINGS.md")
+    print(f"wrote {public_path}  <- redacted, safe to paste anywhere")
     return 0
 
 

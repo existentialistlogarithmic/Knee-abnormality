@@ -8,7 +8,7 @@
 | `UNVERIFIED` | believed, second-hand, or inferred — **not usable as a basis for design decisions** |
 | `CONTRADICTED` | checked and found false |
 
-Last updated: 2026-08-17.
+Last updated: 2026-08-18.
 
 ---
 
@@ -30,20 +30,22 @@ what blocks it.
 | 1.4 | **Kaggle API auth works for this account** | `UNVERIFIED` | **BLOCKED**: no credentials exist in this environment (`~/.kaggle/` absent, no `KAGGLE_API_TOKEN`). See §1a. |
 | 1.5 | The competition rules have been accepted by this account | `UNVERIFIED` | Requires 1.4. The API field `user_has_entered` answers this exactly; `eda/phase0_01_auth_and_files.py` prints it. |
 | 1.6 | Credentials go in `~/.kaggle/kaggle.json` | `VERIFIED (with a caveat)` | CLI 2.2.4 still reads `kaggle.json` (`kaggle_api_extended.py:924`), but its own auth help now advertises `kaggle auth login` (OAuth), `KAGGLE_API_TOKEN`, or `~/.kaggle/access_token`. Any of the four works. |
+| 1.7 | The GitHub repository is **private** | `VERIFIED` | GitHub API: `"private": true`, `"visibility": "private"`. This is what makes it acceptable for CI to retain the identifier-bearing file inventory as a build artifact; the workflow refuses that upload if the repo ever becomes public. |
+| 1.8 | Language identification works offline, with no hosted API | `VERIFIED` | `py3langid` correctly labelled seven test phrases (en, de, fr, ru, ja, es, tr) in 0.24 s including import. Matters twice: Rule 4.b forbids sending report text to a hosted LLM, and the submission kernel has internet off. |
+| 1.9 | Phase 0 can run on GitHub Actions using a repository secret | `VERIFIED (mechanism)` `UNVERIFIED (run)` | `.github/workflows/phase0.yml` is in place and its YAML parses; it has not yet executed against Kaggle because the `KAGGLE_API_TOKEN` secret is not set. |
 
 ### 1a. What is blocking Phase 0
 
-The verification work runs in a container that has no Kaggle credentials, and
-credentials cannot be invented. To unblock, either:
+One thing: the `KAGGLE_API_TOKEN` repository secret is not set.
 
-- run `python eda/phase0_01_auth_and_files.py` **on your own machine** after
-  `pip install -r requirements.txt` and one of the four auth methods above, and
-  paste the output back; or
-- export a token into this environment (`export KAGGLE_API_TOKEN=…`) and the
-  run happens here.
+Everything else is built and tested. Add the secret at
+**Settings → Secrets and variables → Actions → New repository secret**, using a
+token from <https://www.kaggle.com/settings/api>, then run the **phase0-verify**
+workflow from the Actions tab. Steps 1 and 2 both run there; nothing needs to
+touch a local machine.
 
-The script downloads nothing — it lists names and sizes only, which is safe to
-point at a ~570 GB competition.
+The run reports `user_has_entered`, so whether the rules have been accepted is
+answered by the run rather than assumed.
 
 ---
 

@@ -1,0 +1,127 @@
+name: phase0-verify
+
+# Phase 0 verification against the real competition. Runs only when you start it.
+#
+# Requires a repository secret named KAGGLE_API_TOKEN
+#   Settings -> Secrets and variables -> Actions -> New repository secret
+#   Value: the token from https://www.kaggle.com/settings/api
+#
+# You must also have accepted the competition rules with that same account;
+# the run reports `user_has_entered` so this is never left to guesswork.
+
+on:
+  workflow_dispatch:
+    inputs:
+      steps:
+        description: "Which Phase 0 steps to run"
+        type: choice
+        required: true
+        default: "1"
+        options:
+          - "1"          # file inventory only, downloads nothing
+          - "1+2"        # inventory, then download and audit the small tables
+      max_mb:
+        description: "Step 2: only download tabular files smaller than this (MB)"
+        type: string
+        required: false
+        default: "200"
+      max_pages:
+        description: "Step 1: stop after N listing pages (0 = list everything)"
+        type: string
+        required: false
+        default: "0"
+
+concurrency:
+  group: phase0-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check the secret is present
+        run: |
+          if [ -z "$KAGGLE_API_TOKEN" ]; then
+            echo "::error::secret KAGGLE_API_TOKEN is not set on this repository."
+            echo "Settings -> Secrets and variables -> Actions -> New repository secret"
+            exit 1
+          fi
+          echo "KAGGLE_API_TOKEN is set (value never printed)"
+
+      - name: Step 1 — competition file inventory (downloads nothing)
+        run: |
+          python eda/phase0_01_auth_and_files.py --max-pages "${{ inputs.max_pages }}"
+
+      - name: Step 2 — download and audit the small tabular files
+        if: inputs.steps == '1+2'
+        run: |
+          python eda/phase0_02_audit_tabular.py --max-mb "${{ inputs.max_mb }}"
+
+      # The redacted summary carries aggregates only — no StudyInstanceUIDs and
+      # no report text — so it is safe in the run log, which is more widely
+      # visible than the artifacts.
+      - name: Publish redacted summary to the run page
+        if: always()
+        run: |
+          {
+            echo "# Phase 0 verification run"
+            echo
+            if [ -f artifacts/phase0/step1_summary_public.md ]; then
+              cat artifacts/phase0/step1_summary_public.md
+            else
+              echo "Step 1 produced no summary — see the log above."
+            fi
+            if [ -f artifacts/phase0/step2_audit.md ]; then
+              echo
+              cat artifacts/phase0/step2_audit.md
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Full outputs embed StudyInstanceUIDs in file paths. Competition data may
+      # not be redistributed, so they are kept only while this repo is private.
+      - name: Refuse to upload identifier-bearing artifacts from a public repo
+        if: ${{ !github.event.repository.private }}
+        run: |
+          echo "::warning::repository is public — skipping upload of the full"
+          echo "inventory and audit, which contain StudyInstanceUIDs."
+          echo "Read the redacted summary on the run page instead."
+
+      - name: Upload full Phase 0 outputs
+        if: ${{ github.event.repository.private }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase0-outputs
+          path: |
+            artifacts/phase0/competition_meta.json
+            artifacts/phase0/competition_files.csv
+            artifacts/phase0/step1_summary.md
+            artifacts/phase0/step2_audit.md
+            artifacts/phase0/step2_audit.json
+          retention-days: 14
+          if-no-files-found: warn
+
+      # Downloaded CSVs contain report text. They stay on the runner and die
+      # with it — never uploaded, never committed.
+      - name: Confirm no competition data is left staged for commit
+        if: always()
+        run: |
+          git status --porcelain
+          if [ -n "$(git status --porcelain | grep -v '^??' || true)" ]; then
+            echo "::error::tracked files were modified by this run"
+            exit 1
+          fi

@@ -6,6 +6,11 @@ From 2026-08-17 that is roughly **nine weeks**, of which the entry deadline
 consumes eight. Both dates are confirmed by the same API call that unblocks
 Phase 0, so they stop being guesses on day one.
 
+**Target: macro ROC-AUC ≥ 0.90.** See `STRATEGY.md` → "The 0.90 target" for why
+it is read as AUC rather than accuracy, why it is a stretch against a ~0.809
+public baseline, and which gate catches it if the label ceiling makes it
+unreachable.
+
 Only Phase 0 is planned in detail. Planning Phase 2 now would be planning
 against unverified facts.
 
@@ -15,8 +20,8 @@ against unverified facts.
 
 | step | deliverable | state |
 |---|---|---|
-| 0.1 | Kaggle auth verified; competition file inventory with sizes, nothing downloaded | **blocked on credentials** — script written and smoke-tested (`eda/phase0_01_auth_and_files.py`) |
-| 0.2 | CSVs + a handful of sample DICOM studies pulled; metric, submission schema, study counts, gold-label count, 12 target names and positive rates, site metadata presence, report language/length distribution | not started |
+| 0.1 | Kaggle auth verified; competition file inventory with sizes, nothing downloaded | **written, tested, blocked on the `KAGGLE_API_TOKEN` secret** (`eda/phase0_01_auth_and_files.py`, runs in CI) |
+| 0.2 | Metric, submission schema, study counts, gold-label count, target names and positive rates, site metadata presence, report language/length distribution | **written and tested against a synthetic fixture** (`eda/phase0_02_audit_tabular.py`); discovers the schema blind rather than assuming it. Same blocker as 0.1. |
 | 0.3 | Kaggle CPU kernel: DICOM **header-only** scan across the full training set → metadata parquet (study UID, series description, modality, plane, slice count, pixel spacing, slice thickness, manufacturer, laterality, field strength). Report runtime and output size. | not started |
 | 0.4 | Series-per-study distribution; which sequences/planes are consistently present; the cheapest reliable series-selection rule | not started |
 | 0.5 | **Leakage audit**: measured AUC gap between random K-fold and site/scanner-grouped K-fold on a trivial baseline. One number, with its uncertainty. | not started |
@@ -66,6 +71,7 @@ A second lightweight config is kept current for the efficiency track.
 
 | risk | early warning | response |
 |---|---|---|
+| **0.90 is out of reach because report labels cap it** | Phase 1 gold evaluation | say so plainly and early rather than at the deadline; redirect effort to whichever of labels / images is actually binding |
 | Report text is unavailable for test studies | answered in 0.2 | labeler becomes training-time only; inference is image-only |
 | Gold set is site-concentrated | answered in 0.2 | calibration claims get much weaker; report intervals, not point estimates |
 | Header scan exceeds kernel time limits | 0.3 runtime | shard the scan across several kernels by study prefix |

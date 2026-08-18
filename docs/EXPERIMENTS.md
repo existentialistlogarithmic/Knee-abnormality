@@ -48,3 +48,24 @@ Notes on the fields that people fudge:
   so that the reporting path is known-good before it is pointed at the real one;
   the stub's numbers were discarded and never entered `FINDINGS.md`.
 - **next**: run step 1 with real credentials; fill `FINDINGS.md` §1–§3.
+
+### E001 — Phase 0 moved to GitHub Actions; blind tabular audit added
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: `.github/workflows/phase0.yml` runs Phase 0 against Kaggle
+  from a `KAGGLE_API_TOKEN` repository secret; `.github/workflows/tests.yml`
+  runs lint + tests on every push with no secrets. Added
+  `eda/phase0_02_audit_tabular.py` (schema-discovering audit of the small
+  tables), `tests/` with a synthetic fixture, `.devcontainer/`, and `ruff.toml`.
+- **config**: n/a
+- **runtime**: n/a (no compute used; CI only)
+- **CV**: n/a
+- **LB**: n/a
+- **what it means**: Phase 0 no longer needs a local machine. Verified along the
+  way: the repo is private (so CI may retain identifier-bearing artifacts), and
+  `py3langid` identifies en/de/fr/ru/ja/es/tr offline in 0.24 s — which matters
+  because Rule 4.b forbids sending report text to a hosted API and the
+  submission kernel has internet off. Still nothing verified about the
+  competition data itself; the token secret is the only remaining blocker.
+- **next**: set the secret, run **phase0-verify** with steps `1+2`, fill
+  `FINDINGS.md` §2–§3 from the output, then Phase 0 steps 3–5.

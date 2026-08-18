@@ -21,6 +21,69 @@ ones, and we can't out-GPU anyone anyway.
 than believed, the bet is wrong and the plan changes — that is precisely why
 Phase 0 comes first.)*
 
+## The 0.90 target
+
+The stated goal is **above 0.90**. Two things need saying before it becomes a
+plan, and neither is a reason not to aim there.
+
+### It should be macro AUC, not accuracy
+
+If the metric is macro ROC-AUC (still `UNVERIFIED` — claim 2.4), then accuracy
+is not the scored quantity, and at these prevalences it is actively misleading.
+A finding present in 5% of studies gets **95% accuracy** from a model that
+predicts "negative" every single time and has learned nothing. Chasing accuracy
+above 0.90 on twelve imbalanced findings is a target that a useless model meets.
+
+So the target is read as **macro ROC-AUC ≥ 0.90 on the leaderboard**. The
+evaluation harness reports macro AUC, per-finding AUC, balanced accuracy, and
+accuracy-at-threshold side by side, so if the metric turns out to be something
+else the numbers are already there and nothing has to be rebuilt.
+
+### 0.90 is a stretch, and the honest version of that is a number
+
+The public baseline is reported at ~0.809 (`UNVERIFIED` — claim 4.4). Going from
+0.809 to 0.90 is not an incremental gain; it is roughly halving the remaining
+distance to a perfect score. That can happen — early public baselines are
+usually weak, and the label pipeline is genuinely under-exploited here — but it
+is not the default outcome of doing competent work.
+
+I am not going to promise a leaderboard number, and I would distrust anyone who
+did. What can be promised is this: the thing that most plausibly *caps* the
+score gets measured first, early, and reported plainly, so effort is spent
+against a known ceiling instead of against hope.
+
+### The ceiling worth measuring first
+
+If report-derived labels agree with image-derived truth only ~82% of the time
+(`UNVERIFIED` — claim 4.2), then almost every training target in this
+competition is noisy, and that noise sets a ceiling on what any architecture can
+reach. Two consequences:
+
+1. **Measure the ceiling before scaling the model.** Train the cheapest possible
+   model on report-derived labels, evaluate on the gold subset, and compare that
+   against the same model trained on gold labels alone. The gap is the price of
+   weak supervision, and it tells us whether 0.90 is reachable through better
+   labels, better images, or not at all.
+2. **Every point of label quality is worth more than a point of backbone.**
+   Which is the whole reason the label pipeline outranks the imaging model in
+   this repo.
+
+There is a caveat on all of this: the gold subset may be ~58 studies. A macro
+AUC estimated on 58 studies has an interval wide enough to swallow the entire
+0.809-to-0.90 gap. **Any claim that we have "hit 0.90" must come from the
+leaderboard or from a properly grouped OOF estimate over thousands of studies —
+never from the gold subset alone.** This is the single easiest way to fool
+ourselves here, and it is worth naming in advance.
+
+### Gates
+
+| when | check | if it fails |
+|---|---|---|
+| end of Phase 0 | Is the metric actually macro AUC? Is the gold subset really that small? | retarget against the real metric |
+| end of Phase 1 | Report-label AUC against gold, per finding | if the labeler cannot clear ~0.85 on the findings it should find easily, the ceiling is the labeler, not the model |
+| first Phase 2 run | Grouped OOF macro AUC, plus prediction spread | a collapsed spread means the model is predicting priors; the AUC is not real progress |
+| every run after | OOF vs LB gap | a widening gap means the fold scheme is leaking, and the CV number is fiction |
+
 ## Non-negotiables
 
 1. **Grouped folds.** Any validation that lets the same site or scanner appear

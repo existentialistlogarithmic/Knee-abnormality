@@ -50,8 +50,48 @@ from pathlib import Path
 import pandas as pd
 import pydicom
 
-# Kaggle mounts competition data here; overridable for local testing.
+# Kaggle mounts competition data under /kaggle/input, but not reliably under a
+# directory named after the competition — see find_competition_root below.
 DEFAULT_ROOT = Path("/kaggle/input/rsna-knee-abnormality-detection")
+
+# Mount layout is not guaranteed: the competition lands under
+# /kaggle/input/competitions/<slug> and datasets under
+# /kaggle/input/datasets/<owner>/<name>. Both were discovered the expensive way,
+# by a failed kernel run, so the search is depth-bounded and explicit rather
+# than assuming either shape. train_series/test_series are never walked — that
+# is ~1M files.
+SKIP_DIRECTORIES = {"train_series", "test_series"}
+
+
+def find_marker(marker: str, max_depth: int = 4):
+    """Shallow breadth-first search for a directory containing `marker`."""
+    frontier = [(Path("/kaggle/input"), 0)]
+    while frontier:
+        directory, depth = frontier.pop(0)
+        if depth > max_depth:
+            continue
+        try:
+            entries = sorted(directory.iterdir())
+        except (FileNotFoundError, PermissionError):
+            continue
+        for entry in entries:
+            if entry.is_file() and entry.name == marker:
+                return directory
+        for entry in entries:
+            if entry.is_dir() and entry.name not in SKIP_DIRECTORIES:
+                frontier.append((entry, depth + 1))
+    return None
+
+
+def find_competition_root(explicit: str | None = None) -> Path:
+    if explicit:
+        return Path(explicit)
+    for marker in ("train_series.csv", "train.csv", "test.csv"):
+        found = find_marker(marker)
+        if found is not None:
+            print(f"competition root: {found}  (found {marker})")
+            return found
+    raise SystemExit("competition data not found under /kaggle/input")
 
 # (attribute name, output column). Kept explicit rather than dumping every tag:
 # the point is a small, stable table, not a copy of the headers.
@@ -178,7 +218,8 @@ def read_series(series_dir: Path, study_uid: str, series_uid: str, split: str) -
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", default=str(DEFAULT_ROOT))
+    parser.add_argument("--root", default=None,
+                        help="competition root; auto-discovered when omitted")
     parser.add_argument("--out", default="series_headers.parquet")
     parser.add_argument("--shard", type=int, default=0)
     parser.add_argument("--of", type=int, default=1)
@@ -187,7 +228,7 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=0, help="debug: stop after N series")
     args = parser.parse_args()
 
-    root = Path(args.root)
+    root = find_competition_root(args.root)
     started = time.time()
 
     frames = []

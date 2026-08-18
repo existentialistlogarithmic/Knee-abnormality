@@ -32,8 +32,8 @@ lands on both sides of a split. Cheap to check here, expensive to discover later
 
 ```bash
 kaggle kernels push -p kaggle/00_dicom_header_scan
-kaggle kernels status existentialistlogarithmic/knee-dicom-header-scan
-kaggle kernels output existentialistlogarithmic/knee-dicom-header-scan -p artifacts/00_header_scan
+kaggle kernels status achelijndiamantidis/knee-dicom-header-scan-cpu-headers-only
+kaggle kernels output achelijndiamantidis/knee-dicom-header-scan-cpu-headers-only -p artifacts/00_header_scan
 ```
 
 Locally, against a directory laid out like the Kaggle mount:

@@ -102,6 +102,8 @@ clever workaround.
 | 3.17 | **The host expects report-derived labels** | `VERIFIED` | data-description: "Only a small subset of training studies carry per-condition labels. We also provide the original text of the radiology report **from which you may wish to derive the labels for the remaining studies**." The weak-supervision framing is the intended solution path, not a workaround. |
 | 3.13 | Train and test studies are disjoint | `VERIFIED` | zero `StudyInstanceUID` overlap between `test.csv` and `train.csv` |
 | 3.14 | Data layout | `VERIFIED` | top-level `train_series/` and `test_series/` directories of `.dcm`, plus 5 root CSVs. (Not `train_images/`, as the brief assumed.) |
+| 3.18 | **Kaggle mount path** | `VERIFIED` | The competition data mounts at **`/kaggle/input/competitions/rsna-knee-abnormality-detection`**, nested under `competitions/` — *not* at `/kaggle/input/<slug>`. The first header-scan kernel run failed on this and scanned zero series. Both kernels now discover the root by searching for files that must exist. |
+| 3.19 | **Cost of reaching the DICOM data** | `VERIFIED (measured on Kaggle)` | Directory traversal plus one header read per series costs **0.059 s per study** (3 studies, 15 series, 557 files). Extrapolated to the ~1,300-study hidden test that is **77 seconds, or 0.2% of the 9-hour cap**. So file access is effectively free and the entire ~24 s/study budget is available for pixel decoding and inference. Note this did **not** decode pixels — the real constraint remains the ~215,000 slices. |
 
 ---
 
@@ -198,6 +200,112 @@ so these rates should not be read as the base rates in the hidden test set.
 ±0.20. This subset can rank a labeler as clearly-good or clearly-broken. It
 cannot distinguish 0.86 from 0.90, and no amount of careful methodology changes
 that. Every number computed on it gets an interval printed next to it.
+
+---
+
+## 10. Series selection — Phase 0 step 4, `VERIFIED`
+
+### The host's plane column is exactly right
+
+`Anatomical_Plane` from `train_series.csv` agrees with the plane derived from
+`ImageOrientationPatient` on **24,371 of 24,371 series — perfect agreement, zero
+disagreements**. The redundant derivation in the scan kernel earned its keep by
+establishing this: the host's column can be trusted outright, and no pipeline
+needs orientation maths.
+
+### What every study actually contains
+
+| plane / contrast | studies | share |
+|---|---:|---:|
+| **Axial, fluid-sensitive** | **4,407** | **100.0%** |
+| Sagittal, T1w-ish | 4,266 | 96.8% |
+| Coronal, fluid-sensitive | 4,248 | 96.4% |
+| Sagittal, fluid-sensitive | 4,150 | 94.2% |
+| Coronal, T1w-ish | 3,406 | 77.3% |
+| Axial, T1w-ish | 857 | 19.4% |
+
+**An axial fluid-sensitive series exists for every single study.** All three
+fluid-sensitive planes are present together in 90.6%.
+
+### The cheapest reliable rule
+
+Take **one fluid-sensitive series per plane**, preferring
+sagittal + coronal + axial, and degrade gracefully for the 9.4% of studies
+missing one. Axial fluid-sensitive is the guaranteed fallback and never fails.
+
+Sizing: fluid-sensitive slices per study run median 99, mean 110, p90 159,
+max 561 — **483,971 of 819,078 slices, 59% of the data**. Selecting one series
+per plane rather than all fluid-sensitive series cuts that substantially again.
+
+---
+
+## 9. Leakage audit — Phase 0 step 5, `VERIFIED`
+
+`eda/leakage_audit.py`. A gradient-boosted model is given **only scanner
+metadata** — manufacturer, model, field strength, coil, slice counts, pixel
+spacing, image dimensions, sex, laterality. No pixels, no text. Such a model
+cannot know whether a knee has a torn ACL, so anything above 0.5 is site
+memorisation by construction. Targets are the Phase 1 report-derived labels,
+because they cover all 4,407 studies; 58 gold studies cannot measure a fold
+effect.
+
+| finding | random K-fold | scanner-grouped | inflation |
+|---|---:|---:|---:|
+| MCL | 0.802 | 0.695 | **0.107** |
+| Fracture | 0.692 | 0.592 | 0.100 |
+| Effusion | 0.755 | 0.660 | 0.095 |
+| Baker's | 0.694 | 0.600 | 0.094 |
+| Medial OA | 0.788 | 0.698 | 0.091 |
+| PF OA | 0.749 | 0.659 | 0.090 |
+| ACL | 0.771 | 0.682 | 0.089 |
+| Contusion | 0.681 | 0.593 | 0.088 |
+| Lateral OA | 0.842 | 0.759 | 0.083 |
+| Synovitis | 0.802 | 0.728 | 0.074 |
+| Lateral Meniscus | 0.740 | 0.666 | 0.074 |
+| Medial Meniscus | 0.702 | 0.643 | 0.059 |
+| **MACRO** | **0.752** | **0.664** | **0.087** |
+
+**Random K-fold inflates macro AUC by 0.087 on metadata alone**, and a real
+model would enjoy that on top of its own signal. The brief's 0.05–0.14 estimate
+was right. Grouped folds are settled, not a preference.
+
+### The more interesting number is 0.664
+
+Scanner metadata still scores **0.664 macro AUC under grouped K-fold**, where
+memorisation is impossible because every validation scanner is unseen. Two
+things are mixed in there, and they are worth separating in Phase 2:
+
+- **Genuine clinical signal.** Protocol choice reflects suspicion — a
+  radiologist who orders extra sequences is looking for something. Slice counts
+  and sequence mix legitimately carry information.
+- **Population effects that generalise.** A 3 T academic centre and a 1.5 T
+  community clinic see different patients, and that difference transfers to
+  unseen scanners of the same class.
+
+**Caveat, and it matters:** these targets are report-derived, not expert labels.
+Some of the 0.664 is shared site convention — a site whose radiologists write
+verbosely produces both more positive report labels *and* a distinctive scanner
+signature. Against true expert labels the figure would likely be lower. It is a
+baseline to beat, not a result to celebrate.
+
+### Grouping structure
+
+178 scanner fingerprints over 4,407 studies: median group 8 studies, mean 24.8,
+largest 246, 42 singletons, and the five largest groups hold 21% of the data.
+That is workable for 5-fold `GroupKFold`.
+
+### The precision trap that would have silenced this whole audit
+
+The first fingerprint design used `ImagingFrequency` at full precision and
+produced **8,618 fingerprints for 4,410 studies, 5,633 of them singletons** — a
+key nearly unique per study, on which "grouped" K-fold would have been a random
+K-fold in disguise, reporting no inflation and hiding the leak completely.
+
+The cause: Larmor frequency drifts between sessions on the same magnet. The
+Philips Ingenia 3 T scanners here produce **739 distinct raw values across 2,480
+series**. Rounding to 2 decimals collapses that cluster to 4 values and yields
+the 178 usable groups above. `src/folds.py` documents this, because it is the
+kind of detail that silently invalidates everything downstream.
 
 ---
 
@@ -306,7 +414,7 @@ discovering later.
 |---|---|---|---|
 | 5.1 | Ground truth is image-derived (2 MSK radiologists + adjudicator, severity-thresholded) | `UNVERIFIED` | the data-description page does **not** describe the annotation process. Not stated anywhere I can reach through the API; would need the forum or the RSNA challenge page. |
 | 5.2 | Report-derived labels agree ~82% with image labels | `UNVERIFIED` | measurable in Phase 1 against the 58, with the interval from §4 |
-| 5.3 | Random K-fold inflates AUC by 0.05–0.14 | `UNVERIFIED` | blocked on the header scan. Note the audit now compares random K-fold against **scanner-fingerprint**-grouped K-fold, since no true site label exists (§5.1). |
+| 5.3 | Random K-fold inflates AUC by 0.05–0.14 | **`VERIFIED` — 0.087** | Measured (§9). Squarely inside the claimed range. |
 | 5.4 | Public baseline ~0.809 | `CONTRADICTED` | Read from the public leaderboard: **top score 0.9510**, and the **top 200 teams all score ≥ 0.9170** (median of that group 0.9200). The 0.809 figure is stale by a wide margin — it may have been an early baseline notebook. See §8. |
 
 ---

@@ -250,3 +250,71 @@ Notes on the fields that people fudge:
   right instrument for lexicon work.
 - **next**: the remaining holes are compartment OA in Greek, Croatian and
   Spanish (all still ≥0.77 abstain). Then laterality.
+
+### E008 — first kernels on Kaggle; submission pipeline proven, budget measured
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: pushed two kernels to the Kaggle account
+  (`achelijndiamantidis`, not the GitHub name): the DICOM header scan and
+  `kaggle/01_submission_baseline`.
+- **runtime**: submission kernel **1.2 s** wall clock
+- **CV**: n/a
+- **LB**: **0.500 public** — exactly as predicted. Constant predictions give an
+  AUC of 0.5 whatever constants are chosen, so this is confirmation the scoring
+  path works, not a result.
+- **what it means**: three things bought cheaply.
+  1. **The submission pipeline is proven end to end** while there is still time
+     to fix it, which is the failure mode that kills code-competition entries at
+     the deadline. There is now a known-good baseline to diff against.
+  2. **The mount path was wrong and cost a kernel run to discover.** Competition
+     data lives at `/kaggle/input/competitions/<slug>`, nested under
+     `competitions/`, not at `/kaggle/input/<slug>`. The first header-scan run
+     found nothing and exited having scanned zero series. Both kernels now
+     search for the files that must exist and log what they found.
+  3. **The runtime budget is measured, not guessed.** Directory traversal plus
+     one header read per series costs **0.059 s/study**, which extrapolates to
+     77 s over the ~1,300-study hidden test — **0.2% of the 9-hour cap**. File
+     access is effectively free, so essentially the whole ~24 s/study is
+     available for pixel decoding and inference. Caveat: this did not decode
+     pixels, and ~215,000 slices is still the real constraint.
+- **also learned**: Kaggle derives the kernel slug from the **title**, not the
+  `id` field; a mismatch silently creates a second kernel on the next push.
+  Set `id` to the slug in the URL the first push prints.
+- **next**: the header scan is running over ~31,500 series; its output gives the
+  scanner fingerprint, and with it grouped folds and the leakage audit.
+
+### E009 — header scan complete; leakage audit closes Phase 0
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: header scan ran to completion on Kaggle; added
+  `src/folds.py` (scanner fingerprint, the single source of truth for splits)
+  and `eda/leakage_audit.py`.
+- **runtime**: header scan **372 s** for 24,386 series / **819,635 slices**,
+  0 errors, 2.6 MB parquet — 0.015 s per series on a CPU kernel.
+- **CV**: **random K-fold inflates macro AUC by 0.087** on metadata alone
+  (0.752 random vs 0.664 scanner-grouped).
+- **what it means**: the brief's 0.05–0.14 estimate was right, and grouped folds
+  are now settled rather than a preference.
+  Two findings matter more than the headline number:
+
+  **1. The fingerprint nearly failed silently.** The first design used
+  `ImagingFrequency` at full precision and produced 8,618 groups for 4,410
+  studies — 5,633 of them singletons. A "grouped" K-fold on that key is a random
+  K-fold in disguise: it would have reported near-zero inflation and hidden the
+  leak completely, while every downstream CV number stayed quietly wrong.
+  The cause is Larmor drift between sessions on one magnet — the Philips Ingenia
+  3 T units here emit **739 distinct raw values across 2,480 series**. Rounding
+  to 2 decimals gives 178 usable groups (median 8 studies, max 246, 42
+  singletons). This is recorded prominently in `src/folds.py`.
+
+  **2. Metadata alone scores 0.664 grouped**, where memorisation is impossible.
+  Part is genuine — protocol choice reflects clinical suspicion — and part is
+  population effects that transfer across scanners of a class. It is a baseline
+  any imaging model must beat before we can claim the pixels are contributing.
+  Caveat: targets are report-derived, so shared site convention inflates this;
+  against expert labels it would likely be lower.
+
+  Also confirmed: **no patient appears in more than one study** (0 of 4,410), so
+  folds do not additionally need patient grouping.
+- **next**: Phase 0 gate. Then a metadata-only submission — it should land near
+  0.6 rather than 0.5, and would tell us whether LB agrees with grouped CV.

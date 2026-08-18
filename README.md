@@ -7,23 +7,38 @@ Maintainer: **existentialistlogarithmic**
 
 ## Where this stands
 
-**Phase 0 steps 1–2 are done against the live competition.** `docs/FINDINGS.md`
-now carries verified numbers; step 3 (the DICOM header scan) is next and is on
-the critical path.
+**Phase 0 is complete.** All five verification steps ran against the live
+competition; `docs/FINDINGS.md` is the record and is almost entirely `VERIFIED`.
+Phase 1 (the report labeler) is built. Phase 2 (imaging) is in progress.
+
+| stage | state |
+|---|---|
+| Phase 0 — verification | complete, 5/5 steps |
+| Phase 1 — report labeler | macro AUC **0.761** vs the 58 expert-labelled studies |
+| Submission pipeline | proven: **0.500** and **0.531** scored on the leaderboard |
+| Phase 2 — cache build | 4 shards complete |
+| Phase 2 — training | running |
 
 What the data actually is: **4,407 training studies, exactly 58 with expert
 labels**, 12 binary findings, one free-text report per study across ten
-languages (English is only 39% of them). Two facts shape everything downstream:
+languages (English is only 39% of them), and **819,635 DICOM slices**.
+
+Four measurements govern everything downstream:
 
 - **No report text at inference.** `test.csv` has a single column, so the report
   labeler manufactures training targets and never ships in the submission.
-- **No site or scanner column in any CSV.** The fold-grouping key has to come
-  out of the DICOM headers, so until the scan runs, every CV number is
-  provisional.
+- **No site label exists anywhere** — the DICOM headers are de-identified too.
+  Folds group on a *scanner fingerprint* instead (`src/folds.py`). Random
+  K-fold inflates macro AUC by **0.087**.
+- **Report-label CV overstates the leaderboard by ~0.138.** Measured, by
+  submitting a model whose CV was known. CV ranks configurations; it does not
+  predict the board.
+- **Scanner metadata alone scores 0.669** grouped, with no pixels. That is the
+  bar an imaging model must clear to have earned its place.
 
-Target: **ROC-AUC ≥ 0.90** — see `docs/STRATEGY.md` for why that is read as AUC
-rather than accuracy, and why a 0.90 measured on the 58 gold studies would mean
-nothing (the interval there is wider than the gap we are chasing).
+Target: **macro ROC-AUC ≥ 0.90** — but see `docs/FINDINGS.md` §8: the current
+leaderboard top is 0.951 and the top 200 teams are all above 0.917, so 0.90 is
+below the field rather than above it.
 
 ## Layout
 

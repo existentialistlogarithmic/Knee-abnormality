@@ -58,6 +58,32 @@ FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
 SKIP_DIRECTORIES = {"train_series", "test_series"}
 
 
+def find_all_markers(pattern: str, max_depth: int = 4) -> list[Path]:
+    """Every mounted directory containing a file matching `pattern`.
+
+    The cache is built as four shard kernels and mounted as four separate
+    inputs. Finding only the first would silently train on a quarter of the
+    data at full apparent success — the worst kind of bug, because the loss
+    curve would look fine.
+    """
+    found = []
+    frontier = [(Path("/kaggle/input"), 0)]
+    while frontier:
+        directory, depth = frontier.pop(0)
+        if depth > max_depth:
+            continue
+        try:
+            entries = sorted(directory.iterdir())
+        except (FileNotFoundError, PermissionError):
+            continue
+        if any(e.is_file() and e.match(pattern) for e in entries):
+            found.append(directory)
+        for entry in entries:
+            if entry.is_dir() and entry.name not in SKIP_DIRECTORIES:
+                frontier.append((entry, depth + 1))
+    return found
+
+
 def find_marker(marker: str, max_depth: int = 4):
     frontier = [(Path("/kaggle/input"), 0)]
     while frontier:
@@ -103,8 +129,8 @@ def report_environment():
 class StudyDataset:
     """Cached volumes plus soft targets and a supervision mask."""
 
-    def __init__(self, cache_dir: Path, studies, targets, masks, weights, augment: bool):
-        self.cache_dir = cache_dir
+    def __init__(self, cache_paths: dict, studies, targets, masks, weights, augment: bool):
+        self.cache_paths = cache_paths
         self.studies = list(studies)
         self.targets = targets
         self.masks = masks
@@ -118,7 +144,7 @@ class StudyDataset:
         import torch
 
         study = self.studies[index]
-        volume = np.load(self.cache_dir / f"{study}.npy")  # (3, S, H, W) uint8
+        volume = np.load(self.cache_paths[study])  # (3, S, H, W) uint8
         array = volume.astype(np.float32) / 255.0
 
         if self.augment:
@@ -192,17 +218,32 @@ def main() -> int:
     started = time.time()
     report_environment()
 
-    cache_dir = Path(args.cache) if args.cache else find_marker("cache_index_train_0.parquet")
+    cache_dirs = ([Path(args.cache)] if args.cache
+                  else find_all_markers("cache_index_train_*.parquet"))
     artifacts = find_marker("soft_labels.parquet")
     headers_dir = find_marker("series_headers.parquet")
-    if cache_dir is None or artifacts is None or headers_dir is None:
-        raise SystemExit(f"missing inputs: cache={cache_dir} labels={artifacts} "
+    if not cache_dirs or artifacts is None or headers_dir is None:
+        raise SystemExit(f"missing inputs: cache={cache_dirs} labels={artifacts} "
                          f"headers={headers_dir}")
-    print(f"cache: {cache_dir}\nlabels: {artifacts}\nheaders: {headers_dir}")
+    print(f"cache shards mounted: {len(cache_dirs)}")
+    for directory in cache_dirs:
+        print(f"  {directory}")
+    print(f"labels: {artifacts}\nheaders: {headers_dir}")
 
     soft = pd.read_parquet(artifacts / "soft_labels.parquet").set_index("StudyInstanceUID")
-    available = {p.stem for p in cache_dir.glob("*.npy")}
-    print(f"cached studies: {len(available):,}")
+
+    # study -> file, across every shard. A duplicate would mean the shards
+    # overlap, which would silently over-weight those studies.
+    cache_paths: dict[str, Path] = {}
+    duplicates = 0
+    for directory in cache_dirs:
+        for npy in directory.glob("*.npy"):
+            if npy.stem in cache_paths:
+                duplicates += 1
+            cache_paths[npy.stem] = npy
+    print(f"cached studies: {len(cache_paths):,}"
+          + (f"   WARNING: {duplicates} duplicate studies across shards" if duplicates else ""))
+    available = set(cache_paths)
 
     headers = pd.read_parquet(headers_dir / "series_headers.parquet")
     frequency = pd.to_numeric(headers.get("imaging_frequency"), errors="coerce")
@@ -252,7 +293,7 @@ def main() -> int:
     criterion = nn.BCEWithLogitsLoss(reduction="none")
 
     def make_loader(indices, augment, shuffle):
-        dataset = StudyDataset(cache_dir, [studies[i] for i in indices],
+        dataset = StudyDataset(cache_paths, [studies[i] for i in indices],
                                targets[indices], masks[indices], weights[indices], augment)
         return DataLoader(dataset, batch_size=args.batch, shuffle=shuffle,
                           num_workers=2, pin_memory=(device == "cuda"))

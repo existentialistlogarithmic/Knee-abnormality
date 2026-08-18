@@ -9,13 +9,14 @@ From 2026-08-18 that is **nine weeks** to final submission, eight to the entry
 deadline. The competition opened 2026-08-05 and has 1,866 teams.
 
 **Target: macro ROC-AUC ≥ 0.90** (`VERIFIED` metric: `(1/12) Σ AUC_i`).
-**Budget: ~24 s per study** — ~1,300 test studies inside the 9-hour cap. See `STRATEGY.md` → "The 0.90 target" for why
-it is read as AUC rather than accuracy, why it is a stretch against a ~0.809
-public baseline, and which gate catches it if the label ceiling makes it
-unreachable.
+**Budget: ~24 s per study** — ~1,300 test studies inside the 9-hour cap.
 
-Only Phase 0 is planned in detail. Planning Phase 2 now would be planning
-against unverified facts.
+See `STRATEGY.md` → "The 0.90 target" for why it is read as AUC rather than
+accuracy. Note the target is **below the field**, not above it: the leaderboard
+top is 0.951 and the top 200 teams all exceed 0.917 (`FINDINGS.md` §8).
+
+Phase 0 is complete, so Phase 1 and Phase 2 below are planned from measurements
+rather than assumptions.
 
 ---
 
@@ -29,11 +30,8 @@ against unverified facts.
 | 0.4 | Series selection rule | **DONE** (`FINDINGS.md` §10). Host plane column agrees with headers on 24,371/24,371 series. **Axial fluid-sensitive exists for 100% of studies**; all three fluid-sensitive planes for 90.6%. Rule: one fluid-sensitive series per plane, axial as the guaranteed fallback. |
 | 0.5 | **Leakage audit** | **DONE. Random K-fold inflates macro AUC by 0.087** (`FINDINGS.md` §9). Grouping key is a scanner fingerprint with frequency rounded to 2 dp; 178 groups. |
 
-**PHASE 0 COMPLETE — 2026-08-18.** All five steps done. Gate reached: review
-`docs/FINDINGS.md` before Phase 2 modelling begins.
-
-Sequencing note: 0.3 is now the bottleneck for both 0.4 and 0.5, so it launches
-first. It needs no pixels and no GPU.
+**PHASE 0 COMPLETE — 2026-08-18.** All five steps done, every headline claim
+verified. `docs/FINDINGS.md` is the record.
 
 ---
 
@@ -127,9 +125,11 @@ Kaggle sessions die. T4, never P100.
 
 ### Order of work
 
-1. CPU cache-build kernel: selected series → laterality-corrected, resampled,
-   normalised volumes at fixed mm/pixel. Report cache size and build time.
-2. Train one fold, confirm it beats 0.669 grouped, and check prediction spread.
+1. ~~CPU cache-build kernel~~ **DONE** — `kaggle/03_cache_build_shard{0..3}`,
+   four shards, (3, 20, 192, 192) uint8 per study, ~2.2 MB each. Mounted by the
+   training kernel via `kernel_sources` so the ~10 GB never leaves Kaggle.
+2. **Train one fold, confirm it beats 0.669 grouped, check prediction spread.**
+   In progress — `kaggle/04_train`.
 3. Only then the full cross-validated run.
 
 ## Phase 3 — inference kernel

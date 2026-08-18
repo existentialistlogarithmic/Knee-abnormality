@@ -43,7 +43,7 @@ import pandas as pd
 # KERNEL RUN CONFIG — Kaggle script kernels take no arguments.
 # --------------------------------------------------------------------------- #
 RUN_FOLD = 0
-RUN_EPOCHS = 6
+RUN_EPOCHS = 14
 RUN_BATCH = 8
 RUN_LR = 3e-4
 RUN_BACKBONE = "resnet18"
@@ -314,13 +314,26 @@ def main() -> int:
 
     out_dir = Path(args.out)
     checkpoint_path = out_dir / f"checkpoint_fold{args.fold}.pt"
+
+    # /kaggle/working does not survive a session, so a checkpoint from a previous
+    # run only exists if that run's output is mounted. Look there too, otherwise
+    # every re-run silently restarts from scratch and the wall-clock guard
+    # becomes useless.
+    resume_from = checkpoint_path if checkpoint_path.exists() else None
+    if resume_from is None:
+        mounted = find_marker(f"checkpoint_fold{args.fold}.pt")
+        if mounted is not None:
+            resume_from = mounted / f"checkpoint_fold{args.fold}.pt"
+            print(f"found a mounted checkpoint: {resume_from}")
+
     start_epoch = 0
-    if checkpoint_path.exists():
-        state = torch.load(checkpoint_path, map_location=device)
+    if resume_from is not None:
+        state = torch.load(resume_from, map_location=device, weights_only=False)
         model.load_state_dict(state["model"])
         optimiser.load_state_dict(state["optimiser"])
         start_epoch = state["epoch"] + 1
-        print(f"resumed from epoch {start_epoch}")
+        print(f"resumed from epoch {start_epoch} "
+              f"(previous best macro AUC {state.get('macro_auc', float('nan')):.4f})")
 
     history = []
     for epoch in range(start_epoch, args.epochs):

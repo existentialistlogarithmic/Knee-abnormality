@@ -25,6 +25,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # CPU wheels only. The default index would pull ~2 GB of CUDA libraries
+      # that a test runner can never use. Torch is needed for one test — that the
+      # model accepts exactly the array shape the cache produces — which guards
+      # train/inference skew, a failure that never raises an exception.
+      - name: Install CPU torch (for the model shape contract test)
+        run: pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision
+
       - name: Lint
         run: ruff check eda src tests
 

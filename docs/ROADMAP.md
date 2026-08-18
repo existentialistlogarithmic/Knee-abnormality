@@ -1,11 +1,15 @@
 # ROADMAP
 
-Final submission: **2026-10-22 23:59** (`VERIFIED`, API).
-Entry and team-merge deadline: **2026-10-15 23:59** (`VERIFIED`, API).
+Final submission: **2026-10-22 23:59 UTC** (`VERIFIED`).
+Entry and team-merge deadline: **2026-10-15 23:59 UTC** (`VERIFIED`).
+Winners' requirement deadline: **2026-11-05** — training code, video and method
+description. Worth knowing now, because it means the winning solution has to be
+reproducible, not just scored.
 From 2026-08-18 that is **nine weeks** to final submission, eight to the entry
 deadline. The competition opened 2026-08-05 and has 1,866 teams.
 
-**Target: macro ROC-AUC ≥ 0.90.** See `STRATEGY.md` → "The 0.90 target" for why
+**Target: macro ROC-AUC ≥ 0.90** (`VERIFIED` metric: `(1/12) Σ AUC_i`).
+**Budget: ~24 s per study** — ~1,300 test studies inside the 9-hour cap. See `STRATEGY.md` → "The 0.90 target" for why
 it is read as AUC rather than accuracy, why it is a stretch against a ~0.809
 public baseline, and which gate catches it if the label ceiling makes it
 unreachable.

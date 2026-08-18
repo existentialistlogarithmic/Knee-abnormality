@@ -15,8 +15,9 @@ Last updated: 2026-08-18, after the first authenticated Phase 0 run.
 ## 0. Headline
 
 The kickoff brief was **substantially accurate**. 4,407 training studies, exactly
-58 with expert labels, 12 findings, multilingual reports — all confirmed to the
-digit. Three things it did not say, and each one changes the build:
+58 with expert labels, 12 findings, macro-averaged ROC-AUC, the $77,000 prize
+split, both deadlines — all confirmed. Four things it did not say, and each one
+changes the build:
 
 1. **Reports do not exist at inference time.** `test.csv` has exactly one column,
    `StudyInstanceUID`. The report labeler is a training-time device only; the
@@ -29,6 +30,16 @@ digit. Three things it did not say, and each one changes the build:
 3. **The host already provides series-level plane and sequence metadata**, so the
    header scan does not have to derive orientation from
    `ImageOrientationPatient` for series selection. (§3.8)
+4. **The hidden test set is ~1,300 studies**, roughly 215,000 slices. Against the
+   9-hour cap that is about **24 seconds per study**, end to end, including
+   DICOM reading. That is the real design constraint on Phase 2, and it is a
+   number rather than a worry. (§2.12)
+
+And one that reframes the whole thing: **the host explicitly intends
+report-derived labels.** The data-description says the reports are provided
+"from which you may wish to derive the labels for the remaining studies"
+(§3.17). The weak-supervision approach is the designed solution path, not a
+clever workaround.
 
 ---
 
@@ -56,12 +67,15 @@ digit. Three things it did not say, and each one changes the build:
 | 2.1 | **12 binary findings per study** | `VERIFIED` | `sample_submission.csv` has 13 columns: `StudyInstanceUID` + 12 findings |
 | 2.2 | **The 12 target names** | `VERIFIED` | `ACL`, `MCL`, `Medial Meniscus`, `Lateral Meniscus`, `Medial OA`, `Lateral OA`, `PF OA`, `Effusion`, `Synovitis`, `Baker's`, `Contusion`, `Fracture` — column order identical in `train.csv` and `sample_submission.csv` |
 | 2.3 | Positive rates | `VERIFIED (on the 58 gold studies)` | see §4 |
-| 2.4 | Metric is ROC-AUC | `VERIFIED (partially)` | API `evaluation_metric` = `Roc Auc Score`. **The averaging scheme is not stated by the API** — whether it is macro over the 12 findings, or something else, still needs the Evaluation page. |
+| 2.4 | **Metric is macro-averaged ROC-AUC over the 12 findings** | `VERIFIED` | Evaluation page, quoted: "Final Score = (1/12) Σ AUC_i … the macro-averaged AUC ROC". Retrieved with `kaggle competitions pages list --page-name evaluation --content`. |
 | 2.5 | **Submission format** | `VERIFIED` | wide: one row per study, `StudyInstanceUID` + the 12 findings in the fixed order above; sample values are `0.5`, so probabilities |
-| 2.6 | **Reports available at inference?** | `VERIFIED — NO` | `test.csv` has exactly one column, `StudyInstanceUID`. `train.csv` carries `Report`; the test table does not. Caveat: the public test stub is 3 rows, so this is the *schema* rather than the rescored file, but a hidden test that added a column would break every published notebook. |
-| 2.7 | Code competition | `VERIFIED` | API `is_kernels_submissions_only` = `True`. The 9-hour limit and internet-off rule are `UNVERIFIED` — they come from the Code Requirements page, not the API. |
+| 2.6 | **Reports available at inference?** | `VERIFIED — NO` | data-description page, verbatim: "The `Report` field will not be provided at the testing stage." This confirms the inference from `test.csv` having a single column. |
+| 2.7 | **Code competition limits** | `VERIFIED` | Code Requirements page: submissions via Notebooks, **CPU ≤ 9 h, GPU ≤ 9 h**, **internet access disabled**, output must be named **`submission.csv`**. Freely and publicly available external data and pre-trained models are allowed. |
 | 2.8 | **Deadlines** | `VERIFIED` | entry `new_entrant_deadline` and `merger_deadline` both **2026-10-15 23:59**; final `deadline` **2026-10-22 23:59**. Competition opened 2026-08-05. |
-| 2.9 | **Prize** | `VERIFIED` | API `reward` = `77,000 Usd`. The separate efficiency track is `UNVERIFIED` — not an API field. |
+| 2.9 | **Prize, and the efficiency track** | `VERIFIED` | Prizes page: main leaderboard $9,000 / $7,000 / $6,500 / $6,000 / $5,500 / then $5,000 for places 6–10 = $59,000; **Efficiency Track $7,000 / $6,000 / $5,000 = $18,000**. Total $77,000, matching the API `reward`. Winners must open-source, publish weights, and produce a short video. |
+| 2.12 | **Hidden test set size** | `VERIFIED` | data-description page: "There are about 1300 studies in the test set." The 3-row `test.csv` is a stub replaced at scoring time. |
+| 2.13 | **Efficiency score formula** | `VERIFIED (quoted)` | `Efficiency = AUC / (Benchmark − maxAUC) + RuntimeSeconds / 32400`, minimised, where `Benchmark` is `sample_submission.csv`'s score and `maxAUC` the best private-LB score. 32,400 s is the 9-hour cap. Eligibility: must be a selected submission and must beat the `sample_submission.csv` benchmark on the private LB. *(As written the first term is negative, since Benchmark < maxAUC; recorded verbatim rather than "corrected", but worth watching the forum for an erratum.)* |
+| 2.14 | **Timeline** | `VERIFIED` | Start 2026-07-30; entry and team-merger deadline 2026-10-15; final submission 2026-10-22; winners' requirement deadline 2026-11-05. All 23:59 UTC. *(The API's `enabled_date` says 2026-08-05, which disagrees with the Timeline page's start date; immaterial, but noted.)* |
 | 2.10 | Submission limits | `VERIFIED` | `max_daily_submissions` = 5, `max_team_size` = 5 |
 | 2.11 | Field size | `VERIFIED` | `team_count` = 1,866 as of this run |
 
@@ -80,9 +94,12 @@ digit. Three things it did not say, and each one changes the build:
 | 3.7 | Scanner metadata present in both train and test headers | `VERIFIED (on a 7-file sample: 4 train, 3 test)` | the fingerprint fields below were populated in both splits |
 | 3.8 | **Series-level metadata is provided by the host** | `VERIFIED` | `train_series.csv`: 24,371 series over 4,407 studies. `Anatomical_Plane` ∈ {Sagittal 9,864, Coronal 8,609, Axial 5,898}. |
 | 3.9 | **Series per study** | `VERIFIED` | mean 5.53, median 5, min 3, max 14; p25 = 5, p75 = 6, p99 = 10. Every training study has at least 3 series. |
-| 3.10 | **`Fluid_Sensitive` and `Fat_Suppression` are the same column** | `VERIFIED` | identical on all 24,371 rows (14,010 ones, 10,361 zeros; off-diagonal counts are zero). Two column names, one bit of information. Treat as a single flag and do not build a feature that assumes they differ. |
+| 3.10 | **`Fluid_Sensitive` and `Fat_Suppression` are identical in train — but not guaranteed to be in test** | `VERIFIED, with a host warning` | Measured: identical on all 24,371 training rows (14,010 ones, 10,361 zeros; both off-diagonal cells are zero). The host's own data-description says they are "often correlated, as observed in the training set, **[but] not necessarily equivalent for every case**." So the training set offers no signal to learn any difference between them, while the test set may contain rows where they diverge. Keep both columns as separate inputs; do not collapse them into one flag, and do not assume the training correlation transfers. |
 | 3.11 | Report length | `VERIFIED` | mean 1,098 chars, median 977, p5 205, p95 2,452, max 4,743 |
-| 3.12 | Public test set size | `VERIFIED` | `test.csv` has 3 rows, `test_series.csv` 15 rows (5 series per study). This is a placeholder; the rescored hidden test is larger and its size is `UNVERIFIED` — which is exactly why the inference kernel needs runtime headroom. |
+| 3.12 | **Test set size** | `VERIFIED` | Public stub: `test.csv` 3 rows, `test_series.csv` 15 rows. Real hidden test: **~1,300 studies** (data-description). At ~5.5 series and ~30 slices per series that is roughly 215,000 slices to process inside 9 hours — about 24 s per study, which is the budget the inference kernel must hit. |
+| 3.15 | **Slices per series** | `VERIFIED (host-stated)` | data-description: "Series typically contain 20–45 slices (median 30), with a long tail out to a few hundred." |
+| 3.16 | **Ground truth is per-study, twelve binary conditions, with definitions** | `VERIFIED` | data-description names each: `ACL` anterior cruciate ligament injury; `MCL` medial collateral ligament injury; `Medial`/`Lateral Meniscus` tear; `Medial`/`Lateral OA` tibiofemoral compartment osteoarthritis; `PF OA` patellofemoral osteoarthritis; `Effusion` joint effusion; `Synovitis` inflammation of the joint lining; `Baker's` cyst; `Contusion` bone bruise; `Fracture`. |
+| 3.17 | **The host expects report-derived labels** | `VERIFIED` | data-description: "Only a small subset of training studies carry per-condition labels. We also provide the original text of the radiology report **from which you may wish to derive the labels for the remaining studies**." The weak-supervision framing is the intended solution path, not a workaround. |
 | 3.13 | Train and test studies are disjoint | `VERIFIED` | zero `StudyInstanceUID` overlap between `test.csv` and `train.csv` |
 | 3.14 | Data layout | `VERIFIED` | top-level `train_series/` and `test_series/` directories of `.dcm`, plus 5 root CSVs. (Not `train_images/`, as the brief assumed.) |
 
@@ -252,7 +269,7 @@ discovering later.
 
 | # | Claim | Tag | Note |
 |---|---|---|---|
-| 5.1 | Ground truth is image-derived (2 MSK radiologists + adjudicator) | `UNVERIFIED` | needs the Data page description |
+| 5.1 | Ground truth is image-derived (2 MSK radiologists + adjudicator, severity-thresholded) | `UNVERIFIED` | the data-description page does **not** describe the annotation process. Not stated anywhere I can reach through the API; would need the forum or the RSNA challenge page. |
 | 5.2 | Report-derived labels agree ~82% with image labels | `UNVERIFIED` | measurable in Phase 1 against the 58, with the interval from §4 |
 | 5.3 | Random K-fold inflates AUC by 0.05–0.14 | `UNVERIFIED` | blocked on the header scan. Note the audit now compares random K-fold against **scanner-fingerprint**-grouped K-fold, since no true site label exists (§5.1). |
 | 5.4 | Public baseline ~0.809 | `UNVERIFIED` | needs the leaderboard |
@@ -278,7 +295,12 @@ discovering later.
    or software version, as the TOSHIBA file did)?
 9. **Are the 58 gold studies scanner-diverse?** If they cluster on one or two
    scanners, calibration claims weaken sharply.
-10. **How large is the hidden test set?** Drives the inference-kernel budget.
+10. ~~How large is the hidden test set?~~ **Answered: ~1,300 studies** (§2.12),
+    which sets the inference budget at roughly 24 s per study.
+11. **How were the 58 gold labels produced?** The host does not say. The
+    "two radiologists plus adjudicator, severity-thresholded" story is still
+    second-hand, and it matters because it predicts *which way* report-derived
+    labels are biased.
 
 ---
 
@@ -289,5 +311,5 @@ discovering later.
 | Kaggle API, authenticated | primary source for §1–§2 |
 | `train.csv`, `train_series.csv`, `sample_submission.csv`, `test.csv`, `test_series.csv` | primary source for §2.5, §3, §4 |
 | 7 sampled DICOM files (4 train, 3 test), headers only | primary source for §5 |
-| Competition overview page | client-rendered; only title/meta readable without a browser session |
+| Competition pages via `competition_list_pages` | primary source for the metric, code requirements, prizes, timeline, efficiency score and data description. **This is the API route to the pages the web UI renders client-side** — `kaggle competitions pages list --page-name <name> --content`. |
 | Kickoff brief | second-hand; scored above — mostly right, wrong on §3.6 and silent on §2.6 |

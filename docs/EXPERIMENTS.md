@@ -116,3 +116,26 @@ Notes on the fields that people fudge:
   labeler's real performance.
 - **next**: Phase 1 negation/hedging layer, and push the header scan kernel so
   fold grouping stops being provisional.
+
+### E004 — competition pages retrieved through the API; metric and budget now exact
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: no code. Pulled the competition's own pages via
+  `competition_list_pages`, which is the API route to the content the web UI
+  renders client-side and which the overview fetch could not reach.
+- **runtime**: seconds
+- **what it means**: the remaining guesses are now facts. Metric is
+  `(1/12) Σ AUC_i`, macro-averaged ROC-AUC. Limits are 9 h CPU or GPU, internet
+  off, output named `submission.csv`. The hidden test is **~1,300 studies**,
+  which at ~5.5 series and a median 30 slices is ~215,000 slices, so the
+  inference budget is **~24 s per study** — the real constraint on Phase 2, and
+  now a number rather than a worry. Prize split confirmed at $59,000 main plus
+  **$18,000 efficiency**, and the efficiency score divides runtime by the 9-hour
+  cap, so a fast kernel places well without a top-ten AUC. The host also states
+  outright that reports are provided "from which you may wish to derive the
+  labels for the remaining studies" — the weak-supervision path is the intended
+  one. One correction to an earlier reading: `Fluid_Sensitive` and
+  `Fat_Suppression` are byte-identical across all 24,371 training rows, but the
+  host warns they are "not necessarily equivalent for every case", so both stay
+  as separate model inputs rather than being collapsed.
+- **next**: push the header-scan kernel; begin the Phase 1 negation layer.

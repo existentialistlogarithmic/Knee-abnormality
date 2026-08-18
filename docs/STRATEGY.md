@@ -18,6 +18,12 @@ most like ordinary NLP engineering.
 mediocre backbone on well-calibrated targets beats a strong backbone on noisy
 ones, and we can't out-GPU anyone anyway.
 
+**The host agrees.** The data-description says the reports are provided "from
+which you may wish to derive the labels for the remaining studies". This is the
+intended solution path, not a loophole — which also means every serious
+competitor is doing it, and the edge comes from doing it better rather than from
+thinking of it.
+
 ### One verified fact reshapes the pipeline
 
 **Reports do not exist at inference time.** `test.csv` has a single column,
@@ -43,18 +49,26 @@ Concretely, the pipeline is:
 The stated goal is **above 0.90**. Two things need saying before it becomes a
 plan, and neither is a reason not to aim there.
 
-### It should be macro AUC, not accuracy
+### It is macro AUC, not accuracy — now confirmed
 
-If the metric is macro ROC-AUC (still `UNVERIFIED` — claim 2.4), then accuracy
-is not the scored quantity, and at these prevalences it is actively misleading.
+The Evaluation page states the metric exactly: `Final Score = (1/12) Σ AUC_i`,
+"the macro-averaged AUC ROC". So accuracy is not the scored quantity, and at
+these prevalences it is actively misleading.
 A finding present in 5% of studies gets **95% accuracy** from a model that
 predicts "negative" every single time and has learned nothing. Chasing accuracy
 above 0.90 on twelve imbalanced findings is a target that a useless model meets.
 
-So the target is read as **macro ROC-AUC ≥ 0.90 on the leaderboard**. The
-evaluation harness reports macro AUC, per-finding AUC, balanced accuracy, and
-accuracy-at-threshold side by side, so if the metric turns out to be something
-else the numbers are already there and nothing has to be rebuilt.
+So the target is **macro ROC-AUC ≥ 0.90 on the leaderboard**. The evaluation
+harness still reports per-finding AUC, balanced accuracy and
+accuracy-at-threshold alongside it, because macro AUC hides which of the twelve
+findings is dragging, and that is the thing you act on.
+
+One consequence of the averaging worth internalising: every finding counts for
+exactly 1/12 of the score regardless of how rare it is. `MCL`, the rarest in the
+gold subset, is worth precisely as much as `Effusion`. A model that is excellent
+on the eight easy findings and random on four caps out at about 0.83. Chasing
+0.90 means the *worst* findings decide it, so effort belongs there rather than
+on polishing the ones already working.
 
 ### 0.90 is a stretch, and the honest version of that is a number
 
@@ -187,12 +201,40 @@ exclude"), severity thresholds (grade 1 signal change vs a tear), laterality,
 and prior-surgery mentions that read like findings. Each needs handling per
 language, and each is a place where a lexicon can be inspected and fixed.
 
-## Efficiency track
+## The runtime budget is now a number
 
-A second, lighter configuration is maintained from Phase 2 onward, not
-retrofitted at the end: smaller input resolution, fewer slices, single fold.
-Retrofitting efficiency after the fact usually means rebuilding the inference
-kernel under deadline pressure.
+The hidden test set is **~1,300 studies**, about 5.5 series each at a median 30
+slices — roughly **215,000 slices**. The cap is 9 hours (32,400 s). That is
+**~24 seconds per study**, including DICOM reading, for everything the kernel
+does.
+
+This is a design constraint, not a warning. It rules out reading every slice of
+every series at full resolution, and it means series selection (which of the ~5.5
+series to actually use) is a performance decision as much as an accuracy one.
+Measure per-study inference cost in Phase 2, early, on real data.
+
+## Efficiency track — $18,000, and cheaper to reach
+
+The efficiency track pays $7,000 / $6,000 / $5,000. Its scoring, quoted from the
+Efficiency Prize Evaluation page:
+
+```
+Efficiency = AUC / (Benchmark − maxAUC) + RuntimeSeconds / 32400   (minimised)
+```
+
+Eligibility is low: the submission must be one the team selected, and must beat
+the `sample_submission.csv` benchmark on the private leaderboard. Since runtime
+enters divided by the 9-hour cap, **a fast kernel scores well even without a
+top-ten AUC** — which is exactly the shape of a small-compute entry.
+
+*(As written that first term is negative, because `Benchmark` is below `maxAUC`.
+Recorded verbatim rather than silently "fixed"; watch the forum for an erratum
+before optimising against it too literally.)*
+
+So the light configuration is maintained from Phase 2 onward, not retrofitted:
+smaller input resolution, fewer slices, single fold. Retrofitting efficiency
+after the fact means rebuilding the inference kernel under deadline pressure,
+and here it would mean forfeiting the more reachable half of the prize pool.
 
 ## What would falsify this strategy
 

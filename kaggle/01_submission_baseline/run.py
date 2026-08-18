@@ -29,34 +29,44 @@ import pandas as pd
 
 OUTPUT = Path("/kaggle/working/submission.csv")
 
-def find_competition_root(explicit: str | None = None) -> Path:
-    """Locate the mounted competition data.
+# Mount layout is not guaranteed: the competition lands under
+# /kaggle/input/competitions/<slug> and datasets under
+# /kaggle/input/datasets/<owner>/<name>. Both were discovered the expensive way,
+# by a failed kernel run, so the search is depth-bounded and explicit rather
+# than assuming either shape. train_series/test_series are never walked — that
+# is ~1M files.
+SKIP_DIRECTORIES = {"train_series", "test_series"}
 
-    Kaggle does not guarantee the mount directory matches the competition slug,
-    and a wrong guess costs a whole kernel run to discover — as it did on the
-    first attempt here. So the root is found by looking for the files we know
-    must exist, and the search is reported in the log either way.
-    """
+
+def find_marker(marker: str, max_depth: int = 4):
+    """Shallow breadth-first search for a directory containing `marker`."""
+    frontier = [(Path("/kaggle/input"), 0)]
+    while frontier:
+        directory, depth = frontier.pop(0)
+        if depth > max_depth:
+            continue
+        try:
+            entries = sorted(directory.iterdir())
+        except (FileNotFoundError, PermissionError):
+            continue
+        for entry in entries:
+            if entry.is_file() and entry.name == marker:
+                return directory
+        for entry in entries:
+            if entry.is_dir() and entry.name not in SKIP_DIRECTORIES:
+                frontier.append((entry, depth + 1))
+    return None
+
+
+def find_competition_root(explicit: str | None = None) -> Path:
     if explicit:
         return Path(explicit)
-    base = Path("/kaggle/input")
-    if not base.exists():
-        return Path(".")
-    candidates = sorted(p for p in base.iterdir() if p.is_dir())
-    print(f"/kaggle/input contains: {[p.name for p in candidates]}")
     for marker in ("train_series.csv", "train.csv", "test.csv"):
-        for candidate in candidates:
-            if (candidate / marker).exists():
-                print(f"using competition root: {candidate}  (found {marker})")
-                return candidate
-        # the data is sometimes nested one level down
-        for candidate in candidates:
-            for child in sorted(p for p in candidate.iterdir() if p.is_dir()):
-                if (child / marker).exists():
-                    print(f"using competition root: {child}  (found {marker})")
-                    return child
-    print("WARNING: no competition root found; falling back to the slug path")
-    return base / "rsna-knee-abnormality-detection"
+        found = find_marker(marker)
+        if found is not None:
+            print(f"competition root: {found}  (found {marker})")
+            return found
+    raise SystemExit("competition data not found under /kaggle/input")
 
 INPUT = find_competition_root()
 

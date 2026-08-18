@@ -54,25 +54,49 @@ HEADER_FIELDS = [
 ]
 
 
+# Mount layout is not guaranteed: the competition lands under
+# /kaggle/input/competitions/<slug> and datasets under
+# /kaggle/input/datasets/<owner>/<name>. Both were discovered the expensive way,
+# by a failed kernel run, so the search is depth-bounded and explicit rather
+# than assuming either shape.
+SKIP_DIRECTORIES = {"train_series", "test_series"}  # never walk ~1M image files
+
+
+def find_marker(marker: str, max_depth: int = 4) -> Path | None:
+    """Shallow breadth-first search for a directory containing `marker`."""
+    frontier = [(Path("/kaggle/input"), 0)]
+    while frontier:
+        directory, depth = frontier.pop(0)
+        if depth > max_depth:
+            continue
+        try:
+            entries = sorted(directory.iterdir())
+        except (FileNotFoundError, PermissionError):
+            continue
+        for entry in entries:
+            if entry.is_file() and entry.name == marker:
+                return directory
+        for entry in entries:
+            if entry.is_dir() and entry.name not in SKIP_DIRECTORIES:
+                frontier.append((entry, depth + 1))
+    return None
+
+
 def find_competition_root() -> Path:
-    base = Path("/kaggle/input")
-    candidates = sorted(p for p in base.iterdir() if p.is_dir())
-    print(f"/kaggle/input contains: {[p.name for p in candidates]}")
     for marker in ("test.csv", "train.csv"):
-        for candidate in candidates:
-            if (candidate / marker).exists():
-                return candidate
-            for child in sorted(p for p in candidate.iterdir() if p.is_dir()):
-                if (child / marker).exists():
-                    return child
+        found = find_marker(marker)
+        if found is not None:
+            print(f"competition root: {found}  (found {marker})")
+            return found
     raise SystemExit("competition data not found under /kaggle/input")
 
 
 def find_artifacts() -> Path:
-    for candidate in sorted(Path("/kaggle/input").iterdir()):
-        if (candidate / "series_headers.parquet").exists():
-            return candidate
-    raise SystemExit("knee-phase1-artifacts dataset not mounted")
+    found = find_marker("series_headers.parquet")
+    if found is None:
+        raise SystemExit("knee-phase1-artifacts dataset not mounted")
+    print(f"artifacts: {found}")
+    return found
 
 
 def scalarise(value):
@@ -159,7 +183,6 @@ def main() -> int:
     started = time.time()
     root = find_competition_root()
     artifacts = find_artifacts()
-    print(f"competition root: {root}\nartifacts: {artifacts}")
 
     from sklearn.ensemble import HistGradientBoostingClassifier
     from sklearn.metrics import roc_auc_score

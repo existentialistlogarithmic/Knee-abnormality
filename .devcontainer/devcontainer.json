@@ -1,0 +1,20 @@
+{
+  "name": "RSNA Knee Abnormality Detection",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "postCreateCommand": "pip install --upgrade pip && pip install -r requirements.txt",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "charliermarsh.ruff"],
+      "settings": {
+        "python.testing.pytestEnabled": true,
+        "python.testing.pytestArgs": ["tests"]
+      }
+    }
+  },
+  "remoteEnv": {
+    "KAGGLE_API_TOKEN": "${localEnv:KAGGLE_API_TOKEN}"
+  },
+  "hostRequirements": {
+    "cpus": 2
+  }
+}

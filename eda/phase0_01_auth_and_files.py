@@ -8,6 +8,7 @@ StudyInstanceUIDs):
     competition_meta.json     raw competition metadata as the API reports it
     competition_files.csv     one row per file: name, bytes, creation date
     step1_summary.md          a block to paste/merge into docs/FINDINGS.md
+    step1_summary_public.md   same, with nested (UID-bearing) paths redacted
 
 Every printed number comes from the API. Nothing is inferred or filled in.
 
@@ -23,8 +24,9 @@ import argparse
 import json
 import os
 import sys
+import time
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 COMPETITION = "rsna-knee-abnormality-detection"
@@ -96,6 +98,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--competition", default=COMPETITION)
     parser.add_argument("--page-size", type=int, default=200, help="API max is 200")
+    parser.add_argument("--out-dir", default=str(OUT_DIR))
+    parser.add_argument("--sleep", type=float, default=0.0,
+                        help="seconds to wait between pages; use to avoid rate limits")
+    parser.add_argument("--backoff", type=float, default=5.0,
+                        help="initial backoff after a 429, doubling each retry")
+    parser.add_argument("--max-backoff", type=float, default=120.0)
+    parser.add_argument("--max-retries", type=int, default=8)
+    parser.add_argument("--no-resume", dest="resume", action="store_false",
+                        help="ignore any saved checkpoint and list from the start")
     parser.add_argument(
         "--max-pages",
         type=int,
@@ -103,6 +114,8 @@ def main() -> int:
         help="0 = page through everything. Set a limit to sample a huge listing.",
     )
     args = parser.parse_args()
+
+    out_dir = Path(args.out_dir)
 
     source = describe_credential_source()
     print(f"credential source : {source}")
@@ -125,7 +138,7 @@ def main() -> int:
         return 2
     print("authenticated     : yes")
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     # ---- competition metadata --------------------------------------------- #
     meta: dict[str, object] = {}
@@ -176,15 +189,80 @@ def main() -> int:
         print("  >>> page before the data listing below will work.")
 
     # ---- file listing ------------------------------------------------------ #
-    print("\n--- listing files (names + sizes only, nothing downloaded) ---")
+    # A competition with hundreds of thousands of files needs thousands of pages,
+    # and Kaggle rate-limits well before the end. Two consequences shape this
+    # loop: back off and retry rather than dying, and checkpoint every page so a
+    # run that is interrupted resumes instead of starting over.
+    import csv
+
+    files_csv = out_dir / "competition_files.csv"
+    state_path = out_dir / "listing_state.json"
+
     rows: list[tuple[str, int, str]] = []
     token = None
     pages = 0
-    try:
-        while True:
-            page = api.competition_list_files(
-                args.competition, page_token=token, page_size=args.page_size
+
+    if args.resume and files_csv.exists() and state_path.exists():
+        state = json.loads(state_path.read_text())
+        if state.get("competition") == args.competition:
+            with files_csv.open(newline="", encoding="utf-8") as fh:
+                reader = csv.reader(fh)
+                next(reader, None)
+                rows = [(r[0], int(r[1]), r[2]) for r in reader if len(r) >= 3]
+            token = state.get("next_page_token") or None
+            pages = int(state.get("pages", 0))
+            if token:
+                print(f"\n  resuming after page {pages} with {len(rows):,} files already listed")
+            else:
+                print(f"\n  previous listing was complete: {len(rows):,} files")
+
+    def write_checkpoint(next_token, page_count):
+        with files_csv.open("w", newline="", encoding="utf-8") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(["name", "total_bytes", "creation_date"])
+            writer.writerows(rows)
+        state_path.write_text(
+            json.dumps(
+                {
+                    "competition": args.competition,
+                    "next_page_token": next_token,
+                    "pages": page_count,
+                    "n_files": len(rows),
+                    "updated": datetime.now(UTC).isoformat(timespec="seconds"),
+                },
+                indent=2,
             )
+        )
+
+    def fetch_page(page_token):
+        """One page, with backoff on rate limits and transient server errors."""
+        delay = args.backoff
+        for attempt in range(args.max_retries + 1):
+            try:
+                return api.competition_list_files(
+                    args.competition, page_token=page_token, page_size=args.page_size
+                )
+            except Exception as exc:  # noqa: BLE001
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+                retryable = status in (429, 500, 502, 503, 504)
+                if not retryable or attempt == args.max_retries:
+                    raise
+                wait = delay
+                retry_after = getattr(getattr(exc, "response", None), "headers", {}) or {}
+                if retry_after.get("Retry-After", "").isdigit():
+                    wait = max(wait, int(retry_after["Retry-After"]))
+                print(f"\n  HTTP {status}; waiting {wait:.0f}s "
+                      f"(retry {attempt + 1}/{args.max_retries})")
+                time.sleep(wait)
+                delay = min(delay * 2, args.max_backoff)
+        raise RuntimeError("unreachable")
+
+    print("\n--- listing files (names + sizes only, nothing downloaded) ---")
+    interrupted = False
+    complete = bool(rows) and token is None and pages > 0
+    try:
+        while not complete:
+            page = fetch_page(token)
             files = list(getattr(page, "files", None) or [])
             for f in files:
                 created = getattr(f, "creation_date", None)
@@ -197,31 +275,41 @@ def main() -> int:
                 )
             pages += 1
             token = getattr(page, "next_page_token", None) or None
-            print(f"  page {pages:>4d}  files so far: {len(rows):,}", end="\r", flush=True)
+            if pages % 25 == 0 or not token:
+                write_checkpoint(token, pages)
+            print(f"  page {pages:>5d}  files so far: {len(rows):,}", end="\r", flush=True)
             if not token or not files:
+                complete = True
                 break
             if args.max_pages and pages >= args.max_pages:
-                print(f"\n  stopped early at --max-pages={args.max_pages}; listing is PARTIAL")
+                print(f"\n  stopped at --max-pages={args.max_pages}; listing is PARTIAL")
                 break
+            if args.sleep:
+                time.sleep(args.sleep)
+    except KeyboardInterrupt:
+        interrupted = True
+        print("\n  interrupted; checkpoint saved, re-run to resume")
     except Exception as exc:  # noqa: BLE001
-        print(f"\nFILE LISTING FAILED: {type(exc).__name__}: {exc}")
-        print("A 403 here almost always means the competition rules are not accepted.")
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        print(f"\n  LISTING STOPPED: {type(exc).__name__}: {exc}")
+        if status == 403:
+            print("  403 means the competition rules have not been accepted.")
+        elif status == 429:
+            print("  429 is rate limiting. The checkpoint is saved — re-run to resume,")
+            print("  optionally with --sleep 1 to pace the requests.")
+        interrupted = True
+
+    write_checkpoint(token, pages)
+    partial = bool(token) or interrupted
+    print(f"\n  pages fetched: {pages}   files listed: {len(rows):,}"
+          f"{'  (PARTIAL — re-run to resume)' if partial else '  (COMPLETE)'}")
+
+    if not rows:
+        print("no files listed; nothing to summarise")
         return 3
 
-    partial = bool(args.max_pages and pages >= args.max_pages and token)
-    print(f"\n  pages fetched: {pages}   files listed: {len(rows):,}"
-          f"{'  (PARTIAL)' if partial else ''}")
 
-    # ---- write outputs ----------------------------------------------------- #
-    import csv
-
-    files_csv = OUT_DIR / "competition_files.csv"
-    with files_csv.open("w", newline="", encoding="utf-8") as fh:
-        writer = csv.writer(fh)
-        writer.writerow(["name", "total_bytes", "creation_date"])
-        writer.writerows(rows)
-
-    (OUT_DIR / "competition_meta.json").write_text(
+    (out_dir / "competition_meta.json").write_text(
         json.dumps(meta, indent=2, default=str), encoding="utf-8"
     )
 
@@ -248,45 +336,69 @@ def main() -> int:
         key=lambda r: r[0],
     )
 
-    md: list[str] = [
-        f"# Phase 0 step 1 — file inventory for `{args.competition}`",
-        "",
-        f"Generated {datetime.now(timezone.utc).isoformat(timespec='seconds')} "
-        f"by `eda/phase0_01_auth_and_files.py`. Nothing was downloaded.",
-        "",
-        "## Competition metadata (verbatim from the Kaggle API)",
-        "",
-        "| field | value |",
-        "|---|---|",
-    ]
-    md += [f"| `{k}` | {v} |" for k, v in meta.items()]
-    md += [
-        "",
-        "## Totals",
-        "",
-        f"- files listed: **{len(rows):,}**{'  (PARTIAL LISTING)' if partial else ''}",
-        f"- total size: **{human_bytes(total_bytes)}** ({total_bytes:,} bytes)",
-        "",
-        "## By top-level directory",
-        "",
-    ]
-    md += table("directory", by_dir_count, by_dir_bytes)
-    md += ["", "## By extension", ""]
-    md += table("extension", by_ext_count, by_ext_bytes)
-    md += [
-        "",
-        "## Small non-image files (these are the only ones worth downloading locally)",
-        "",
-        "| file | size |",
-        "|---|---:|",
-    ]
-    md += [f"| `{n}` | {human_bytes(s)} |" for n, s, _ in small_files[:100]]
-    if len(small_files) > 100:
-        md.append(f"| … {len(small_files) - 100:,} more | |")
-    md.append("")
+    def build_md(public_safe: bool) -> str:
+        """Render the summary.
 
-    summary_path = OUT_DIR / "step1_summary.md"
-    summary_path.write_text("\n".join(md), encoding="utf-8")
+        public_safe=True omits every nested file path. File paths under the
+        image directories embed StudyInstanceUIDs, so only aggregates and
+        root-level file names may leave a private context (competition data
+        may not be redistributed outside the team).
+        """
+        md: list[str] = [
+            f"# Phase 0 step 1 — file inventory for `{args.competition}`",
+            "",
+            f"Generated {datetime.now(UTC).isoformat(timespec='seconds')} "
+            f"by `eda/phase0_01_auth_and_files.py`. Nothing was downloaded.",
+            "",
+        ]
+        if public_safe:
+            md += [
+                "> Redacted view: aggregates and root-level file names only. "
+                "Nested paths embed StudyInstanceUIDs and stay out of this file.",
+                "",
+            ]
+        md += [
+            "## Competition metadata (verbatim from the Kaggle API)",
+            "",
+            "| field | value |",
+            "|---|---|",
+        ]
+        md += [f"| `{k}` | {v} |" for k, v in meta.items()]
+        md += [
+            "",
+            "## Totals",
+            "",
+            f"- files listed: **{len(rows):,}**"
+            f"{'  ⚠️ PARTIAL — the listing did not finish' if partial else ''}",
+            f"- total size: **{human_bytes(total_bytes)}** ({total_bytes:,} bytes)",
+            "",
+            "## By top-level directory",
+            "",
+        ]
+        md += table("directory", by_dir_count, by_dir_bytes)
+        md += ["", "## By extension", ""]
+        md += table("extension", by_ext_count, by_ext_bytes)
+        md += [
+            "",
+            "## Small non-image files (the only ones worth downloading locally)",
+            "",
+            "| file | size |",
+            "|---|---:|",
+        ]
+        shown = [r for r in small_files if not (public_safe and "/" in r[0])]
+        md += [f"| `{n}` | {human_bytes(s)} |" for n, s, _ in shown[:100]]
+        if len(shown) > 100:
+            md.append(f"| … {len(shown) - 100:,} more | |")
+        hidden = len(small_files) - len(shown)
+        if hidden:
+            md.append(f"| … {hidden:,} nested paths redacted | |")
+        md.append("")
+        return "\n".join(md)
+
+    summary_path = out_dir / "step1_summary.md"
+    summary_path.write_text(build_md(public_safe=False), encoding="utf-8")
+    public_path = out_dir / "step1_summary_public.md"
+    public_path.write_text(build_md(public_safe=True), encoding="utf-8")
 
     # ---- console report ---------------------------------------------------- #
     print(f"\n  total size: {human_bytes(total_bytes)} ({total_bytes:,} bytes)")
@@ -300,9 +412,10 @@ def main() -> int:
     for name, size, _ in small_files[:40]:
         print(f"    {name:60s} {human_bytes(size):>12s}")
 
-    print(f"\nwrote {files_csv.relative_to(REPO_ROOT)}")
-    print(f"wrote {(OUT_DIR / 'competition_meta.json').relative_to(REPO_ROOT)}")
-    print(f"wrote {summary_path.relative_to(REPO_ROOT)}  <- merge into docs/FINDINGS.md")
+    print(f"\nwrote {files_csv}")
+    print(f"wrote {(out_dir / 'competition_meta.json')}")
+    print(f"wrote {summary_path}  <- merge into docs/FINDINGS.md")
+    print(f"wrote {public_path}  <- redacted, safe to paste anywhere")
     return 0
 
 

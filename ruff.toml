@@ -1,0 +1,12 @@
+line-length = 100
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = [
+  "E501",   # long lines are caught by the formatter, not worth failing CI over
+  "B008",
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["E402"]  # sys.path juggling before the fixture import is deliberate

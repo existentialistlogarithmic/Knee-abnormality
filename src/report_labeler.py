@@ -58,6 +58,17 @@ ABSTAIN = None  # the report is silent; the caller substitutes a prior
 WINDOW_BEFORE = 90
 WINDOW_AFTER = 70
 
+# Composite terms: "medial compartment~osteophyte" fires only when both halves
+# appear within this many characters of each other, in either order.
+#
+# Needed because osteoarthritis is almost never written as one phrase. Corpus
+# mining found degeneration vocabulary (cartilage, chondropathy, osteophyte,
+# degenerative) in 84% of reports but attributed to a compartment in far fewer,
+# so a single-string match has sensitivity 0.87 at precision 0.27 for Medial OA.
+# Proximity is what turns that into an attribution.
+COMPOSITE_SEPARATOR = "~"
+COMPOSITE_WINDOW = 45
+
 SENTENCE_BREAK = re.compile(r"[.;:\n\r]|\bbut\b|\bhowever\b|\bancak\b|\baber\b|\bpero\b")
 
 
@@ -105,8 +116,20 @@ class ReportLabeler:
         grouped: dict[tuple[str, str], list[str]] = defaultdict(list)
         for row in terms:
             grouped[(row["finding"], row["language"])].append(row["term"].strip().lower())
+        # finding -> language -> list of (pattern_a, pattern_b)
+        self._composites: dict[str, dict[str, list[tuple[re.Pattern, re.Pattern]]]] = (
+            defaultdict(lambda: defaultdict(list))
+        )
         for (finding, language), words in grouped.items():
-            self._terms[finding][language] = self._compile(words)
+            simple = [w for w in words if COMPOSITE_SEPARATOR not in w]
+            if simple:
+                self._terms[finding][language] = self._compile(simple)
+            for word in words:
+                if COMPOSITE_SEPARATOR in word:
+                    left, right = word.split(COMPOSITE_SEPARATOR, 1)
+                    self._composites[finding][language].append(
+                        (self._compile([left.strip()]), self._compile([right.strip()]))
+                    )
 
         cues = _read_lexicon(lexicon_dir / "cues.csv")
         self._cues: dict[str, dict[str, re.Pattern]] = defaultdict(dict)
@@ -157,15 +180,35 @@ class ReportLabeler:
         for finding in self.findings:
             for lang in self._languages_for(language):
                 pattern = self._terms[finding].get(lang)
-                if pattern is None:
-                    continue
-                for match in pattern.finditer(lowered):
-                    window = self._window(lowered, match.start(), match.end())
-                    verdict, cue = self._judge(window, language)
-                    found.append(
-                        Mention(finding, match.group(0), match.start(), match.end(), verdict, cue)
-                    )
+                if pattern is not None:
+                    for match in pattern.finditer(lowered):
+                        window = self._window(lowered, match.start(), match.end())
+                        verdict, cue = self._judge(window, language)
+                        found.append(
+                            Mention(finding, match.group(0), match.start(), match.end(),
+                                    verdict, cue)
+                        )
+                for left, right in self._composites[finding].get(lang, []):
+                    found.extend(self._composite_mentions(finding, lowered, left, right, language))
         return found
+
+    def _composite_mentions(self, finding, lowered, left, right, language) -> list[Mention]:
+        """Both halves within COMPOSITE_WINDOW characters, in either order."""
+        rights = [(m.start(), m.end()) for m in right.finditer(lowered)]
+        if not rights:
+            return []
+        out = []
+        for match in left.finditer(lowered):
+            for r_start, r_end in rights:
+                gap = max(match.start(), r_start) - min(match.end(), r_end)
+                if gap > COMPOSITE_WINDOW:
+                    continue
+                start, end = min(match.start(), r_start), max(match.end(), r_end)
+                window = self._window(lowered, start, end)
+                verdict, cue = self._judge(window, language)
+                out.append(Mention(finding, lowered[start:end][:60], start, end, verdict, cue))
+                break
+        return out
 
     def _judge(self, window: str, language: str) -> tuple[str, str | None]:
         """Decide polarity for one mention from the cues around it.

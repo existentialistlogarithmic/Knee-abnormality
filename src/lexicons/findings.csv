@@ -203,3 +203,670 @@ Fracture,hr,fraktura,0
 Fracture,el,κάταγμα,0
 Fracture,bg,фрактура,0
 Fracture,bg,счупване,0
+# --- composite (proximity) terms for compartment osteoarthritis ---
+# 'anchor~degeneration' fires when both appear within 45 characters.
+Medial OA,en,medial compartment~osteophyte,0
+Medial OA,en,medial compartment~chondropathy,0
+Medial OA,en,medial compartment~chondromalacia,0
+Medial OA,en,medial compartment~cartilage,0
+Medial OA,en,medial compartment~degenerative,0
+Medial OA,en,medial compartment~arthrosis,0
+Medial OA,en,medial compartment~joint space narrowing,0
+Medial OA,en,medial compartment~chondral,0
+Medial OA,en,medial femorotibial~osteophyte,0
+Medial OA,en,medial femorotibial~chondropathy,0
+Medial OA,en,medial femorotibial~chondromalacia,0
+Medial OA,en,medial femorotibial~cartilage,0
+Medial OA,en,medial femorotibial~degenerative,0
+Medial OA,en,medial femorotibial~arthrosis,0
+Medial OA,en,medial femorotibial~joint space narrowing,0
+Medial OA,en,medial femorotibial~chondral,0
+Medial OA,en,medial femoral~osteophyte,0
+Medial OA,en,medial femoral~chondropathy,0
+Medial OA,en,medial femoral~chondromalacia,0
+Medial OA,en,medial femoral~cartilage,0
+Medial OA,en,medial femoral~degenerative,0
+Medial OA,en,medial femoral~arthrosis,0
+Medial OA,en,medial femoral~joint space narrowing,0
+Medial OA,en,medial femoral~chondral,0
+Medial OA,en,medial tibial~osteophyte,0
+Medial OA,en,medial tibial~chondropathy,0
+Medial OA,en,medial tibial~chondromalacia,0
+Medial OA,en,medial tibial~cartilage,0
+Medial OA,en,medial tibial~degenerative,0
+Medial OA,en,medial tibial~arthrosis,0
+Medial OA,en,medial tibial~joint space narrowing,0
+Medial OA,en,medial tibial~chondral,0
+Lateral OA,en,lateral compartment~osteophyte,0
+Lateral OA,en,lateral compartment~chondropathy,0
+Lateral OA,en,lateral compartment~chondromalacia,0
+Lateral OA,en,lateral compartment~cartilage,0
+Lateral OA,en,lateral compartment~degenerative,0
+Lateral OA,en,lateral compartment~arthrosis,0
+Lateral OA,en,lateral compartment~joint space narrowing,0
+Lateral OA,en,lateral compartment~chondral,0
+Lateral OA,en,lateral femorotibial~osteophyte,0
+Lateral OA,en,lateral femorotibial~chondropathy,0
+Lateral OA,en,lateral femorotibial~chondromalacia,0
+Lateral OA,en,lateral femorotibial~cartilage,0
+Lateral OA,en,lateral femorotibial~degenerative,0
+Lateral OA,en,lateral femorotibial~arthrosis,0
+Lateral OA,en,lateral femorotibial~joint space narrowing,0
+Lateral OA,en,lateral femorotibial~chondral,0
+Lateral OA,en,lateral femoral~osteophyte,0
+Lateral OA,en,lateral femoral~chondropathy,0
+Lateral OA,en,lateral femoral~chondromalacia,0
+Lateral OA,en,lateral femoral~cartilage,0
+Lateral OA,en,lateral femoral~degenerative,0
+Lateral OA,en,lateral femoral~arthrosis,0
+Lateral OA,en,lateral femoral~joint space narrowing,0
+Lateral OA,en,lateral femoral~chondral,0
+Lateral OA,en,lateral tibial~osteophyte,0
+Lateral OA,en,lateral tibial~chondropathy,0
+Lateral OA,en,lateral tibial~chondromalacia,0
+Lateral OA,en,lateral tibial~cartilage,0
+Lateral OA,en,lateral tibial~degenerative,0
+Lateral OA,en,lateral tibial~arthrosis,0
+Lateral OA,en,lateral tibial~joint space narrowing,0
+Lateral OA,en,lateral tibial~chondral,0
+Medial OA,es,compartimento medial~osteofito,0
+Medial OA,es,compartimento medial~condropatía,0
+Medial OA,es,compartimento medial~condropatia,0
+Medial OA,es,compartimento medial~cartílago,0
+Medial OA,es,compartimento medial~degenerativ,0
+Medial OA,es,compartimento medial~artrosis,0
+Medial OA,es,compartimento medial~condral,0
+Medial OA,es,femorotibial medial~osteofito,0
+Medial OA,es,femorotibial medial~condropatía,0
+Medial OA,es,femorotibial medial~condropatia,0
+Medial OA,es,femorotibial medial~cartílago,0
+Medial OA,es,femorotibial medial~degenerativ,0
+Medial OA,es,femorotibial medial~artrosis,0
+Medial OA,es,femorotibial medial~condral,0
+Medial OA,es,femorotibial interno~osteofito,0
+Medial OA,es,femorotibial interno~condropatía,0
+Medial OA,es,femorotibial interno~condropatia,0
+Medial OA,es,femorotibial interno~cartílago,0
+Medial OA,es,femorotibial interno~degenerativ,0
+Medial OA,es,femorotibial interno~artrosis,0
+Medial OA,es,femorotibial interno~condral,0
+Medial OA,es,cóndilo femoral medial~osteofito,0
+Medial OA,es,cóndilo femoral medial~condropatía,0
+Medial OA,es,cóndilo femoral medial~condropatia,0
+Medial OA,es,cóndilo femoral medial~cartílago,0
+Medial OA,es,cóndilo femoral medial~degenerativ,0
+Medial OA,es,cóndilo femoral medial~artrosis,0
+Medial OA,es,cóndilo femoral medial~condral,0
+Medial OA,es,cóndilo femoral interno~osteofito,0
+Medial OA,es,cóndilo femoral interno~condropatía,0
+Medial OA,es,cóndilo femoral interno~condropatia,0
+Medial OA,es,cóndilo femoral interno~cartílago,0
+Medial OA,es,cóndilo femoral interno~degenerativ,0
+Medial OA,es,cóndilo femoral interno~artrosis,0
+Medial OA,es,cóndilo femoral interno~condral,0
+Lateral OA,es,compartimento lateral~osteofito,0
+Lateral OA,es,compartimento lateral~condropatía,0
+Lateral OA,es,compartimento lateral~condropatia,0
+Lateral OA,es,compartimento lateral~cartílago,0
+Lateral OA,es,compartimento lateral~degenerativ,0
+Lateral OA,es,compartimento lateral~artrosis,0
+Lateral OA,es,compartimento lateral~condral,0
+Lateral OA,es,femorotibial lateral~osteofito,0
+Lateral OA,es,femorotibial lateral~condropatía,0
+Lateral OA,es,femorotibial lateral~condropatia,0
+Lateral OA,es,femorotibial lateral~cartílago,0
+Lateral OA,es,femorotibial lateral~degenerativ,0
+Lateral OA,es,femorotibial lateral~artrosis,0
+Lateral OA,es,femorotibial lateral~condral,0
+Lateral OA,es,femorotibial externo~osteofito,0
+Lateral OA,es,femorotibial externo~condropatía,0
+Lateral OA,es,femorotibial externo~condropatia,0
+Lateral OA,es,femorotibial externo~cartílago,0
+Lateral OA,es,femorotibial externo~degenerativ,0
+Lateral OA,es,femorotibial externo~artrosis,0
+Lateral OA,es,femorotibial externo~condral,0
+Lateral OA,es,cóndilo femoral lateral~osteofito,0
+Lateral OA,es,cóndilo femoral lateral~condropatía,0
+Lateral OA,es,cóndilo femoral lateral~condropatia,0
+Lateral OA,es,cóndilo femoral lateral~cartílago,0
+Lateral OA,es,cóndilo femoral lateral~degenerativ,0
+Lateral OA,es,cóndilo femoral lateral~artrosis,0
+Lateral OA,es,cóndilo femoral lateral~condral,0
+Lateral OA,es,cóndilo femoral externo~osteofito,0
+Lateral OA,es,cóndilo femoral externo~condropatía,0
+Lateral OA,es,cóndilo femoral externo~condropatia,0
+Lateral OA,es,cóndilo femoral externo~cartílago,0
+Lateral OA,es,cóndilo femoral externo~degenerativ,0
+Lateral OA,es,cóndilo femoral externo~artrosis,0
+Lateral OA,es,cóndilo femoral externo~condral,0
+Medial OA,tr,medial femorotibial~osteofit,0
+Medial OA,tr,medial femorotibial~kondromalazi,0
+Medial OA,tr,medial femorotibial~kıkırdak,0
+Medial OA,tr,medial femorotibial~dejenera,0
+Medial OA,tr,medial femorotibial~gonartroz,0
+Medial OA,tr,medial femorotibial~kondral,0
+Medial OA,tr,medial kompartman~osteofit,0
+Medial OA,tr,medial kompartman~kondromalazi,0
+Medial OA,tr,medial kompartman~kıkırdak,0
+Medial OA,tr,medial kompartman~dejenera,0
+Medial OA,tr,medial kompartman~gonartroz,0
+Medial OA,tr,medial kompartman~kondral,0
+Medial OA,tr,medial femoral kondil~osteofit,0
+Medial OA,tr,medial femoral kondil~kondromalazi,0
+Medial OA,tr,medial femoral kondil~kıkırdak,0
+Medial OA,tr,medial femoral kondil~dejenera,0
+Medial OA,tr,medial femoral kondil~gonartroz,0
+Medial OA,tr,medial femoral kondil~kondral,0
+Medial OA,tr,medial tibial~osteofit,0
+Medial OA,tr,medial tibial~kondromalazi,0
+Medial OA,tr,medial tibial~kıkırdak,0
+Medial OA,tr,medial tibial~dejenera,0
+Medial OA,tr,medial tibial~gonartroz,0
+Medial OA,tr,medial tibial~kondral,0
+Lateral OA,tr,lateral femorotibial~osteofit,0
+Lateral OA,tr,lateral femorotibial~kondromalazi,0
+Lateral OA,tr,lateral femorotibial~kıkırdak,0
+Lateral OA,tr,lateral femorotibial~dejenera,0
+Lateral OA,tr,lateral femorotibial~gonartroz,0
+Lateral OA,tr,lateral femorotibial~kondral,0
+Lateral OA,tr,lateral kompartman~osteofit,0
+Lateral OA,tr,lateral kompartman~kondromalazi,0
+Lateral OA,tr,lateral kompartman~kıkırdak,0
+Lateral OA,tr,lateral kompartman~dejenera,0
+Lateral OA,tr,lateral kompartman~gonartroz,0
+Lateral OA,tr,lateral kompartman~kondral,0
+Lateral OA,tr,lateral femoral kondil~osteofit,0
+Lateral OA,tr,lateral femoral kondil~kondromalazi,0
+Lateral OA,tr,lateral femoral kondil~kıkırdak,0
+Lateral OA,tr,lateral femoral kondil~dejenera,0
+Lateral OA,tr,lateral femoral kondil~gonartroz,0
+Lateral OA,tr,lateral femoral kondil~kondral,0
+Lateral OA,tr,lateral tibial~osteofit,0
+Lateral OA,tr,lateral tibial~kondromalazi,0
+Lateral OA,tr,lateral tibial~kıkırdak,0
+Lateral OA,tr,lateral tibial~dejenera,0
+Lateral OA,tr,lateral tibial~gonartroz,0
+Lateral OA,tr,lateral tibial~kondral,0
+Medial OA,de,medialen kompartiment~osteophyt,0
+Medial OA,de,medialen kompartiment~chondropathie,0
+Medial OA,de,medialen kompartiment~knorpel,0
+Medial OA,de,medialen kompartiment~degenerativ,0
+Medial OA,de,medialen kompartiment~arthrose,0
+Medial OA,de,medialen kompartiment~chondral,0
+Medial OA,de,mediales kompartiment~osteophyt,0
+Medial OA,de,mediales kompartiment~chondropathie,0
+Medial OA,de,mediales kompartiment~knorpel,0
+Medial OA,de,mediales kompartiment~degenerativ,0
+Medial OA,de,mediales kompartiment~arthrose,0
+Medial OA,de,mediales kompartiment~chondral,0
+Medial OA,de,medialen femorotibial~osteophyt,0
+Medial OA,de,medialen femorotibial~chondropathie,0
+Medial OA,de,medialen femorotibial~knorpel,0
+Medial OA,de,medialen femorotibial~degenerativ,0
+Medial OA,de,medialen femorotibial~arthrose,0
+Medial OA,de,medialen femorotibial~chondral,0
+Medial OA,de,medialen femurkondyl~osteophyt,0
+Medial OA,de,medialen femurkondyl~chondropathie,0
+Medial OA,de,medialen femurkondyl~knorpel,0
+Medial OA,de,medialen femurkondyl~degenerativ,0
+Medial OA,de,medialen femurkondyl~arthrose,0
+Medial OA,de,medialen femurkondyl~chondral,0
+Lateral OA,de,lateralen kompartiment~osteophyt,0
+Lateral OA,de,lateralen kompartiment~chondropathie,0
+Lateral OA,de,lateralen kompartiment~knorpel,0
+Lateral OA,de,lateralen kompartiment~degenerativ,0
+Lateral OA,de,lateralen kompartiment~arthrose,0
+Lateral OA,de,lateralen kompartiment~chondral,0
+Lateral OA,de,laterales kompartiment~osteophyt,0
+Lateral OA,de,laterales kompartiment~chondropathie,0
+Lateral OA,de,laterales kompartiment~knorpel,0
+Lateral OA,de,laterales kompartiment~degenerativ,0
+Lateral OA,de,laterales kompartiment~arthrose,0
+Lateral OA,de,laterales kompartiment~chondral,0
+Lateral OA,de,lateralen femorotibial~osteophyt,0
+Lateral OA,de,lateralen femorotibial~chondropathie,0
+Lateral OA,de,lateralen femorotibial~knorpel,0
+Lateral OA,de,lateralen femorotibial~degenerativ,0
+Lateral OA,de,lateralen femorotibial~arthrose,0
+Lateral OA,de,lateralen femorotibial~chondral,0
+Lateral OA,de,lateralen femurkondyl~osteophyt,0
+Lateral OA,de,lateralen femurkondyl~chondropathie,0
+Lateral OA,de,lateralen femurkondyl~knorpel,0
+Lateral OA,de,lateralen femurkondyl~degenerativ,0
+Lateral OA,de,lateralen femurkondyl~arthrose,0
+Lateral OA,de,lateralen femurkondyl~chondral,0
+Medial OA,nl,mediaal femorotibiaal~osteofyt,0
+Medial OA,nl,mediaal femorotibiaal~kraakbeen,0
+Medial OA,nl,mediaal femorotibiaal~chondropathie,0
+Medial OA,nl,mediaal femorotibiaal~degeneratie,0
+Medial OA,nl,mediaal femorotibiaal~artrose,0
+Medial OA,nl,mediale femorotibiale~osteofyt,0
+Medial OA,nl,mediale femorotibiale~kraakbeen,0
+Medial OA,nl,mediale femorotibiale~chondropathie,0
+Medial OA,nl,mediale femorotibiale~degeneratie,0
+Medial OA,nl,mediale femorotibiale~artrose,0
+Medial OA,nl,mediale femurcondyl~osteofyt,0
+Medial OA,nl,mediale femurcondyl~kraakbeen,0
+Medial OA,nl,mediale femurcondyl~chondropathie,0
+Medial OA,nl,mediale femurcondyl~degeneratie,0
+Medial OA,nl,mediale femurcondyl~artrose,0
+Lateral OA,nl,lateraal femorotibiaal~osteofyt,0
+Lateral OA,nl,lateraal femorotibiaal~kraakbeen,0
+Lateral OA,nl,lateraal femorotibiaal~chondropathie,0
+Lateral OA,nl,lateraal femorotibiaal~degeneratie,0
+Lateral OA,nl,lateraal femorotibiaal~artrose,0
+Lateral OA,nl,laterale femorotibiale~osteofyt,0
+Lateral OA,nl,laterale femorotibiale~kraakbeen,0
+Lateral OA,nl,laterale femorotibiale~chondropathie,0
+Lateral OA,nl,laterale femorotibiale~degeneratie,0
+Lateral OA,nl,laterale femorotibiale~artrose,0
+Lateral OA,nl,laterale femurcondyl~osteofyt,0
+Lateral OA,nl,laterale femurcondyl~kraakbeen,0
+Lateral OA,nl,laterale femurcondyl~chondropathie,0
+Lateral OA,nl,laterale femurcondyl~degeneratie,0
+Lateral OA,nl,laterale femurcondyl~artrose,0
+Medial OA,hr,medijalnom odjeljku~osteofit,0
+Medial OA,hr,medijalnom odjeljku~hondromalacij,0
+Medial OA,hr,medijalnom odjeljku~hrskavic,0
+Medial OA,hr,medijalnom odjeljku~degenerativ,0
+Medial OA,hr,medijalnom odjeljku~artroz,0
+Medial OA,hr,medijalnog kondila~osteofit,0
+Medial OA,hr,medijalnog kondila~hondromalacij,0
+Medial OA,hr,medijalnog kondila~hrskavic,0
+Medial OA,hr,medijalnog kondila~degenerativ,0
+Medial OA,hr,medijalnog kondila~artroz,0
+Medial OA,hr,medijalnog femura~osteofit,0
+Medial OA,hr,medijalnog femura~hondromalacij,0
+Medial OA,hr,medijalnog femura~hrskavic,0
+Medial OA,hr,medijalnog femura~degenerativ,0
+Medial OA,hr,medijalnog femura~artroz,0
+Lateral OA,hr,lateralnom odjeljku~osteofit,0
+Lateral OA,hr,lateralnom odjeljku~hondromalacij,0
+Lateral OA,hr,lateralnom odjeljku~hrskavic,0
+Lateral OA,hr,lateralnom odjeljku~degenerativ,0
+Lateral OA,hr,lateralnom odjeljku~artroz,0
+Lateral OA,hr,lateralnog kondila~osteofit,0
+Lateral OA,hr,lateralnog kondila~hondromalacij,0
+Lateral OA,hr,lateralnog kondila~hrskavic,0
+Lateral OA,hr,lateralnog kondila~degenerativ,0
+Lateral OA,hr,lateralnog kondila~artroz,0
+Lateral OA,hr,lateralnog femura~osteofit,0
+Lateral OA,hr,lateralnog femura~hondromalacij,0
+Lateral OA,hr,lateralnog femura~hrskavic,0
+Lateral OA,hr,lateralnog femura~degenerativ,0
+Lateral OA,hr,lateralnog femura~artroz,0
+Medial OA,bg,медиалния кондил~остеофит,0
+Medial OA,bg,медиалния кондил~хрущял,0
+Medial OA,bg,медиалния кондил~дегенерат,0
+Medial OA,bg,медиалния кондил~артроз,0
+Medial OA,bg,медиалния компартмент~остеофит,0
+Medial OA,bg,медиалния компартмент~хрущял,0
+Medial OA,bg,медиалния компартмент~дегенерат,0
+Medial OA,bg,медиалния компартмент~артроз,0
+Medial OA,bg,медиалния феморотибиал~остеофит,0
+Medial OA,bg,медиалния феморотибиал~хрущял,0
+Medial OA,bg,медиалния феморотибиал~дегенерат,0
+Medial OA,bg,медиалния феморотибиал~артроз,0
+Lateral OA,bg,латералния кондил~остеофит,0
+Lateral OA,bg,латералния кондил~хрущял,0
+Lateral OA,bg,латералния кондил~дегенерат,0
+Lateral OA,bg,латералния кондил~артроз,0
+Lateral OA,bg,латералния компартмент~остеофит,0
+Lateral OA,bg,латералния компартмент~хрущял,0
+Lateral OA,bg,латералния компартмент~дегенерат,0
+Lateral OA,bg,латералния компартмент~артроз,0
+Lateral OA,bg,латералния феморотибиал~остеофит,0
+Lateral OA,bg,латералния феморотибиал~хрущял,0
+Lateral OA,bg,латералния феморотибиал~дегенерат,0
+Lateral OA,bg,латералния феморотибиал~артроз,0
+Medial OA,el,έσω μηριαίου~όστεόφυ,0
+Medial OA,el,έσω μηριαίου~οστεόφυ,0
+Medial OA,el,έσω μηριαίου~χόνδρ,0
+Medial OA,el,έσω μηριαίου~εκφυλιστ,0
+Medial OA,el,έσω μηριαίου~αρθρίτ,0
+Medial OA,el,έσω διαμερίσματος~όστεόφυ,0
+Medial OA,el,έσω διαμερίσματος~οστεόφυ,0
+Medial OA,el,έσω διαμερίσματος~χόνδρ,0
+Medial OA,el,έσω διαμερίσματος~εκφυλιστ,0
+Medial OA,el,έσω διαμερίσματος~αρθρίτ,0
+Lateral OA,el,έξω μηριαίου~όστεόφυ,0
+Lateral OA,el,έξω μηριαίου~οστεόφυ,0
+Lateral OA,el,έξω μηριαίου~χόνδρ,0
+Lateral OA,el,έξω μηριαίου~εκφυλιστ,0
+Lateral OA,el,έξω μηριαίου~αρθρίτ,0
+Lateral OA,el,έξω διαμερίσματος~όστεόφυ,0
+Lateral OA,el,έξω διαμερίσματος~οστεόφυ,0
+Lateral OA,el,έξω διαμερίσματος~χόνδρ,0
+Lateral OA,el,έξω διαμερίσματος~εκφυλιστ,0
+Lateral OA,el,έξω διαμερίσματος~αρθρίτ,0
+PF OA,en,patellofemoral~osteophyte,0
+PF OA,en,patellofemoral~chondropathy,0
+PF OA,en,patellofemoral~chondromalacia,0
+PF OA,en,patellofemoral~cartilage,0
+PF OA,en,patellofemoral~degenerative,0
+PF OA,en,patellofemoral~arthrosis,0
+PF OA,en,patellofemoral~joint space narrowing,0
+PF OA,en,patellofemoral~chondral,0
+PF OA,en,retropatellar~osteophyte,0
+PF OA,en,retropatellar~chondropathy,0
+PF OA,en,retropatellar~chondromalacia,0
+PF OA,en,retropatellar~cartilage,0
+PF OA,en,retropatellar~degenerative,0
+PF OA,en,retropatellar~arthrosis,0
+PF OA,en,retropatellar~joint space narrowing,0
+PF OA,en,retropatellar~chondral,0
+PF OA,en,patellar~osteophyte,0
+PF OA,en,patellar~chondropathy,0
+PF OA,en,patellar~chondromalacia,0
+PF OA,en,patellar~cartilage,0
+PF OA,en,patellar~degenerative,0
+PF OA,en,patellar~arthrosis,0
+PF OA,en,patellar~joint space narrowing,0
+PF OA,en,patellar~chondral,0
+PF OA,en,trochlea~osteophyte,0
+PF OA,en,trochlea~chondropathy,0
+PF OA,en,trochlea~chondromalacia,0
+PF OA,en,trochlea~cartilage,0
+PF OA,en,trochlea~degenerative,0
+PF OA,en,trochlea~arthrosis,0
+PF OA,en,trochlea~joint space narrowing,0
+PF OA,en,trochlea~chondral,0
+PF OA,es,patelofemoral~osteofito,0
+PF OA,es,patelofemoral~condropatía,0
+PF OA,es,patelofemoral~condropatia,0
+PF OA,es,patelofemoral~cartílago,0
+PF OA,es,patelofemoral~degenerativ,0
+PF OA,es,patelofemoral~artrosis,0
+PF OA,es,patelofemoral~condral,0
+PF OA,es,femoropatelar~osteofito,0
+PF OA,es,femoropatelar~condropatía,0
+PF OA,es,femoropatelar~condropatia,0
+PF OA,es,femoropatelar~cartílago,0
+PF OA,es,femoropatelar~degenerativ,0
+PF OA,es,femoropatelar~artrosis,0
+PF OA,es,femoropatelar~condral,0
+PF OA,es,rotuliana~osteofito,0
+PF OA,es,rotuliana~condropatía,0
+PF OA,es,rotuliana~condropatia,0
+PF OA,es,rotuliana~cartílago,0
+PF OA,es,rotuliana~degenerativ,0
+PF OA,es,rotuliana~artrosis,0
+PF OA,es,rotuliana~condral,0
+PF OA,es,rotuliano~osteofito,0
+PF OA,es,rotuliano~condropatía,0
+PF OA,es,rotuliano~condropatia,0
+PF OA,es,rotuliano~cartílago,0
+PF OA,es,rotuliano~degenerativ,0
+PF OA,es,rotuliano~artrosis,0
+PF OA,es,rotuliano~condral,0
+PF OA,es,tróclea~osteofito,0
+PF OA,es,tróclea~condropatía,0
+PF OA,es,tróclea~condropatia,0
+PF OA,es,tróclea~cartílago,0
+PF OA,es,tróclea~degenerativ,0
+PF OA,es,tróclea~artrosis,0
+PF OA,es,tróclea~condral,0
+PF OA,tr,patellofemoral~osteofit,0
+PF OA,tr,patellofemoral~kondromalazi,0
+PF OA,tr,patellofemoral~kıkırdak,0
+PF OA,tr,patellofemoral~dejenera,0
+PF OA,tr,patellofemoral~gonartroz,0
+PF OA,tr,patellofemoral~kondral,0
+PF OA,tr,patellar~osteofit,0
+PF OA,tr,patellar~kondromalazi,0
+PF OA,tr,patellar~kıkırdak,0
+PF OA,tr,patellar~dejenera,0
+PF OA,tr,patellar~gonartroz,0
+PF OA,tr,patellar~kondral,0
+PF OA,tr,troklea~osteofit,0
+PF OA,tr,troklea~kondromalazi,0
+PF OA,tr,troklea~kıkırdak,0
+PF OA,tr,troklea~dejenera,0
+PF OA,tr,troklea~gonartroz,0
+PF OA,tr,troklea~kondral,0
+PF OA,de,retropatellar~osteophyt,0
+PF OA,de,retropatellar~chondropathie,0
+PF OA,de,retropatellar~knorpel,0
+PF OA,de,retropatellar~degenerativ,0
+PF OA,de,retropatellar~arthrose,0
+PF OA,de,retropatellar~chondral,0
+PF OA,de,femoropatellar~osteophyt,0
+PF OA,de,femoropatellar~chondropathie,0
+PF OA,de,femoropatellar~knorpel,0
+PF OA,de,femoropatellar~degenerativ,0
+PF OA,de,femoropatellar~arthrose,0
+PF OA,de,femoropatellar~chondral,0
+PF OA,de,patella~osteophyt,0
+PF OA,de,patella~chondropathie,0
+PF OA,de,patella~knorpel,0
+PF OA,de,patella~degenerativ,0
+PF OA,de,patella~arthrose,0
+PF OA,de,patella~chondral,0
+PF OA,de,trochlea~osteophyt,0
+PF OA,de,trochlea~chondropathie,0
+PF OA,de,trochlea~knorpel,0
+PF OA,de,trochlea~degenerativ,0
+PF OA,de,trochlea~arthrose,0
+PF OA,de,trochlea~chondral,0
+PF OA,nl,patellofemoraal~osteofyt,0
+PF OA,nl,patellofemoraal~kraakbeen,0
+PF OA,nl,patellofemoraal~chondropathie,0
+PF OA,nl,patellofemoraal~degeneratie,0
+PF OA,nl,patellofemoraal~artrose,0
+PF OA,nl,retropatellair~osteofyt,0
+PF OA,nl,retropatellair~kraakbeen,0
+PF OA,nl,retropatellair~chondropathie,0
+PF OA,nl,retropatellair~degeneratie,0
+PF OA,nl,retropatellair~artrose,0
+PF OA,nl,patella~osteofyt,0
+PF OA,nl,patella~kraakbeen,0
+PF OA,nl,patella~chondropathie,0
+PF OA,nl,patella~degeneratie,0
+PF OA,nl,patella~artrose,0
+PF OA,hr,patelofemoral~osteofit,0
+PF OA,hr,patelofemoral~hondromalacij,0
+PF OA,hr,patelofemoral~hrskavic,0
+PF OA,hr,patelofemoral~degenerativ,0
+PF OA,hr,patelofemoral~artroz,0
+PF OA,hr,patele~osteofit,0
+PF OA,hr,patele~hondromalacij,0
+PF OA,hr,patele~hrskavic,0
+PF OA,hr,patele~degenerativ,0
+PF OA,hr,patele~artroz,0
+PF OA,hr,patelarn~osteofit,0
+PF OA,hr,patelarn~hondromalacij,0
+PF OA,hr,patelarn~hrskavic,0
+PF OA,hr,patelarn~degenerativ,0
+PF OA,hr,patelarn~artroz,0
+PF OA,bg,пателофеморал~остеофит,0
+PF OA,bg,пателофеморал~хрущял,0
+PF OA,bg,пателофеморал~дегенерат,0
+PF OA,bg,пателофеморал~артроз,0
+PF OA,bg,пателата~остеофит,0
+PF OA,bg,пателата~хрущял,0
+PF OA,bg,пателата~дегенерат,0
+PF OA,bg,пателата~артроз,0
+PF OA,bg,пателарн~остеофит,0
+PF OA,bg,пателарн~хрущял,0
+PF OA,bg,пателарн~дегенерат,0
+PF OA,bg,пателарн~артроз,0
+PF OA,el,επιγονατιδ~όστεόφυ,0
+PF OA,el,επιγονατιδ~οστεόφυ,0
+PF OA,el,επιγονατιδ~χόνδρ,0
+PF OA,el,επιγονατιδ~εκφυλιστ,0
+PF OA,el,επιγονατιδ~αρθρίτ,0
+Synovitis,en,synovial thickening,0
+Synovitis,en,synovial proliferation,0
+Synovitis,en,synovial hypertrophy,0
+Synovitis,en,pannus,0
+Synovitis,en,synovial,0
+Synovitis,es,sinovial,0
+Synovitis,es,hipertrofia sinovial,0
+Synovitis,es,engrosamiento sinovial,0
+Synovitis,tr,sinovyal,0
+Synovitis,tr,sinoviyal,0
+Synovitis,tr,sinovyal kalınlaşma,0
+Synovitis,de,synovialis,0
+Synovitis,de,synoviale,0
+Synovitis,nl,synoviale,0
+Synovitis,hr,sinovij,0
+Synovitis,hr,zadebljanje sinovije,0
+Synovitis,bg,синовиал,0
+Synovitis,el,υμενίτ,0
+Synovitis,el,αρθρικού υμένα,0
+Synovitis,fr,synovial,0
+# --- corpus-frequency corrections (see docs/EXPERIMENTS.md E007) ---
+ACL,es,cruzados,1
+ACL,es,cruzado,1
+ACL,es,lca,1
+MCL,es,colaterales,1
+MCL,es,lcm,1
+MCL,es,ligamento colateral medial,0
+ACL,de,kreuzbänder,1
+ACL,de,kreuzband,1
+ACL,de,kreuzbandes,1
+ACL,el,πρόσθι~χιαστ,1
+ACL,el,χιαστ,1
+MCL,el,έσω~πλάγι,1
+MCL,el,πλάγι~έσω,1
+MCL,bg,медиал~колатерал,1
+MCL,bg,колатерал,1
+Contusion,hr,edem~košt,1
+Contusion,hr,edem~srži,1
+Medial OA,tr,medial kondil~kıkırdak,0
+Medial OA,tr,medial kondil~osteofit,0
+Medial OA,tr,medial kondil~dejeneratif,0
+Medial OA,tr,medial kondil~dejenera,0
+Medial OA,tr,medial kondil~kondromalazi,0
+Medial OA,tr,medial kondil~gonartroz,0
+Medial OA,tr,medial kondil~eklem aralığı,0
+Medial OA,tr,medial femoral kondil~kıkırdak,0
+Medial OA,tr,medial femoral kondil~osteofit,0
+Medial OA,tr,medial femoral kondil~dejeneratif,0
+Medial OA,tr,medial femoral kondil~dejenera,0
+Medial OA,tr,medial femoral kondil~kondromalazi,0
+Medial OA,tr,medial femoral kondil~gonartroz,0
+Medial OA,tr,medial femoral kondil~eklem aralığı,0
+Medial OA,tr,medial eklem aralığı~kıkırdak,0
+Medial OA,tr,medial eklem aralığı~osteofit,0
+Medial OA,tr,medial eklem aralığı~dejeneratif,0
+Medial OA,tr,medial eklem aralığı~dejenera,0
+Medial OA,tr,medial eklem aralığı~kondromalazi,0
+Medial OA,tr,medial eklem aralığı~gonartroz,0
+Medial OA,tr,medial eklem aralığı~eklem aralığı,0
+Medial OA,tr,medial tibial~kıkırdak,0
+Medial OA,tr,medial tibial~osteofit,0
+Medial OA,tr,medial tibial~dejeneratif,0
+Medial OA,tr,medial tibial~dejenera,0
+Medial OA,tr,medial tibial~kondromalazi,0
+Medial OA,tr,medial tibial~gonartroz,0
+Medial OA,tr,medial tibial~eklem aralığı,0
+Medial OA,tr,medial femur~kıkırdak,0
+Medial OA,tr,medial femur~osteofit,0
+Medial OA,tr,medial femur~dejeneratif,0
+Medial OA,tr,medial femur~dejenera,0
+Medial OA,tr,medial femur~kondromalazi,0
+Medial OA,tr,medial femur~gonartroz,0
+Medial OA,tr,medial femur~eklem aralığı,0
+Lateral OA,tr,lateral kondil~kıkırdak,0
+Lateral OA,tr,lateral kondil~osteofit,0
+Lateral OA,tr,lateral kondil~dejeneratif,0
+Lateral OA,tr,lateral kondil~dejenera,0
+Lateral OA,tr,lateral kondil~kondromalazi,0
+Lateral OA,tr,lateral kondil~gonartroz,0
+Lateral OA,tr,lateral kondil~eklem aralığı,0
+Lateral OA,tr,lateral femoral kondil~kıkırdak,0
+Lateral OA,tr,lateral femoral kondil~osteofit,0
+Lateral OA,tr,lateral femoral kondil~dejeneratif,0
+Lateral OA,tr,lateral femoral kondil~dejenera,0
+Lateral OA,tr,lateral femoral kondil~kondromalazi,0
+Lateral OA,tr,lateral femoral kondil~gonartroz,0
+Lateral OA,tr,lateral femoral kondil~eklem aralığı,0
+Lateral OA,tr,lateral eklem aralığı~kıkırdak,0
+Lateral OA,tr,lateral eklem aralığı~osteofit,0
+Lateral OA,tr,lateral eklem aralığı~dejeneratif,0
+Lateral OA,tr,lateral eklem aralığı~dejenera,0
+Lateral OA,tr,lateral eklem aralığı~kondromalazi,0
+Lateral OA,tr,lateral eklem aralığı~gonartroz,0
+Lateral OA,tr,lateral eklem aralığı~eklem aralığı,0
+Lateral OA,tr,lateral tibial~kıkırdak,0
+Lateral OA,tr,lateral tibial~osteofit,0
+Lateral OA,tr,lateral tibial~dejeneratif,0
+Lateral OA,tr,lateral tibial~dejenera,0
+Lateral OA,tr,lateral tibial~kondromalazi,0
+Lateral OA,tr,lateral tibial~gonartroz,0
+Lateral OA,tr,lateral tibial~eklem aralığı,0
+Lateral OA,tr,lateral femur~kıkırdak,0
+Lateral OA,tr,lateral femur~osteofit,0
+Lateral OA,tr,lateral femur~dejeneratif,0
+Lateral OA,tr,lateral femur~dejenera,0
+Lateral OA,tr,lateral femur~kondromalazi,0
+Lateral OA,tr,lateral femur~gonartroz,0
+Lateral OA,tr,lateral femur~eklem aralığı,0
+Medial OA,es,cóndilo medial~condropatía,0
+Medial OA,es,cóndilo medial~condropatia,0
+Medial OA,es,cóndilo medial~osteofito,0
+Medial OA,es,cóndilo medial~cartílago,0
+Medial OA,es,cóndilo medial~artrosis,0
+Medial OA,es,cóndilo medial~degenerativ,0
+Medial OA,es,cóndilo medial~condral,0
+Medial OA,es,cóndilo interno~condropatía,0
+Medial OA,es,cóndilo interno~condropatia,0
+Medial OA,es,cóndilo interno~osteofito,0
+Medial OA,es,cóndilo interno~cartílago,0
+Medial OA,es,cóndilo interno~artrosis,0
+Medial OA,es,cóndilo interno~degenerativ,0
+Medial OA,es,cóndilo interno~condral,0
+Medial OA,es,meseta tibial medial~condropatía,0
+Medial OA,es,meseta tibial medial~condropatia,0
+Medial OA,es,meseta tibial medial~osteofito,0
+Medial OA,es,meseta tibial medial~cartílago,0
+Medial OA,es,meseta tibial medial~artrosis,0
+Medial OA,es,meseta tibial medial~degenerativ,0
+Medial OA,es,meseta tibial medial~condral,0
+Medial OA,es,meseta tibial interna~condropatía,0
+Medial OA,es,meseta tibial interna~condropatia,0
+Medial OA,es,meseta tibial interna~osteofito,0
+Medial OA,es,meseta tibial interna~cartílago,0
+Medial OA,es,meseta tibial interna~artrosis,0
+Medial OA,es,meseta tibial interna~degenerativ,0
+Medial OA,es,meseta tibial interna~condral,0
+Lateral OA,es,cóndilo lateral~condropatía,0
+Lateral OA,es,cóndilo lateral~condropatia,0
+Lateral OA,es,cóndilo lateral~osteofito,0
+Lateral OA,es,cóndilo lateral~cartílago,0
+Lateral OA,es,cóndilo lateral~artrosis,0
+Lateral OA,es,cóndilo lateral~degenerativ,0
+Lateral OA,es,cóndilo lateral~condral,0
+Lateral OA,es,cóndilo externo~condropatía,0
+Lateral OA,es,cóndilo externo~condropatia,0
+Lateral OA,es,cóndilo externo~osteofito,0
+Lateral OA,es,cóndilo externo~cartílago,0
+Lateral OA,es,cóndilo externo~artrosis,0
+Lateral OA,es,cóndilo externo~degenerativ,0
+Lateral OA,es,cóndilo externo~condral,0
+Lateral OA,es,meseta tibial lateral~condropatía,0
+Lateral OA,es,meseta tibial lateral~condropatia,0
+Lateral OA,es,meseta tibial lateral~osteofito,0
+Lateral OA,es,meseta tibial lateral~cartílago,0
+Lateral OA,es,meseta tibial lateral~artrosis,0
+Lateral OA,es,meseta tibial lateral~degenerativ,0
+Lateral OA,es,meseta tibial lateral~condral,0
+Lateral OA,es,meseta tibial externa~condropatía,0
+Lateral OA,es,meseta tibial externa~condropatia,0
+Lateral OA,es,meseta tibial externa~osteofito,0
+Lateral OA,es,meseta tibial externa~cartílago,0
+Lateral OA,es,meseta tibial externa~artrosis,0
+Lateral OA,es,meseta tibial externa~degenerativ,0
+Lateral OA,es,meseta tibial externa~condral,0
+# Turkish: bare compartment anchor, paired only with non-meniscal terms.
+Medial OA,tr,medial~kıkırdak,1
+Medial OA,tr,medial~osteofit,1
+Medial OA,tr,medial~gonartroz,1
+Medial OA,tr,medial~eklem aralığı,1
+Medial OA,tr,medial~kondromalazi,1
+Lateral OA,tr,lateral~kıkırdak,1
+Lateral OA,tr,lateral~osteofit,1
+Lateral OA,tr,lateral~gonartroz,1
+Lateral OA,tr,lateral~eklem aralığı,1
+Lateral OA,tr,lateral~kondromalazi,1

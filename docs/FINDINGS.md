@@ -102,6 +102,8 @@ clever workaround.
 | 3.17 | **The host expects report-derived labels** | `VERIFIED` | data-description: "Only a small subset of training studies carry per-condition labels. We also provide the original text of the radiology report **from which you may wish to derive the labels for the remaining studies**." The weak-supervision framing is the intended solution path, not a workaround. |
 | 3.13 | Train and test studies are disjoint | `VERIFIED` | zero `StudyInstanceUID` overlap between `test.csv` and `train.csv` |
 | 3.14 | Data layout | `VERIFIED` | top-level `train_series/` and `test_series/` directories of `.dcm`, plus 5 root CSVs. (Not `train_images/`, as the brief assumed.) |
+| 3.18 | **Kaggle mount path** | `VERIFIED` | The competition data mounts at **`/kaggle/input/competitions/rsna-knee-abnormality-detection`**, nested under `competitions/` — *not* at `/kaggle/input/<slug>`. The first header-scan kernel run failed on this and scanned zero series. Both kernels now discover the root by searching for files that must exist. |
+| 3.19 | **Cost of reaching the DICOM data** | `VERIFIED (measured on Kaggle)` | Directory traversal plus one header read per series costs **0.059 s per study** (3 studies, 15 series, 557 files). Extrapolated to the ~1,300-study hidden test that is **77 seconds, or 0.2% of the 9-hour cap**. So file access is effectively free and the entire ~24 s/study budget is available for pixel decoding and inference. Note this did **not** decode pixels — the real constraint remains the ~215,000 slices. |
 
 ---
 

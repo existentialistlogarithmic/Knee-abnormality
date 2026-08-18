@@ -250,3 +250,35 @@ Notes on the fields that people fudge:
   right instrument for lexicon work.
 - **next**: the remaining holes are compartment OA in Greek, Croatian and
   Spanish (all still ≥0.77 abstain). Then laterality.
+
+### E008 — first kernels on Kaggle; submission pipeline proven, budget measured
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: pushed two kernels to the Kaggle account
+  (`achelijndiamantidis`, not the GitHub name): the DICOM header scan and
+  `kaggle/01_submission_baseline`.
+- **runtime**: submission kernel **1.2 s** wall clock
+- **CV**: n/a
+- **LB**: **0.500 public** — exactly as predicted. Constant predictions give an
+  AUC of 0.5 whatever constants are chosen, so this is confirmation the scoring
+  path works, not a result.
+- **what it means**: three things bought cheaply.
+  1. **The submission pipeline is proven end to end** while there is still time
+     to fix it, which is the failure mode that kills code-competition entries at
+     the deadline. There is now a known-good baseline to diff against.
+  2. **The mount path was wrong and cost a kernel run to discover.** Competition
+     data lives at `/kaggle/input/competitions/<slug>`, nested under
+     `competitions/`, not at `/kaggle/input/<slug>`. The first header-scan run
+     found nothing and exited having scanned zero series. Both kernels now
+     search for the files that must exist and log what they found.
+  3. **The runtime budget is measured, not guessed.** Directory traversal plus
+     one header read per series costs **0.059 s/study**, which extrapolates to
+     77 s over the ~1,300-study hidden test — **0.2% of the 9-hour cap**. File
+     access is effectively free, so essentially the whole ~24 s/study is
+     available for pixel decoding and inference. Caveat: this did not decode
+     pixels, and ~215,000 slices is still the real constraint.
+- **also learned**: Kaggle derives the kernel slug from the **title**, not the
+  `id` field; a mismatch silently creates a second kernel on the next push.
+  Set `id` to the slug in the URL the first push prints.
+- **next**: the header scan is running over ~31,500 series; its output gives the
+  scanner fingerprint, and with it grouped folds and the leakage audit.

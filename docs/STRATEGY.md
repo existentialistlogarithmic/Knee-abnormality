@@ -135,11 +135,11 @@ tell us it is good. This is the single easiest way to fool ourselves here.
    probability is fitted on training folds only. Fitting it on the gold set and
    then evaluating on the gold set produces a number that means nothing.
 4. **No report text leaves the machine.** Competition Rule 4.b (Data Security).
-   No hosted LLM API — not OpenAI, Anthropic, Gemini, or any other — sees a
-   single report string. Multilingual work uses open-weights models running
-   locally or inside a Kaggle kernel. If a shortcut ever seems to require it,
-   the shortcut is wrong. Language identification already runs offline
-   (`py3langid`), so the ten-language split cost nothing in this regard.
+   No hosted LLM API of any provider sees a single report string. Multilingual
+   work uses open-weights models running locally or inside a Kaggle kernel. If a
+   shortcut ever seems to require it, the shortcut is wrong. Language
+   identification already runs offline (`py3langid`), so the ten-language split
+   cost nothing in this regard.
 5. **Kaggle-to-Kaggle.** The bulk data is never downloaded locally. Each kernel
    mounts the previous kernel's output as a Dataset. Local machine handles CSVs,
    metadata, and report text analysis only.

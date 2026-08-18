@@ -10,9 +10,14 @@ trustworthy targets.
 
 Everyone's imaging model is trained on labels derived from the same free-text
 reports. The quality of those derived labels is an upper bound on everyone's
-score, and it is upstream of every architectural choice anyone makes. That is
-where a small-compute entrant can win, and it happens to be the part that looks
-most like ordinary NLP engineering.
+score, and it is upstream of every architectural choice anyone makes.
+
+**Caveat added after reading the leaderboard:** 200 teams are already above
+0.917, which nobody reaches without turning those reports into usable labels. So
+this is not an untapped edge — it is table stakes, and the edge is in doing it
+better than a field that has already done it once. Plan accordingly: the label
+pipeline is still where the effort goes, but expecting it to be a secret is
+wrong.
 
 **Corollary:** effort goes to the labeler first, the imaging model second. A
 mediocre backbone on well-calibrated targets beats a strong backbone on noisy
@@ -70,19 +75,23 @@ on the eight easy findings and random on four caps out at about 0.83. Chasing
 0.90 means the *worst* findings decide it, so effort belongs there rather than
 on polishing the ones already working.
 
-### 0.90 is a stretch, and the honest version of that is a number
+### 0.90 is below the bar, not above it — corrected 2026-08-18
 
-The public baseline is reported at ~0.809 (`UNVERIFIED` — claim 5.4). Going from
-0.809 to 0.90 is not an incremental gain; it is roughly halving the remaining
-distance to a perfect score. That can happen — the competition opened
-2026-08-05 and already has 1,866 teams, so public baselines are early and weak,
-and the label pipeline is genuinely under-exploited — but it is not the default
-outcome of doing competent work.
+The ~0.809 "public baseline" in the brief is **wrong by a wide margin**. Read
+from the actual leaderboard: the top score is **0.9510**, and the **top 200
+teams all sit at 0.9170 or better**, median 0.9200.
 
-I am not going to promise a leaderboard number, and I would distrust anyone who
-did. What can be promised is this: the thing that most plausibly *caps* the
-score gets measured first, early, and reported plainly, so effort is spent
-against a known ceiling instead of against hope.
+So 0.90 does not reach the top 200 of 1,866 teams. The real bars are ~0.941 for
+a top-ten prize, ~0.930 for the top 20%, ~0.917 to make the top 200.
+
+**Hitting 0.90 would therefore not be success; it would be the floor.** Anyone
+planning against 0.90 as a stretch goal — which is what this document said
+before the leaderboard was read — is planning to finish near the bottom of the
+ranked field. The target for real work is **0.94+**.
+
+I am still not going to promise a leaderboard number. What can be promised is
+that the thing which most plausibly caps the score gets measured first and
+reported plainly, so effort is spent against a known ceiling rather than hope.
 
 ### The ceiling worth measuring first
 

@@ -201,6 +201,41 @@ that. Every number computed on it gets an interval printed next to it.
 
 ---
 
+## 8. Where the leaderboard actually sits — `VERIFIED`
+
+Read via `competition_leaderboard_view` on 2026-08-18, top 200 of 1,866 teams.
+
+| score | approximate rank | percentile |
+|---:|---:|---|
+| 0.951 | 1 | top of the board |
+| 0.940 | ~11 | top 6% of the read sample |
+| 0.930 | ~40 | top 20% |
+| 0.920 | ~94 | top 47% |
+| ≤ 0.917 | outside the top 200 | — |
+
+**This inverts the framing of the 0.90 target.** 0.90 is not an ambitious score
+in this competition — it does not reach the top 200 teams. The bar is roughly:
+
+- **~0.941** for a top-ten finish, which is where the main-leaderboard prizes are
+- **~0.930** for a top-20% finish
+- **~0.917** merely to enter the top 200
+
+Two consequences that matter more than the number itself:
+
+1. **The weak-supervision problem is not an untapped edge.** Two hundred teams
+   are already above 0.917, which is not reachable without deriving usable labels
+   from the reports. Everyone has done it. The strategy's bet — that the label
+   pipeline is where a small-compute entrant wins — has to be downgraded from
+   "under-explored" to "table stakes, and the edge is in doing it better".
+2. **The efficiency track is the more reachable prize.** It pays $18,000, and
+   eligibility requires only beating the `sample_submission.csv` benchmark on the
+   private leaderboard (§2.13). Runtime enters the score divided by the 9-hour
+   cap, so a fast, decent kernel can place there without a top-ten AUC. For an
+   entrant on a free Kaggle account this is a better expected return per GPU-hour
+   than chasing 0.941.
+
+---
+
 ## 6. Label-ceiling probe — is there signal in the reports at all?
 
 `eda/label_ceiling_probe.py`, run on the 58 gold studies. The matcher is
@@ -272,7 +307,7 @@ discovering later.
 | 5.1 | Ground truth is image-derived (2 MSK radiologists + adjudicator, severity-thresholded) | `UNVERIFIED` | the data-description page does **not** describe the annotation process. Not stated anywhere I can reach through the API; would need the forum or the RSNA challenge page. |
 | 5.2 | Report-derived labels agree ~82% with image labels | `UNVERIFIED` | measurable in Phase 1 against the 58, with the interval from §4 |
 | 5.3 | Random K-fold inflates AUC by 0.05–0.14 | `UNVERIFIED` | blocked on the header scan. Note the audit now compares random K-fold against **scanner-fingerprint**-grouped K-fold, since no true site label exists (§5.1). |
-| 5.4 | Public baseline ~0.809 | `UNVERIFIED` | needs the leaderboard |
+| 5.4 | Public baseline ~0.809 | `CONTRADICTED` | Read from the public leaderboard: **top score 0.9510**, and the **top 200 teams all score ≥ 0.9170** (median of that group 0.9200). The 0.809 figure is stale by a wide margin — it may have been an early baseline notebook. See §8. |
 
 ---
 

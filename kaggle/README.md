@@ -129,3 +129,12 @@ on, and it also sidesteps the output-download rate limit entirely.
 
 Note `kernel_sources` mounts a kernel's **latest** output, which is why the
 cache is four separate kernels rather than one kernel run four times.
+
+## Concurrency limit: 5 CPU sessions
+
+`Kernel push error: Maximum batch CPU session count of 5 reached.` Kaggle runs at
+most **5 batch CPU sessions** per account at once. Pushing a sixth is rejected
+outright — the kernel is not queued, so a fan-out wider than 5 needs its own
+queue. `eda/push_queue.sh` waits for a slot and pushes the rest.
+
+This is why the v1 cache used 4 shards and the v2 cache, at 8, has to drip-feed.

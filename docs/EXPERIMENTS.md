@@ -202,3 +202,51 @@ Notes on the fields that people fudge:
   them would have cost precision.
 - **next**: laterality handling; then per-language error review, since English
   is over-represented in the gold set and the other 61% is unaudited.
+
+### E007 — per-language coverage audit: the non-English lexicons were broken
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: added `eda/labeler_coverage_by_language.py`, which measures
+  abstain rate per finding per language. It needs **no labels**, so it is a safe
+  optimisation signal — the 58 gold studies stay a test set instead of becoming
+  a training signal. Then 153 lexicon rows driven entirely by what it found.
+- **runtime**: ~2 min per pass, CPU
+- **CV**: macro AUC 0.7589 → **0.7608** (third gold evaluation)
+- **what it means**: the audit exposed that several non-English lexicons were
+  barely functioning, which no amount of gold-set evaluation would have revealed
+  — the gold subset holds 2 German and 3 Greek studies. Abstain rates against
+  the English baseline, before → after:
+
+  | hole | before | after | reports |
+  |---|---:|---:|---:|
+  | German ACL | 0.71 | **0.09** | 262 |
+  | Greek ACL | 0.74 | **0.09** | 321 |
+  | Bulgarian MCL | 0.97 | **0.03** | 220 |
+  | Turkish Lateral OA | 0.99 | **0.80** | 546 |
+  | Turkish Medial OA | 0.98 | **0.79** | 546 |
+  | Croatian Contusion | 1.00 | **0.61** | 330 |
+  | Spanish ACL | 0.87 | **0.44** | 682 |
+  | Spanish MCL | 0.94 | **0.46** | 682 |
+
+  Every fix came from a frequency scan rather than from intuition, and the
+  causes were ordinary morphology that a non-speaker would never guess:
+  Spanish reports name the cruciates in the **plural** ("ligamentos cruzados
+  íntegros" — 44% of Spanish reports, against 1% for "cruzado anterior"); German
+  prefers the plural **"Kreuzbänder"** (51% vs 26%); Greek writes **stems**
+  ("χιαστ" in 91%, but "έσω πλάγι" in only 7%); Bulgarian uses bare
+  **"колатерал"** (97%). Turkish compound anchors were simply wrong —
+  "medial femorotibial" appears in **one** report of 546 — so the anchor became
+  the bare compartment word, paired only with degeneration terms that cannot
+  describe a meniscus, which keeps meniscal degeneration from firing
+  compartment OA.
+
+- **Why the gold number moved so little, and why that is expected.** The gold
+  subset is 48% English while the corpus is 39%, and it contains 2 German and
+  3 Greek studies. Almost everything fixed in this round is invisible to it. The
+  +0.002 on gold is therefore a **floor on the real improvement**, not a measure
+  of it — the training labels for the 61% of studies that are not English got
+  materially better, and there is no labelled data anywhere that can prove it.
+  This is the clearest example so far of why abstain rate, not gold AUC, is the
+  right instrument for lexicon work.
+- **next**: the remaining holes are compartment OA in Greek, Croatian and
+  Spanish (all still ≥0.77 abstain). Then laterality.

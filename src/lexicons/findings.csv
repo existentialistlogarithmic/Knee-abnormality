@@ -715,3 +715,158 @@ Synovitis,bg,синовиал,0
 Synovitis,el,υμενίτ,0
 Synovitis,el,αρθρικού υμένα,0
 Synovitis,fr,synovial,0
+# --- corpus-frequency corrections (see docs/EXPERIMENTS.md E007) ---
+ACL,es,cruzados,1
+ACL,es,cruzado,1
+ACL,es,lca,1
+MCL,es,colaterales,1
+MCL,es,lcm,1
+MCL,es,ligamento colateral medial,0
+ACL,de,kreuzbänder,1
+ACL,de,kreuzband,1
+ACL,de,kreuzbandes,1
+ACL,el,πρόσθι~χιαστ,1
+ACL,el,χιαστ,1
+MCL,el,έσω~πλάγι,1
+MCL,el,πλάγι~έσω,1
+MCL,bg,медиал~колатерал,1
+MCL,bg,колатерал,1
+Contusion,hr,edem~košt,1
+Contusion,hr,edem~srži,1
+Medial OA,tr,medial kondil~kıkırdak,0
+Medial OA,tr,medial kondil~osteofit,0
+Medial OA,tr,medial kondil~dejeneratif,0
+Medial OA,tr,medial kondil~dejenera,0
+Medial OA,tr,medial kondil~kondromalazi,0
+Medial OA,tr,medial kondil~gonartroz,0
+Medial OA,tr,medial kondil~eklem aralığı,0
+Medial OA,tr,medial femoral kondil~kıkırdak,0
+Medial OA,tr,medial femoral kondil~osteofit,0
+Medial OA,tr,medial femoral kondil~dejeneratif,0
+Medial OA,tr,medial femoral kondil~dejenera,0
+Medial OA,tr,medial femoral kondil~kondromalazi,0
+Medial OA,tr,medial femoral kondil~gonartroz,0
+Medial OA,tr,medial femoral kondil~eklem aralığı,0
+Medial OA,tr,medial eklem aralığı~kıkırdak,0
+Medial OA,tr,medial eklem aralığı~osteofit,0
+Medial OA,tr,medial eklem aralığı~dejeneratif,0
+Medial OA,tr,medial eklem aralığı~dejenera,0
+Medial OA,tr,medial eklem aralığı~kondromalazi,0
+Medial OA,tr,medial eklem aralığı~gonartroz,0
+Medial OA,tr,medial eklem aralığı~eklem aralığı,0
+Medial OA,tr,medial tibial~kıkırdak,0
+Medial OA,tr,medial tibial~osteofit,0
+Medial OA,tr,medial tibial~dejeneratif,0
+Medial OA,tr,medial tibial~dejenera,0
+Medial OA,tr,medial tibial~kondromalazi,0
+Medial OA,tr,medial tibial~gonartroz,0
+Medial OA,tr,medial tibial~eklem aralığı,0
+Medial OA,tr,medial femur~kıkırdak,0
+Medial OA,tr,medial femur~osteofit,0
+Medial OA,tr,medial femur~dejeneratif,0
+Medial OA,tr,medial femur~dejenera,0
+Medial OA,tr,medial femur~kondromalazi,0
+Medial OA,tr,medial femur~gonartroz,0
+Medial OA,tr,medial femur~eklem aralığı,0
+Lateral OA,tr,lateral kondil~kıkırdak,0
+Lateral OA,tr,lateral kondil~osteofit,0
+Lateral OA,tr,lateral kondil~dejeneratif,0
+Lateral OA,tr,lateral kondil~dejenera,0
+Lateral OA,tr,lateral kondil~kondromalazi,0
+Lateral OA,tr,lateral kondil~gonartroz,0
+Lateral OA,tr,lateral kondil~eklem aralığı,0
+Lateral OA,tr,lateral femoral kondil~kıkırdak,0
+Lateral OA,tr,lateral femoral kondil~osteofit,0
+Lateral OA,tr,lateral femoral kondil~dejeneratif,0
+Lateral OA,tr,lateral femoral kondil~dejenera,0
+Lateral OA,tr,lateral femoral kondil~kondromalazi,0
+Lateral OA,tr,lateral femoral kondil~gonartroz,0
+Lateral OA,tr,lateral femoral kondil~eklem aralığı,0
+Lateral OA,tr,lateral eklem aralığı~kıkırdak,0
+Lateral OA,tr,lateral eklem aralığı~osteofit,0
+Lateral OA,tr,lateral eklem aralığı~dejeneratif,0
+Lateral OA,tr,lateral eklem aralığı~dejenera,0
+Lateral OA,tr,lateral eklem aralığı~kondromalazi,0
+Lateral OA,tr,lateral eklem aralığı~gonartroz,0
+Lateral OA,tr,lateral eklem aralığı~eklem aralığı,0
+Lateral OA,tr,lateral tibial~kıkırdak,0
+Lateral OA,tr,lateral tibial~osteofit,0
+Lateral OA,tr,lateral tibial~dejeneratif,0
+Lateral OA,tr,lateral tibial~dejenera,0
+Lateral OA,tr,lateral tibial~kondromalazi,0
+Lateral OA,tr,lateral tibial~gonartroz,0
+Lateral OA,tr,lateral tibial~eklem aralığı,0
+Lateral OA,tr,lateral femur~kıkırdak,0
+Lateral OA,tr,lateral femur~osteofit,0
+Lateral OA,tr,lateral femur~dejeneratif,0
+Lateral OA,tr,lateral femur~dejenera,0
+Lateral OA,tr,lateral femur~kondromalazi,0
+Lateral OA,tr,lateral femur~gonartroz,0
+Lateral OA,tr,lateral femur~eklem aralığı,0
+Medial OA,es,cóndilo medial~condropatía,0
+Medial OA,es,cóndilo medial~condropatia,0
+Medial OA,es,cóndilo medial~osteofito,0
+Medial OA,es,cóndilo medial~cartílago,0
+Medial OA,es,cóndilo medial~artrosis,0
+Medial OA,es,cóndilo medial~degenerativ,0
+Medial OA,es,cóndilo medial~condral,0
+Medial OA,es,cóndilo interno~condropatía,0
+Medial OA,es,cóndilo interno~condropatia,0
+Medial OA,es,cóndilo interno~osteofito,0
+Medial OA,es,cóndilo interno~cartílago,0
+Medial OA,es,cóndilo interno~artrosis,0
+Medial OA,es,cóndilo interno~degenerativ,0
+Medial OA,es,cóndilo interno~condral,0
+Medial OA,es,meseta tibial medial~condropatía,0
+Medial OA,es,meseta tibial medial~condropatia,0
+Medial OA,es,meseta tibial medial~osteofito,0
+Medial OA,es,meseta tibial medial~cartílago,0
+Medial OA,es,meseta tibial medial~artrosis,0
+Medial OA,es,meseta tibial medial~degenerativ,0
+Medial OA,es,meseta tibial medial~condral,0
+Medial OA,es,meseta tibial interna~condropatía,0
+Medial OA,es,meseta tibial interna~condropatia,0
+Medial OA,es,meseta tibial interna~osteofito,0
+Medial OA,es,meseta tibial interna~cartílago,0
+Medial OA,es,meseta tibial interna~artrosis,0
+Medial OA,es,meseta tibial interna~degenerativ,0
+Medial OA,es,meseta tibial interna~condral,0
+Lateral OA,es,cóndilo lateral~condropatía,0
+Lateral OA,es,cóndilo lateral~condropatia,0
+Lateral OA,es,cóndilo lateral~osteofito,0
+Lateral OA,es,cóndilo lateral~cartílago,0
+Lateral OA,es,cóndilo lateral~artrosis,0
+Lateral OA,es,cóndilo lateral~degenerativ,0
+Lateral OA,es,cóndilo lateral~condral,0
+Lateral OA,es,cóndilo externo~condropatía,0
+Lateral OA,es,cóndilo externo~condropatia,0
+Lateral OA,es,cóndilo externo~osteofito,0
+Lateral OA,es,cóndilo externo~cartílago,0
+Lateral OA,es,cóndilo externo~artrosis,0
+Lateral OA,es,cóndilo externo~degenerativ,0
+Lateral OA,es,cóndilo externo~condral,0
+Lateral OA,es,meseta tibial lateral~condropatía,0
+Lateral OA,es,meseta tibial lateral~condropatia,0
+Lateral OA,es,meseta tibial lateral~osteofito,0
+Lateral OA,es,meseta tibial lateral~cartílago,0
+Lateral OA,es,meseta tibial lateral~artrosis,0
+Lateral OA,es,meseta tibial lateral~degenerativ,0
+Lateral OA,es,meseta tibial lateral~condral,0
+Lateral OA,es,meseta tibial externa~condropatía,0
+Lateral OA,es,meseta tibial externa~condropatia,0
+Lateral OA,es,meseta tibial externa~osteofito,0
+Lateral OA,es,meseta tibial externa~cartílago,0
+Lateral OA,es,meseta tibial externa~artrosis,0
+Lateral OA,es,meseta tibial externa~degenerativ,0
+Lateral OA,es,meseta tibial externa~condral,0
+# Turkish: bare compartment anchor, paired only with non-meniscal terms.
+Medial OA,tr,medial~kıkırdak,1
+Medial OA,tr,medial~osteofit,1
+Medial OA,tr,medial~gonartroz,1
+Medial OA,tr,medial~eklem aralığı,1
+Medial OA,tr,medial~kondromalazi,1
+Lateral OA,tr,lateral~kıkırdak,1
+Lateral OA,tr,lateral~osteofit,1
+Lateral OA,tr,lateral~gonartroz,1
+Lateral OA,tr,lateral~eklem aralığı,1
+Lateral OA,tr,lateral~kondromalazi,1

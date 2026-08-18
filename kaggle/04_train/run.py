@@ -43,13 +43,16 @@ import pandas as pd
 # KERNEL RUN CONFIG — Kaggle script kernels take no arguments.
 # --------------------------------------------------------------------------- #
 RUN_FOLD = 0
-RUN_EPOCHS = 14
-RUN_BATCH = 8
-RUN_LR = 3e-4
-RUN_BACKBONE = "resnet18"
+RUN_EPOCHS = 24
+RUN_BATCH = 16             # AMP + both T4s make this affordable
+RUN_LR = 6e-4              # scaled with the larger effective batch
+RUN_BACKBONE = "resnet34"
 RUN_TIME_BUDGET = 7.5 * 3600
 GOLD_WEIGHT = 8.0          # how much more an expert label counts than a report one
 ABSTAIN_MASKS_LOSS = True  # silence is not supervision
+WARMUP_EPOCHS = 2          # cosine schedule warms up, then decays to ~0
+EMA_DECAY = 0.999          # evaluated weights are an average, not the last step
+LABEL_SMOOTH = 0.02        # targets are noisy by construction; do not chase 0/1
 # --------------------------------------------------------------------------- #
 
 FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
@@ -155,11 +158,23 @@ class StudyDataset:
         array = volume.astype(np.float32) / 255.0
 
         if self.augment:
-            if np.random.rand() < 0.5:                      # flip along the slice axis
+            # NOTE: no left-right flip. Right knees were already mirrored during
+            # the cache build so every volume shows the same anatomy; flipping
+            # here would undo that and make medial/lateral findings ambiguous —
+            # and four of the twelve targets are explicitly medial or lateral.
+            if np.random.rand() < 0.5:                      # reverse slice order
                 array = array[:, ::-1].copy()
-            shift = np.random.randint(-8, 9, size=2)        # small translation
+            shift = np.random.randint(-12, 13, size=2)
             array = np.roll(array, shift, axis=(2, 3))
-            array = np.clip(array * np.random.uniform(0.9, 1.1), 0.0, 1.0)
+            array = array * np.random.uniform(0.85, 1.15) + np.random.uniform(-0.05, 0.05)
+            if np.random.rand() < 0.3:                       # coarse dropout
+                size = np.random.randint(16, 48)
+                y = np.random.randint(0, max(1, array.shape[2] - size))
+                x = np.random.randint(0, max(1, array.shape[3] - size))
+                array[:, :, y:y + size, x:x + size] = 0.0
+            if np.random.rand() < 0.3:                       # drop a whole plane
+                array[np.random.randint(0, array.shape[0])] = 0.0
+            array = np.clip(array, 0.0, 1.0)
 
         return (torch.from_numpy(array),
                 torch.from_numpy(self.targets[index]),
@@ -212,6 +227,12 @@ def main() -> int:
     parser.add_argument("--lr", type=float, default=RUN_LR)
     parser.add_argument("--backbone", default=RUN_BACKBONE)
     parser.add_argument("--cache", default=None)
+    parser.add_argument("--min-studies", type=int, default=50,
+                        help="guard against training on an empty cache mount")
+    parser.add_argument("--labels", default=None,
+                        help="directory holding soft_labels.parquet (local runs)")
+    parser.add_argument("--headers", default=None,
+                        help="directory holding series_headers.parquet (local runs)")
     parser.add_argument("--out", default="/kaggle/working")
     parser.add_argument("--time-budget", type=float, default=RUN_TIME_BUDGET)
     args, _unknown = parser.parse_known_args()
@@ -231,8 +252,8 @@ def main() -> int:
 
     cache_dirs = ([Path(args.cache)] if args.cache
                   else find_all_markers("cache_index_train_*.parquet"))
-    artifacts = find_marker("soft_labels.parquet")
-    headers_dir = find_marker("series_headers.parquet")
+    artifacts = Path(args.labels) if args.labels else find_marker("soft_labels.parquet")
+    headers_dir = Path(args.headers) if args.headers else find_marker("series_headers.parquet")
     if not cache_dirs or artifacts is None or headers_dir is None:
         raise SystemExit(f"missing inputs: cache={cache_dirs} labels={artifacts} "
                          f"headers={headers_dir}")
@@ -267,8 +288,9 @@ def main() -> int:
 
     studies = sorted(available & set(soft.index) & set(groups.index))
     print(f"usable studies: {len(studies):,}")
-    if len(studies) < 50:
-        raise SystemExit("too few cached studies to train; build the cache first")
+    if len(studies) < args.min_studies:
+        raise SystemExit(f"only {len(studies)} usable studies (min {args.min_studies}); "
+                         "the cache mount is probably wrong — build the cache first")
 
     targets = soft.loc[studies, FINDINGS].astype(float).to_numpy()
     channels = soft.loc[studies, [f"{f}__channel" for f in FINDINGS]].to_numpy()
@@ -300,8 +322,24 @@ def main() -> int:
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = build_model(args.backbone, 3, len(FINDINGS)).to(device)
+
+    # Both cards were sitting idle: NvidiaTeslaT4 grants two, and the first run
+    # used one. With AMP as well this is roughly a 4x throughput change, which is
+    # what pays for the larger backbone and the longer schedule.
+    core = model
+    if device == "cuda" and torch.cuda.device_count() > 1:
+        model = nn.DataParallel(model)
+        print(f"DataParallel across {torch.cuda.device_count()} GPUs")
+
     optimiser = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
     criterion = nn.BCEWithLogitsLoss(reduction="none")
+    use_amp = device == "cuda"
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+    print(f"mixed precision: {use_amp}")
+
+    # Exponential moving average of the weights. Cheap, and it reliably beats the
+    # final step when the targets are noisy — which here they are by construction.
+    ema = {k: v.detach().clone().float() for k, v in core.state_dict().items()}
 
     def make_loader(indices, augment, shuffle):
         dataset = StudyDataset(cache_paths, [studies[i] for i in indices],
@@ -329,39 +367,80 @@ def main() -> int:
     start_epoch = 0
     if resume_from is not None:
         state = torch.load(resume_from, map_location=device, weights_only=False)
-        model.load_state_dict(state["model"])
+        core.load_state_dict(state["model"])
+        if state.get("ema"):
+            ema = {k: v.to(device).float() for k, v in state["ema"].items()}
         optimiser.load_state_dict(state["optimiser"])
         start_epoch = state["epoch"] + 1
         print(f"resumed from epoch {start_epoch} "
               f"(previous best macro AUC {state.get('macro_auc', float('nan')):.4f})")
 
+    import math
+
+    steps_per_epoch = max(len(train_loader), 1)
+
+    def learning_rate_at(epoch_index: int, step: int) -> float:
+        """Linear warmup then cosine decay, computed per step rather than per epoch."""
+        progress = epoch_index + step / steps_per_epoch
+        if progress < WARMUP_EPOCHS:
+            return args.lr * (progress + 1e-8) / WARMUP_EPOCHS
+        span = max(args.epochs - WARMUP_EPOCHS, 1)
+        cosine = 0.5 * (1 + math.cos(math.pi * (progress - WARMUP_EPOCHS) / span))
+        return args.lr * max(cosine, 0.02)
+
     history = []
     for epoch in range(start_epoch, args.epochs):
         model.train()
         total = 0.0
-        for volumes, target, mask, weight in train_loader:
+        for step, (volumes, target, mask, weight) in enumerate(train_loader):
+            for group in optimiser.param_groups:
+                group["lr"] = learning_rate_at(epoch, step)
+
             volumes, target = volumes.to(device), target.to(device)
             mask, weight = mask.to(device), weight.to(device)
-            optimiser.zero_grad()
-            logits = model(volumes)
-            loss = criterion(logits, target) * mask * weight.unsqueeze(1)
-            denominator = (mask * weight.unsqueeze(1)).sum().clamp(min=1.0)
-            loss = loss.sum() / denominator
-            loss.backward()
-            optimiser.step()
-            total += float(loss)
+            target = target * (1 - 2 * LABEL_SMOOTH) + LABEL_SMOOTH
+
+            optimiser.zero_grad(set_to_none=True)
+            with torch.amp.autocast("cuda", enabled=use_amp):
+                logits = model(volumes)
+                loss = criterion(logits.float(), target) * mask * weight.unsqueeze(1)
+                denominator = (mask * weight.unsqueeze(1)).sum().clamp(min=1.0)
+                loss = loss.sum() / denominator
+
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimiser)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
+            scaler.step(optimiser)
+            scaler.update()
+
+            with torch.no_grad():
+                for key, value in core.state_dict().items():
+                    if value.dtype.is_floating_point:
+                        ema[key].mul_(EMA_DECAY).add_(value.float(), alpha=1 - EMA_DECAY)
+                    else:
+                        ema[key] = value.detach().clone().float()
+
+            total += float(loss.detach())
+
+        # Evaluate the averaged weights, not the last step. Swap them in, score,
+        # then restore so training continues from the live weights.
+        live = {k: v.detach().clone() for k, v in core.state_dict().items()}
+        core.load_state_dict({k: v.to(live[k].dtype) for k, v in ema.items()})
 
         model.eval()
         predictions, truths, valid = [], [], []
         with torch.no_grad():
             for volumes, target, mask, _weight in val_loader:
-                logits = model(volumes.to(device))
-                predictions.append(torch.sigmoid(logits).cpu().numpy())
+                with torch.amp.autocast("cuda", enabled=use_amp):
+                    logits = model(volumes.to(device))
+                predictions.append(torch.sigmoid(logits.float()).cpu().numpy())
                 truths.append(target.numpy())
                 valid.append(mask.numpy())
         predictions = np.concatenate(predictions)
         truths = np.concatenate(truths)
         valid = np.concatenate(valid)
+        ema_state = {k: v.detach().cpu().clone() for k, v in core.state_dict().items()}
+        core.load_state_dict(live)
 
         aucs = {}
         for i, finding in enumerate(FINDINGS):
@@ -379,8 +458,13 @@ def main() -> int:
                         "spread": round(spread, 4),
                         "per_finding": {k: round(v, 4) for k, v in aucs.items()}})
 
-        torch.save({"model": model.state_dict(), "optimiser": optimiser.state_dict(),
-                    "epoch": epoch, "macro_auc": macro}, checkpoint_path)
+        # Save the unwrapped module. A DataParallel state_dict carries a
+        # "module." prefix on every key, and the inference kernel builds a plain
+        # model — it would fail to load, or worse, load partially.
+        # The saved weights are the EMA ones, i.e. exactly what was scored above.
+        torch.save({"model": ema_state, "optimiser": optimiser.state_dict(),
+                    "ema": ema_state, "epoch": epoch, "macro_auc": macro,
+                    "backbone": args.backbone}, checkpoint_path)
         (out_dir / f"history_fold{args.fold}.json").write_text(json.dumps(history, indent=2))
 
         if time.time() - started > args.time_budget:

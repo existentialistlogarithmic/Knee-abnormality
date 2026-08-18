@@ -257,10 +257,18 @@ def main() -> int:
             print("pre-Volta GPU; falling back to CPU to avoid a CUDA failure")
             device = "cpu"
 
-    model = build_model("resnet18", 3, len(FINDINGS)).to(device)
     state = torch.load(weights_dir / "checkpoint_fold0.pt", map_location=device,
                        weights_only=False)
-    model.load_state_dict(state["model"])
+    # Read the backbone from the checkpoint rather than hardcoding it. When
+    # training switched resnet18 -> resnet34 a hardcoded name here would have
+    # thrown a size-mismatch at best, and silently loaded nothing at worst.
+    backbone = state.get("backbone", "resnet18")
+    print(f"backbone from checkpoint: {backbone}")
+    model = build_model(backbone, 3, len(FINDINGS)).to(device)
+    missing, unexpected = model.load_state_dict(state["model"], strict=False)
+    if missing or unexpected:
+        raise SystemExit(f"weight mismatch — missing={len(missing)} "
+                         f"unexpected={len(unexpected)}; refusing to predict")
     model.eval()
     print(f"loaded weights from epoch {state.get('epoch')} "
           f"(val macro AUC {state.get('macro_auc', float('nan')):.4f})")

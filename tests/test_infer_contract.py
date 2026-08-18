@@ -99,3 +99,33 @@ def test_inference_falls_back_rather_than_crashing_on_one_bad_study():
     assert "failures += 1" in source
     body = source[source.index("for i, study in enumerate(studies)"):]
     assert "except Exception" in body, "per-study loop has no guard"
+
+
+def test_inference_does_not_hardcode_the_backbone():
+    """Training switched resnet18 -> resnet34; a hardcoded name here would break."""
+    source = _source(INFER)
+    assert 'state.get("backbone"' in source, "backbone must come from the checkpoint"
+    assert 'build_model("resnet18"' not in source, "backbone is hardcoded"
+
+
+def test_inference_refuses_a_partial_weight_load():
+    """strict=False silently accepts a mismatched checkpoint; that must be caught."""
+    source = _source(INFER)
+    assert "refusing to predict" in source
+    assert "missing, unexpected" in source
+
+
+def test_training_saves_unwrapped_weights():
+    """DataParallel prefixes every key with 'module.'; inference builds a plain model."""
+    source = _source(TRAIN)
+    save = source[source.index("torch.save("):]
+    assert '"model": ema_state' in save, "checkpoint must save unwrapped EMA weights"
+    assert "model.state_dict()" not in save.split("\n")[0], "would save DataParallel keys"
+
+
+def test_training_does_not_flip_left_right():
+    """Right knees are mirrored in the cache; flipping would undo that and make
+    the four medial/lateral targets ambiguous."""
+    source = _source(TRAIN)
+    augment = source[source.index("if self.augment:"):source.index("return (torch.from_numpy")]
+    assert "[..., ::-1]" not in augment, "left-right flip would undo laterality correction"

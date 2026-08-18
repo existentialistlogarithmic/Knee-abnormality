@@ -203,6 +203,42 @@ that. Every number computed on it gets an interval printed next to it.
 
 ---
 
+## 10. Series selection — Phase 0 step 4, `VERIFIED`
+
+### The host's plane column is exactly right
+
+`Anatomical_Plane` from `train_series.csv` agrees with the plane derived from
+`ImageOrientationPatient` on **24,371 of 24,371 series — perfect agreement, zero
+disagreements**. The redundant derivation in the scan kernel earned its keep by
+establishing this: the host's column can be trusted outright, and no pipeline
+needs orientation maths.
+
+### What every study actually contains
+
+| plane / contrast | studies | share |
+|---|---:|---:|
+| **Axial, fluid-sensitive** | **4,407** | **100.0%** |
+| Sagittal, T1w-ish | 4,266 | 96.8% |
+| Coronal, fluid-sensitive | 4,248 | 96.4% |
+| Sagittal, fluid-sensitive | 4,150 | 94.2% |
+| Coronal, T1w-ish | 3,406 | 77.3% |
+| Axial, T1w-ish | 857 | 19.4% |
+
+**An axial fluid-sensitive series exists for every single study.** All three
+fluid-sensitive planes are present together in 90.6%.
+
+### The cheapest reliable rule
+
+Take **one fluid-sensitive series per plane**, preferring
+sagittal + coronal + axial, and degrade gracefully for the 9.4% of studies
+missing one. Axial fluid-sensitive is the guaranteed fallback and never fails.
+
+Sizing: fluid-sensitive slices per study run median 99, mean 110, p90 159,
+max 561 — **483,971 of 819,078 slices, 59% of the data**. Selecting one series
+per plane rather than all fluid-sensitive series cuts that substantially again.
+
+---
+
 ## 9. Leakage audit — Phase 0 step 5, `VERIFIED`
 
 `eda/leakage_audit.py`. A gradient-boosted model is given **only scanner

@@ -139,3 +139,30 @@ Notes on the fields that people fudge:
   host warns they are "not necessarily equivalent for every case", so both stay
   as separate model inputs rather than being collapsed.
 - **next**: push the header-scan kernel; begin the Phase 1 negation layer.
+
+### E005 — Phase 1 labeler v1: macro AUC 0.745 against expert labels
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: `src/report_labeler.py` plus reviewable lexicons
+  (`src/lexicons/findings.csv`, 198 terms; `src/lexicons/cues.csv`, 154 cues
+  across 10 languages). Cues bind to the nearest mention within sentence bounds,
+  so opposite polarities in one sentence resolve correctly.
+- **config**: lexicon only, no fitted parameters; abstain scored 0.15
+- **runtime**: ~40 s for all 4,407 reports, CPU
+- **CV**: **macro AUC 0.7448** on the 58 gold studies (crude Phase 0 floor was
+  0.601 balanced accuracy). 9 of 12 findings above 0.70; none below 0.55.
+- **LB**: n/a
+- **what it means**: the decisive addition was **normality cues**, not negation.
+  These reports mostly assert health — "intact", "normaldir", "regelrecht",
+  "запазена" — rather than deny disease, so a negation-only system reads "ACL
+  intact" as a positive. Adding that channel moved ACL from specificity 0.44 to
+  AUC 0.822.
+  The abstain rates now say exactly where the remaining work is, because AUC
+  tracks them almost monotonically: **Synovitis 0.561 AUC at 89% abstain** is the
+  worst by a distance — it is positive in 27 of 58 gold studies but the lexicon
+  finds it in barely a tenth of reports, so radiologists must be describing it in
+  words the term list does not have. **Lateral OA (77% abstain) and Medial OA
+  (76%)** are next; compartment osteoarthritis is being written as cartilage or
+  chondropathy language that the current terms miss.
+- **next**: lexicon coverage for Synovitis and the two compartment-OA findings;
+  they are the three cheapest AUC gains available and need no GPU.

@@ -1,0 +1,165 @@
+# Clause-level cues, one per row. Reviewed by hand; terms marked corpus=1 were
+# observed in the actual training reports during Phase 1 vocabulary mining.
+#
+# cue_type:
+#   negation   - denies the finding            ("no", "sin", "kein", "bez")
+#   normality  - asserts the structure is fine ("intact", "normaldir", "regelrecht")
+#   hedge      - reduces confidence            ("possible", "suspected")
+#   severity_low - present but below the likely labelling threshold ("grade 1", "mild")
+#
+# Matching is on word boundaries, case-folded, within a clause.
+language,cue_type,cue,corpus
+en,negation,no evidence of,1
+en,negation,no,1
+en,negation,without,1
+en,negation,not,1
+en,negation,absent,0
+en,negation,negative for,0
+en,negation,unremarkable,1
+en,normality,intact,1
+en,normality,normal,1
+en,normality,preserved,1
+en,normality,within normal limits,1
+en,normality,no abnormality,0
+en,hedge,possible,1
+en,hedge,possibly,0
+en,hedge,suspected,0
+en,hedge,cannot be excluded,0
+en,hedge,cannot exclude,0
+en,hedge,may represent,0
+en,hedge,question,0
+en,hedge,equivocal,0
+en,hedge,versus,0
+en,severity_low,grade 1,1
+en,severity_low,grade i,0
+en,severity_low,mild,1
+en,severity_low,minimal,1
+en,severity_low,trace,1
+en,severity_low,small,1
+es,negation,sin,1
+es,negation,no,1
+es,negation,ausencia de,0
+es,negation,sin evidencia de,0
+es,negation,sin signos de,0
+es,normality,normal,1
+es,normality,normales,1
+es,normality,integro,0
+es,normality,íntegro,0
+es,normality,conservado,0
+es,normality,dentro de limites normales,0
+es,normality,dentro de límites normales,1
+es,hedge,posible,1
+es,hedge,probable,1
+es,hedge,sugestivo,0
+es,hedge,no se puede descartar,0
+es,hedge,dudoso,0
+es,severity_low,leve,1
+es,severity_low,grado 1,1
+es,severity_low,minimo,0
+es,severity_low,mínimo,1
+es,severity_low,discreto,1
+tr,negation,yoktur,1
+tr,negation,izlenmedi,1
+tr,negation,izlenmemiştir,1
+tr,negation,saptanmadı,0
+tr,negation,yok,1
+tr,negation,mevcut değildir,0
+tr,normality,normaldir,1
+tr,normality,normal,1
+tr,normality,doğaldır,0
+tr,normality,olağandır,0
+tr,normality,intakt,1
+tr,hedge,şüpheli,0
+tr,hedge,olabilir,1
+tr,hedge,muhtemel,0
+tr,hedge,ayırt edilememiştir,0
+tr,severity_low,hafif,1
+tr,severity_low,minimal,1
+tr,severity_low,grade 1,1
+tr,severity_low,minimal düzeyde,0
+de,negation,kein,1
+de,negation,keine,1
+de,negation,keinen,0
+de,negation,ohne,1
+de,negation,nicht,1
+de,negation,unauffällig,1
+de,normality,intakt,1
+de,normality,intakter,1
+de,normality,intakte,1
+de,normality,intaktes,1
+de,normality,regelrecht,1
+de,normality,regelrechte,1
+de,normality,regelrechtes,1
+de,normality,erhalten,0
+de,hedge,möglich,0
+de,hedge,verdacht,0
+de,hedge,fraglich,0
+de,hedge,nicht sicher,0
+de,severity_low,gering,1
+de,severity_low,geringe,1
+de,severity_low,leichte,0
+de,severity_low,diskret,0
+nl,negation,geen,1
+nl,negation,zonder,0
+nl,negation,niet,0
+nl,normality,intact,1
+nl,normality,intacte,1
+nl,normality,normaal,1
+nl,normality,normale,1
+nl,normality,ongestoord,0
+nl,hedge,mogelijk,0
+nl,hedge,verdacht,0
+nl,hedge,niet uit te sluiten,0
+nl,severity_low,gering,0
+nl,severity_low,lichte,0
+nl,severity_low,graad 1,0
+fr,negation,pas de,0
+fr,negation,sans,0
+fr,negation,absence de,0
+fr,normality,intact,0
+fr,normality,normal,0
+fr,normality,continu,0
+fr,hedge,possible,0
+fr,hedge,suspicion,0
+fr,severity_low,discret,0
+fr,severity_low,minime,0
+fr,severity_low,grade 1,0
+hr,negation,bez,1
+hr,negation,ne,0
+hr,negation,bez znakova,1
+hr,normality,uredan,0
+hr,normality,uredne,0
+hr,normality,očuvan,0
+hr,normality,održanog kontinuiteta,1
+hr,normality,primjerenih,1
+hr,hedge,moguća,0
+hr,hedge,suspektno,0
+hr,severity_low,blaga,0
+hr,severity_low,stupnja 1,0
+bs,negation,bez,0
+bs,negation,bez znakova,0
+bs,normality,uredan,0
+bs,normality,očuvan,0
+bs,severity_low,blaga,0
+el,negation,χωρίς,1
+el,negation,δεν,0
+el,negation,ουδεμία,0
+el,normality,φυσιολογικ,1
+el,normality,ακέραι,0
+el,normality,συνεχ,0
+el,hedge,πιθανή,0
+el,hedge,πιθανόν,0
+el,severity_low,ήπια,0
+el,severity_low,βαθμού 1,0
+bg,negation,без,1
+bg,negation,без данни за,1
+bg,negation,не,0
+bg,negation,липсва,0
+bg,normality,нормално,1
+bg,normality,нормален,0
+bg,normality,запазена,1
+bg,normality,запазен,0
+bg,hedge,вероятно,0
+bg,hedge,суспектно,0
+bg,severity_low,лек,0
+bg,severity_low,минимален,0

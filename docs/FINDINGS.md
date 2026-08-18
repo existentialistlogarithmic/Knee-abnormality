@@ -222,19 +222,29 @@ execution on the device
 So a P100 does not run slowly here — it **fails outright**. The brief was right
 and the consequence is harder than it sounded.
 
-### How to name the accelerator
+### The valid names, and where they were hiding — `VERIFIED`
 
-The CLI accepts `--accelerator` but **does not validate it** — pushing
-`--accelerator INVALID_PROBE` succeeded silently, so error-probing does not
-work. The route that does: push, then `kaggle kernels pull <kernel> -m`, which
-writes the server's own metadata. It reported:
-
-```json
-{"enable_gpu": true, "machine_shape": "Gpu"}
+```
+NvidiaTeslaT4
+NvidiaTeslaP100
+Tpu1VmV38
 ```
 
-`"Gpu"` is the value that yields a P100. The vocabulary is therefore
-CamelCase shape names, and the T4 variant is being confirmed the same way.
+These are documented in the **`kagglesdk` type docstring** for
+`machine_shape` (`kagglesdk/kernels/types/kernels_api_service.py`). The CLI's own
+source comments that the enum "is not currently included in kagglesdk", which is
+what sent this project chasing the value the hard way — that comment is wrong.
+
+Two dead ends recorded so they are not repeated:
+
+- **`--accelerator` is not validated.** Pushing `--accelerator INVALID_PROBE`
+  succeeds silently, so the error message never lists the allowed values.
+- **`--accelerator GpuT4x2` was silently ignored** and the run got a P100
+  again. A wrong shape name does not fail; it falls back.
+
+`kaggle kernels pull <kernel> -m` does report the server's stored value, which
+read `"Gpu"` after the default push — useful for confirming what a kernel is
+actually set to, but it does not enumerate the options.
 
 ### Making the probe cheap
 

@@ -45,22 +45,35 @@ Field names below are taken from the `kaggle` CLI 2.2.4 source
 | `dataset_sources`, `kernel_sources`, `model_sources` | how a kernel mounts previous outputs |
 | `docker_image`, `docker_image_pinning_type` | pin the image once training results need to be reproducible |
 
-### Requesting a T4 — how to get the exact string
+### Requesting a T4 — the exact strings
 
-Kaggle's PyTorch build ships no Pascal kernels, so P100 is unusable and the
-accelerator must be a T4. The CLI does **not** expose the list of valid
-`machine_shape` values — the source comments that the enum "is not currently
-included in kagglesdk" — so the correct string is `UNVERIFIED` and must not be
-guessed. Two ways to obtain it:
+```
+NvidiaTeslaT4     <- use this
+NvidiaTeslaP100   <- unusable, see below
+Tpu1VmV38
+```
 
-1. Set the accelerator in the Kaggle notebook UI, then
-   `kaggle kernels pull <username>/<slug> -p /tmp/probe -m`. The pull writes the
-   server's own `machine_shape` value into the metadata file. Copy it verbatim.
-2. Push a throwaway kernel with a deliberately invalid accelerator and read the
-   allowed values back out of the error.
+Set `machine_shape` in `kernel-metadata.json`. These are documented in the
+`kagglesdk` docstring for `machine_shape`
+(`kagglesdk/kernels/types/kernels_api_service.py`), **despite the CLI source
+claiming the enum "is not currently included in kagglesdk"**. That comment cost
+this project several probe runs.
 
-Whichever you use, record the result in `docs/FINDINGS.md` before any GPU kernel
-is pushed.
+**A P100 does not run slowly — it fails.** `enable_gpu: true` with no shape
+gives a P100 (compute capability 6.0), and the Kaggle PyTorch build ships no
+Pascal kernels, so the first CUDA launch dies with `no kernel image is available
+for execution on the device`.
+
+Two things that do **not** work, recorded so nobody repeats them:
+
+- `--accelerator INVALID_PROBE` is accepted silently. The CLI does not validate
+  the value, so you cannot discover the vocabulary from an error message.
+- `--accelerator GpuT4x2` is silently ignored and you get a P100 anyway. A wrong
+  shape name falls back rather than failing.
+
+Put a device check at the top of any GPU kernel and exit early if the compute
+capability is below 7 — see `report_environment()` in `kaggle/04_train/run.py`.
+It turns a wasted session into a few seconds.
 
 ### Non-negotiable for the submission kernel
 

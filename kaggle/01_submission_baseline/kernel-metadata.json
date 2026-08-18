@@ -1,6 +1,6 @@
 {
-  "id": "achelijndiamantidis/knee-dicom-header-scan-cpu-headers-only",
-  "title": "Knee — DICOM header scan (CPU, headers only)",
+  "id": "achelijndiamantidis/knee-baseline-submission",
+  "title": "knee-baseline-submission",
   "code_file": "run.py",
   "language": "python",
   "kernel_type": "script",

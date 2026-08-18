@@ -35,7 +35,7 @@ Field names below are taken from the `kaggle` CLI 2.2.4 source
 
 | field | note |
 |---|---|
-| `id` | `<username>/<slug>` — must be your own username |
+| `id` | `<username>/<slug>` — the **Kaggle** username (`achelijndiamantidis`), which is not the same as the GitHub one |
 | `kernel_type` | `script` or `notebook` |
 | `language` | `python`, `r`, or `rmarkdown` |
 | `enable_internet` | **`false`** for anything that will become a submission |
@@ -67,3 +67,15 @@ is pushed.
 `enable_internet: false`, all weights and code mounted from Datasets/Models, and
 total runtime comfortably under the 9-hour limit with headroom for a hidden test
 set larger than the public one.
+
+## A slug gotcha worth knowing
+
+Kaggle derives the kernel slug from the **title**, not from the `id` you set. A
+title of "Knee — DICOM header scan (CPU, headers only)" produces the slug
+`knee-dicom-header-scan-cpu-headers-only`, and the push warns but proceeds,
+creating the kernel at the title-derived slug. If `id` then disagrees, the next
+push creates a *second* kernel rather than updating the first.
+
+Rule: after the first push of any kernel, set `id` to the slug in the URL the
+push prints, and leave it alone. Also note the Kaggle account here is
+`achelijndiamantidis`, which is not the GitHub username.

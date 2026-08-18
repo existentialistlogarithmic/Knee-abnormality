@@ -50,8 +50,38 @@ from pathlib import Path
 import pandas as pd
 import pydicom
 
-# Kaggle mounts competition data here; overridable for local testing.
+# Kaggle mounts competition data under /kaggle/input, but not reliably under a
+# directory named after the competition — see find_competition_root below.
 DEFAULT_ROOT = Path("/kaggle/input/rsna-knee-abnormality-detection")
+
+def find_competition_root(explicit: str | None = None) -> Path:
+    """Locate the mounted competition data.
+
+    Kaggle does not guarantee the mount directory matches the competition slug,
+    and a wrong guess costs a whole kernel run to discover — as it did on the
+    first attempt here. So the root is found by looking for the files we know
+    must exist, and the search is reported in the log either way.
+    """
+    if explicit:
+        return Path(explicit)
+    base = Path("/kaggle/input")
+    if not base.exists():
+        return Path(".")
+    candidates = sorted(p for p in base.iterdir() if p.is_dir())
+    print(f"/kaggle/input contains: {[p.name for p in candidates]}")
+    for marker in ("train_series.csv", "train.csv", "test.csv"):
+        for candidate in candidates:
+            if (candidate / marker).exists():
+                print(f"using competition root: {candidate}  (found {marker})")
+                return candidate
+        # the data is sometimes nested one level down
+        for candidate in candidates:
+            for child in sorted(p for p in candidate.iterdir() if p.is_dir()):
+                if (child / marker).exists():
+                    print(f"using competition root: {child}  (found {marker})")
+                    return child
+    print("WARNING: no competition root found; falling back to the slug path")
+    return base / "rsna-knee-abnormality-detection"
 
 # (attribute name, output column). Kept explicit rather than dumping every tag:
 # the point is a small, stable table, not a copy of the headers.
@@ -178,7 +208,8 @@ def read_series(series_dir: Path, study_uid: str, series_uid: str, split: str) -
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", default=str(DEFAULT_ROOT))
+    parser.add_argument("--root", default=None,
+                        help="competition root; auto-discovered when omitted")
     parser.add_argument("--out", default="series_headers.parquet")
     parser.add_argument("--shard", type=int, default=0)
     parser.add_argument("--of", type=int, default=1)
@@ -187,7 +218,7 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=0, help="debug: stop after N series")
     args = parser.parse_args()
 
-    root = Path(args.root)
+    root = find_competition_root(args.root)
     started = time.time()
 
     frames = []

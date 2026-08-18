@@ -203,6 +203,52 @@ that. Every number computed on it gets an interval printed next to it.
 
 ---
 
+## 11. The CV-to-leaderboard gap — `VERIFIED`, and it is large
+
+The metadata-only model was submitted precisely to measure this. Same model,
+same predictions, two yardsticks:
+
+| measured against | score |
+|---|---:|
+| report-derived labels, scanner-grouped OOF | **0.6687** |
+| expert labels, public leaderboard | **0.5310** |
+| **gap** | **0.1377** |
+
+Of the model's apparent 0.169 of skill above chance, only about **0.031
+survives** contact with expert labels.
+
+### What this means, stated carefully
+
+The obvious reading — "report labels are bad" — is too coarse. The precise
+reading is this: **the metadata model has no anatomical information whatsoever.**
+It cannot see a ligament. Everything it learned was a correlation between
+scanner identity and *reporting convention* — a site whose radiologists write
+verbosely, or use particular phrasing, produces more positive report labels, and
+that site has a distinctive scanner signature. That correlation is entirely real
+for report-derived labels and nearly worthless for expert ones.
+
+So the lesson is not that report labels are useless. It is narrower and more
+useful:
+
+1. **Features correlated with site rather than anatomy will not transfer**, and
+   grouped CV against report labels does *not* catch it — grouping removed the
+   memorisation, but not the shared convention baked into the targets
+   themselves.
+2. **CV against report-derived labels is an optimistic proxy for the
+   leaderboard.** Anything trained on these targets must have its CV-to-LB gap
+   watched from the first run, not assumed.
+3. **An imaging model should transfer better**, because pathology visible in
+   pixels is the same pathology the experts graded. But it will inherit some of
+   this, and the size of its own gap is the thing to measure early.
+
+### The practical rule this buys
+
+Report-derived CV is for *ranking* candidate models, never for estimating the
+leaderboard. Absolute claims come from the leaderboard or from the 58 gold
+studies (with their wide intervals) — never from report-label CV.
+
+---
+
 ## 10. Series selection — Phase 0 step 4, `VERIFIED`
 
 ### The host's plane column is exactly right
@@ -282,11 +328,9 @@ things are mixed in there, and they are worth separating in Phase 2:
   community clinic see different patients, and that difference transfers to
   unseen scanners of the same class.
 
-**Caveat, and it matters:** these targets are report-derived, not expert labels.
-Some of the 0.664 is shared site convention — a site whose radiologists write
-verbosely produces both more positive report labels *and* a distinctive scanner
-signature. Against true expert labels the figure would likely be lower. It is a
-baseline to beat, not a result to celebrate.
+**That caveat is now measured, and it was severe.** The same model, submitted to
+the leaderboard, scored **0.531 against expert labels** while its grouped CV
+against report-derived labels was **0.669** — a gap of **0.138**. See §11.
 
 ### Grouping structure
 

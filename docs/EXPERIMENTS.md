@@ -318,3 +318,36 @@ Notes on the fields that people fudge:
   folds do not additionally need patient grouping.
 - **next**: Phase 0 gate. Then a metadata-only submission — it should land near
   0.6 rather than 0.5, and would tell us whether LB agrees with grouped CV.
+
+### E010 — metadata-only submission: CV 0.669 → LB 0.531, a gap of 0.138
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: `kaggle/02_metadata_submission` — scanner and geometry
+  features only, trained on report-derived labels with 5-fold `GroupKFold` over
+  178 scanner fingerprints. Supporting artifacts uploaded as a private Kaggle
+  dataset, which also exercised the mount path Phase 2 needs for weights.
+- **runtime**: 19 s wall clock
+- **CV**: grouped OOF macro AUC **0.6687** (vs report-derived labels)
+- **LB**: **0.531 public** (vs expert labels)
+- **prediction spread**: healthy, 0.08–0.35 per finding — no collapse to priors
+- **what it means**: this was the point of the submission, and the answer is
+  blunt. Of 0.169 apparent skill above chance, **~0.031 survives** contact with
+  expert labels.
+  The careful reading matters. This model has **no anatomical information** — it
+  cannot see a ligament. Everything it learned was a correlation between scanner
+  identity and *reporting convention*: verbose sites produce more positive report
+  labels and have distinctive scanners. That is real for report-derived targets
+  and nearly worthless for expert ones. Grouped CV removed the *memorisation*
+  but could not remove the convention baked into the targets themselves.
+  So the rule going forward: **report-label CV ranks candidate models; it never
+  estimates the leaderboard.** Absolute claims come from the leaderboard or from
+  the 58 gold studies with their intervals.
+  An imaging model should transfer better, since pathology in pixels is the same
+  pathology the experts graded — but it will inherit some of this, and its own
+  CV-to-LB gap must be measured on the very first run rather than assumed.
+- **also**: a third mount shape cost a run. Datasets land at
+  `/kaggle/input/datasets/<owner>/<name>`; all kernels now share a depth-bounded
+  search that refuses to walk the ~1M-file image directories.
+- **next**: Phase 2 cache-build kernel. The bar an imaging model must clear is
+  **0.669 grouped CV / 0.531 LB** — below that, the pixels are contributing
+  nothing.

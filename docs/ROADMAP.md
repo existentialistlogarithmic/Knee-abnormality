@@ -73,12 +73,64 @@ reports, so Spanish (16%) and Turkish (12%) are first-class, not afterthoughts:
 
 ## Phase 2 — imaging baseline
 
-CPU cache-build kernel → 2.5D backbone + attention pooling → 12 heads trained on
-Phase 1 soft labels with gold studies heavily weighted. Site-grouped CV.
-Resumable, checkpointed, wall-clock guarded. Report OOF macro AUC, per-finding
-AUC, and prediction spread.
+Everything below is now determined by Phase 0 measurements rather than guessed.
 
----
+### Inputs, settled
+
+- **Series selection:** one fluid-sensitive series per plane, preferring
+  sagittal + coronal + axial. Axial fluid-sensitive exists for **100%** of
+  studies and is the guaranteed fallback; all three planes are present for 90.6%
+  (`FINDINGS.md` §10). The host's `Anatomical_Plane` is trustworthy — it agreed
+  with the DICOM headers on 24,371 of 24,371 series.
+- **Laterality:** `Laterality` is populated on 79% of series; `SeriesDescription`
+  carries it for some of the rest (e.g. `LT_...`). Mirror right knees so the
+  model sees one anatomy.
+- **Targets:** `artifacts/phase1/soft_labels.parquet` — 12 soft scores plus a
+  five-way channel per study. Gold studies weighted heavily; the abstain channel
+  must reach the loss as "no supervision here", not as a zero.
+- **Folds:** `src/folds.py`, scanner fingerprint with frequency rounded to 2 dp.
+  178 groups. **Non-negotiable**: random K-fold inflates macro AUC by 0.087.
+
+### The budget, measured
+
+~1,300 test studies inside the 9-hour cap is **~24 s/study**. Reaching the data
+costs 0.059 s/study, so essentially all of it is available for decode and
+inference. At a median 99 fluid-sensitive slices per study, one series per plane
+is roughly 90 slices — comfortably affordable.
+
+### Baselines that must be beaten
+
+| baseline | grouped CV | note |
+|---|---:|---|
+| constant priors | 0.500 | confirmed on the leaderboard |
+| **scanner metadata only** | **0.669** | no pixels at all — see below |
+| report labeler vs expert (58 gold) | 0.761 | the label ceiling, roughly |
+
+**An imaging model that does not clear ~0.67 has not demonstrated the pixels
+contribute anything.** That is the bar, and it is higher than it looks because
+the metadata model is free.
+
+### Findings that need special handling
+
+- **Synovitis is text-limited** — report vocabulary carries almost no
+  information about it (sensitivity 0.59 at precision 0.57 against a 0.47 base
+  rate). Its report-derived labels should be down-weighted; if the model is to
+  learn it, it must come from the images and the 58 gold studies.
+- **Lateral OA** has the weakest labeler AUC after Synovitis and the widest
+  interval. Expect it to be noisy throughout.
+
+### Architecture
+
+2.5D: a pretrained backbone over slice stacks, attention pooling to study level,
+12 output heads. Resumable and checkpointed with a wall-clock guard, because
+Kaggle sessions die. T4, never P100.
+
+### Order of work
+
+1. CPU cache-build kernel: selected series → laterality-corrected, resampled,
+   normalised volumes at fixed mm/pixel. Report cache size and build time.
+2. Train one fold, confirm it beats 0.669 grouped, and check prediction spread.
+3. Only then the full cross-validated run.
 
 ## Phase 3 — inference kernel
 

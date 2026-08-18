@@ -166,3 +166,39 @@ Notes on the fields that people fudge:
   chondropathy language that the current terms miss.
 - **next**: lexicon coverage for Synovitis and the two compartment-OA findings;
   they are the three cheapest AUC gains available and need no GPU.
+
+### E006 — composite (proximity) terms: macro AUC 0.745 → 0.759
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: added proximity matching to the labeler — a term written
+  `anchor~degeneration` fires only when both halves appear within 45 characters.
+  Plus 490 composite rows for the three osteoarthritis findings and 20
+  synovium-specific terms.
+- **config**: lexicon only, no fitted parameters; abstain scored 0.15
+- **runtime**: 1 min 44 s for 4,407 reports (was ~40 s; composites cost more)
+- **CV**: macro AUC **0.7589**, up from 0.7448. 10 of 12 findings now above 0.70.
+- **gold-set evaluations used so far: 2.** Tracked deliberately — 58 studies is
+  the only test set there is, and every extra look at it converts a test into a
+  fit. Changes were chosen from corpus frequency evidence, not from gold-set
+  feedback.
+- **what it means**: the compartment hypothesis was right. Osteoarthritis is
+  almost never written as one phrase; corpus mining found degeneration
+  vocabulary in 84% of reports but a single-string match scored sensitivity 0.87
+  at precision 0.27, because it could not tell which compartment the words
+  belonged to. Proximity fixes the attribution: **PF OA 0.709 → 0.782** (abstain
+  57% → 38%) and **Medial OA 0.695 → 0.778**. Lateral OA barely moved
+  (0.691 → 0.684) and has the widest interval of any finding, [0.53, 0.84] on 11
+  positives — that difference is noise, not a regression.
+- **Synovitis is text-limited, and this is now measured rather than suspected.**
+  Before touching the lexicon I checked the ceiling: across *all* synovial
+  vocabulary, gold-positive studies mention it 16 times out of 27 and
+  gold-negative studies 12 times out of 31 — sensitivity 0.59 at precision 0.57
+  against a 0.47 base rate, which is close to no information at all. The
+  labeler landed at 0.580 AUC, exactly where that ceiling predicted. Further
+  lexicon work on Synovitis cannot pay off; it needs image supervision, and its
+  report-derived labels should be down-weighted in Phase 2.
+  Hoffa's fat pad (19% of reports) and plica (7%) were deliberately excluded as
+  synovitis terms — they are structures usually mentioned as normal, and adding
+  them would have cost precision.
+- **next**: laterality handling; then per-language error review, since English
+  is over-represented in the gold set and the other 61% is unaudited.

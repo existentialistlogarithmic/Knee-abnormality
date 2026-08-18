@@ -9,8 +9,17 @@
   "enable_tpu": false,
   "enable_internet": true,
   "machine_shape": "",
-  "dataset_sources": ["achelijndiamantidis/knee-phase1-artifacts"],
-  "competition_sources": ["rsna-knee-abnormality-detection"],
-  "kernel_sources": [],
+  "dataset_sources": [
+    "achelijndiamantidis/knee-phase1-artifacts"
+  ],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [
+    "achelijndiamantidis/knee-cache-build-0",
+    "achelijndiamantidis/knee-cache-build-1",
+    "achelijndiamantidis/knee-cache-build-2",
+    "achelijndiamantidis/knee-cache-build-3"
+  ],
   "model_sources": []
 }

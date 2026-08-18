@@ -98,3 +98,21 @@ Practical rules learned the hard way:
   `eda/phase0_01_auth_and_files.py`, which writes its page token every 25 pages
   so a 429 costs a resume rather than the whole listing.
 - Back off exponentially and honour `Retry-After` when present.
+
+## Mounting a kernel's output instead of downloading it
+
+The cache is ~10 GB across four shards. It never touches this machine: the
+training kernel lists the cache kernels in `kernel_sources`, and Kaggle mounts
+their outputs directly. That is the Kaggle-to-Kaggle chain the project depends
+on, and it also sidesteps the output-download rate limit entirely.
+
+```
+03_cache_build_shard{0..3}  ──kernel_sources──►  04_train  ──►  weights
+                                                                  │
+                                                       kernel_sources
+                                                                  ▼
+                                                            inference kernel
+```
+
+Note `kernel_sources` mounts a kernel's **latest** output, which is why the
+cache is four separate kernels rather than one kernel run four times.

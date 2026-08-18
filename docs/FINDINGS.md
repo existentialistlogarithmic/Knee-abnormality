@@ -184,6 +184,70 @@ that. Every number computed on it gets an interval printed next to it.
 
 ---
 
+## 6. Label-ceiling probe — is there signal in the reports at all?
+
+`eda/label_ceiling_probe.py`, run on the 58 gold studies. The matcher is
+deliberately crude: case-folded substring matching against a small multilingual
+keyword list, **with no negation, hedging, severity or laterality handling**.
+Those are what Phase 1 builds, so this is a **floor**, not a forecast.
+
+**Macro balanced accuracy: 0.601** (`VERIFIED`, n = 58).
+
+| finding | positives | mentions | agreement | 95% CI | sens | spec | bal. acc |
+|---|---:|---:|---:|---|---:|---:|---:|
+| Baker's | 12 | 18 | 0.759 | [0.63, 0.85] | 0.67 | 0.78 | 0.725 |
+| MCL | 9 | 27 | 0.621 | [0.49, 0.73] | 0.78 | 0.59 | 0.685 |
+| Contusion | 19 | 25 | 0.655 | [0.53, 0.76] | 0.63 | 0.67 | 0.649 |
+| Lateral Meniscus | 23 | 35 | 0.621 | [0.49, 0.73] | 0.78 | 0.51 | 0.648 |
+| Synovitis | 27 | 15 | 0.655 | [0.53, 0.76] | 0.41 | 0.87 | 0.639 |
+| Medial OA | 15 | 13 | 0.724 | [0.60, 0.82] | 0.40 | 0.84 | 0.619 |
+| Fracture | 18 | 17 | 0.672 | [0.54, 0.78] | 0.44 | 0.78 | 0.610 |
+| Medial Meniscus | 26 | 34 | 0.586 | [0.46, 0.70] | 0.69 | 0.50 | 0.596 |
+| ACL | 24 | 37 | 0.569 | [0.44, 0.69] | 0.75 | 0.44 | 0.596 |
+| Lateral OA | 11 | 11 | 0.724 | [0.60, 0.82] | 0.27 | 0.83 | 0.551 |
+| Effusion | 35 | 40 | 0.500 | [0.38, 0.62] | 0.66 | 0.26 | 0.459 |
+| PF OA | 21 | 21 | 0.483 | [0.36, 0.61] | 0.29 | 0.59 | 0.440 |
+
+### What the shape of these numbers says
+
+The failure mode is **specificity, not sensitivity**, and it is concentrated
+exactly where you would expect. `ACL` produces 37 mentions for 24 true
+positives: sensitivity 0.75, specificity 0.44. `Effusion` produces 40 mentions
+for 35 positives at specificity 0.26. Radiologists mention the ACL in almost
+every knee report — *"ACL intact"*, *"no ACL tear"* — and a matcher with no
+negation counts every one of those as a positive.
+
+So the dominant error is a solved problem in NLP terms, and Phase 1's ordering
+(negation and hedging first, severity thresholds second) is aimed at the right
+target. The findings that already score best are the ones whose keywords are
+rare and therefore rarely negated: `Baker's` 0.725, `MCL` 0.685.
+
+**This confirms the premise the whole strategy rests on**: the reports carry
+real finding-level signal, and the gap between 0.601 and something useful is
+mostly linguistic work rather than missing information.
+
+### The gold subset is more English than the corpus — `VERIFIED`
+
+| language | gold n | gold % | train % |
+|---|---:|---:|---:|
+| en | 28 | 48.3% | 39.3% |
+| es | 10 | 17.2% | 15.6% |
+| tr | 6 | 10.3% | 12.4% |
+| hr | 4 | 6.9% | 7.3% |
+| el | 3 | 5.2% | 7.4% |
+| bg | 3 | 5.2% | 5.0% |
+| nl | 2 | 3.4% | 3.5% |
+| de | 2 | 3.4% | 5.9% |
+
+English is 48% of the gold subset against 39% of the corpus, and French, Bosnian
+and Latin do not appear in the gold subset at all. **Every evaluation on these
+58 studies therefore flatters an English-led labeler**, and the true performance
+on the 4,349 training reports will be somewhat worse than the gold number
+suggests. Worth stating in any write-up of Phase 1 results rather than
+discovering later.
+
+---
+
 ## 5. Modelling-relevant beliefs — still unverified
 
 | # | Claim | Tag | Note |

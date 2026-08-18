@@ -94,3 +94,25 @@ Notes on the fields that people fudge:
   series — one bit, two names.
 - **next**: 0.3, the header scan kernel — now on the critical path for both the
   fold scheme and laterality.
+
+### E003 — label-ceiling probe: reports carry real signal, negation is the bottleneck
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: added `eda/label_ceiling_probe.py` and the DICOM header-scan
+  kernel `kaggle/00_dicom_header_scan/run.py`.
+- **config**: crude multilingual substring matching, no negation/hedging/severity
+- **runtime**: seconds, CPU
+- **CV**: macro balanced accuracy **0.601** on the 58 gold studies
+- **LB**: n/a
+- **prediction spread**: n/a
+- **what it means**: the premise holds — the reports do carry finding-level
+  signal — and the failure mode is specificity, not sensitivity. `ACL` gives 37
+  mentions for 24 true positives (sens 0.75, spec 0.44) and `Effusion` 40 for 35
+  (spec 0.26), because radiologists write "ACL intact" and "no effusion" and a
+  matcher without negation scores those as positives. That is the single
+  highest-value fix in Phase 1, and it is ordinary NLP work rather than missing
+  information. Also measured: the gold subset is 48% English against 39% in the
+  corpus and contains no French or Bosnian, so gold-set numbers will overstate a
+  labeler's real performance.
+- **next**: Phase 1 negation/hedging layer, and push the header scan kernel so
+  fold grouping stops being provisional.

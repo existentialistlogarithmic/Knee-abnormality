@@ -85,7 +85,7 @@ clever workaround.
 
 | # | Claim | Tag | Evidence |
 |---|---|---|---|
-| 3.1 | ~570 GB, ~819k DICOM files | `UNVERIFIED` | full listing still running; the first 600 files were 601.5 MB, and the listing rate-limits (HTTP 429) after ~25k files, so it is checkpointed and resumed |
+| 3.1 | ~570 GB, ~819k DICOM files | `UNVERIFIED — extrapolation disagrees` | Full listing still paginating (165,000 files / 107.5 GiB measured so far, all DICOM, mean 683 KiB each). Those 165k files cover 4,770 of the 24,371 training series at a mean 34.6 slices per series — and a **median of exactly 30, matching the host's stated median**, which is a good sign the partial sample is representative. Extrapolating over 24,371 train series plus ~7,150 test series gives **~1.09M DICOM files and ~0.69 TiB (~710 GB)**, noticeably above the brief's 570 GB / 819k. Treat as an extrapolation until the listing completes. Either way the conclusion is unchanged: far too large to pull locally. |
 | 3.2 | **4,407 training studies** | `VERIFIED` | `train.csv` has 4,407 rows, 4,407 distinct `StudyInstanceUID` — the brief's figure exactly |
 | 3.3 | **Exactly 58 studies carry expert labels** | `VERIFIED` | 58 rows have all 12 findings populated; 58 have at least one. There is no partially-labelled middle ground — a study is fully labelled or not at all. |
 | 3.4 | **Every training study has a report** | `VERIFIED` | `Report` is non-null for all 4,407 rows. The brief implied some studies might lack one; none do. |

@@ -53,9 +53,15 @@ reports, so Spanish (16%) and Turkish (12%) are first-class, not afterthoughts:
 | 2 | el, hr/bs, de, bg | 25% |
 | 3 | nl, fr | 5% |
 
-1. Bilingual term table per language, human-reviewable, checked in.
-2. Rule/lexicon layer: negation, hedging, severity thresholds, laterality.
-3. Soft labels with a confidence/abstain channel.
+1. ~~Bilingual term table per language, human-reviewable, checked in.~~ **DONE** —
+   `src/lexicons/findings.csv` (198 terms) and `cues.csv` (154 cues, 10 languages).
+2. ~~Rule/lexicon layer: negation, hedging, severity thresholds.~~ **DONE** —
+   `src/report_labeler.py`, macro AUC **0.745** on gold. Laterality still to do.
+3. ~~Soft labels with a confidence/abstain channel.~~ **DONE** — five channels:
+   asserted / hedged / low_severity / negated / absent.
+3a. **NEXT: close the three coverage gaps.** Synovitis (0.561 AUC, 89% abstain),
+   Lateral OA (0.691, 77%), Medial OA (0.695, 76%). AUC tracks abstain rate
+   almost monotonically, so these are the cheapest gains on the board.
 4. Evaluation on the 58 gold studies: per-finding AUC, agreement rate, and a
    confusion analysis of *where* report and image labels diverge — **always with
    intervals**, because 58 studies cannot separate 0.86 from 0.90.

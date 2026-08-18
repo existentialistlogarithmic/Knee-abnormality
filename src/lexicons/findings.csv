@@ -1,0 +1,205 @@
+# Finding vocabulary, one term per row. Case-folded substring match on word
+# boundaries. corpus=1 means the term was seen in the actual training reports.
+#
+# Review guide: a term here should name the STRUCTURE or the ABNORMALITY, not
+# the severity. Severity and negation live in cues.csv. Terms that would match a
+# healthy mention ("meniscus") are fine — the cue engine decides polarity.
+finding,language,term,corpus
+ACL,en,anterior cruciate,1
+ACL,en,acl,1
+ACL,es,cruzado anterior,1
+ACL,es,lca,0
+ACL,tr,ön çapraz,1
+ACL,tr,acl,0
+ACL,de,vorderes kreuzband,0
+ACL,de,vorderen kreuzband,0
+ACL,de,vkb,0
+ACL,de,acl,1
+ACL,nl,voorste kruisband,1
+ACL,fr,croisé antérieur,0
+ACL,hr,prednji križni,1
+ACL,hr,prednjeg križnog,1
+ACL,bs,prednji križni,0
+ACL,el,πρόσθιος χιαστός,0
+ACL,el,πρόσθιου χιαστού,0
+ACL,bg,предна кръстна,1
+ACL,bg,предната кръстна,0
+MCL,en,medial collateral,1
+MCL,en,mcl,1
+MCL,es,colateral medial,1
+MCL,es,colateral interno,0
+MCL,tr,iç yan bağ,0
+MCL,tr,medial kollateral,1
+MCL,de,innenband,0
+MCL,de,mediales kollateralband,0
+MCL,de,medialen kollateralband,0
+MCL,de,mcl,1
+MCL,nl,mediale collateraal,1
+MCL,nl,mediale collaterale,0
+MCL,fr,collatéral médial,0
+MCL,hr,medijalni kolateralni,1
+MCL,hr,medijalnog kolateralnog,1
+MCL,el,έσω πλάγιος,0
+MCL,el,έσω πλαγίου,0
+MCL,bg,медиален колатерален,1
+Medial Meniscus,en,medial meniscus,1
+Medial Meniscus,es,menisco medial,1
+Medial Meniscus,es,menisco interno,0
+Medial Meniscus,tr,medial menisküs,1
+Medial Meniscus,de,innenmeniskus,1
+Medial Meniscus,de,medialer meniskus,0
+Medial Meniscus,de,medialen meniskus,0
+Medial Meniscus,nl,mediale meniscus,1
+Medial Meniscus,fr,ménisque interne,0
+Medial Meniscus,fr,ménisque médial,0
+Medial Meniscus,hr,medijalni menisk,1
+Medial Meniscus,hr,medijalnog meniska,1
+Medial Meniscus,bs,medijalni menisk,0
+Medial Meniscus,el,έσω μηνίσκ,1
+Medial Meniscus,bg,медиалния менискус,1
+Medial Meniscus,bg,медиален менискус,0
+Lateral Meniscus,en,lateral meniscus,1
+Lateral Meniscus,es,menisco lateral,1
+Lateral Meniscus,es,menisco externo,0
+Lateral Meniscus,tr,lateral menisküs,1
+Lateral Meniscus,de,außenmeniskus,1
+Lateral Meniscus,de,aussenmeniskus,0
+Lateral Meniscus,de,lateraler meniskus,0
+Lateral Meniscus,nl,laterale meniscus,1
+Lateral Meniscus,fr,ménisque externe,0
+Lateral Meniscus,hr,lateralni menisk,1
+Lateral Meniscus,hr,lateralnog meniska,1
+Lateral Meniscus,el,έξω μηνίσκ,1
+Lateral Meniscus,bg,латералния менискус,1
+Lateral Meniscus,bg,латерален менискус,0
+Medial OA,en,medial compartment,1
+Medial OA,en,medial tibiofemoral,0
+Medial OA,es,compartimento medial,0
+Medial OA,es,femorotibial medial,0
+Medial OA,es,femorotibial interno,0
+Medial OA,tr,medial femorotibial,0
+Medial OA,tr,medial kompartman,0
+Medial OA,de,mediales kompartiment,0
+Medial OA,de,medialen kompartiment,1
+Medial OA,de,medialen femorotibial,0
+Medial OA,nl,mediaal femorotibiaal,1
+Medial OA,nl,mediale femorotibiale,0
+Medial OA,fr,fémoro-tibial interne,0
+Medial OA,hr,medijalnom odjeljku,0
+Medial OA,el,έσω μηριαίας κνημιαίας,0
+Medial OA,bg,медиалния компартмент,0
+Lateral OA,en,lateral compartment,1
+Lateral OA,en,lateral tibiofemoral,0
+Lateral OA,es,compartimento lateral,0
+Lateral OA,es,femorotibial lateral,0
+Lateral OA,es,femorotibial externo,0
+Lateral OA,tr,lateral femorotibial,0
+Lateral OA,tr,lateral kompartman,0
+Lateral OA,de,laterales kompartiment,0
+Lateral OA,de,lateralen kompartiment,1
+Lateral OA,nl,lateraal femorotibiaal,0
+Lateral OA,nl,laterale femorotibiale,0
+Lateral OA,fr,fémoro-tibial externe,0
+Lateral OA,hr,lateralnom odjeljku,0
+Lateral OA,bg,латералния компартмент,0
+PF OA,en,patellofemoral,1
+PF OA,en,patello-femoral,0
+PF OA,en,retropatellar,0
+PF OA,en,chondromalacia,1
+PF OA,es,patelofemoral,1
+PF OA,es,femoropatelar,0
+PF OA,es,rotuliana,1
+PF OA,es,condropatía rotuliana,0
+PF OA,tr,patellofemoral,1
+PF OA,tr,kondromalazi,0
+PF OA,de,retropatellar,1
+PF OA,de,femoropatellar,1
+PF OA,de,patellofemoral,0
+PF OA,nl,patellofemoraal,0
+PF OA,nl,retropatellair,0
+PF OA,fr,fémoro-patellaire,0
+PF OA,hr,patelofemoralni,0
+PF OA,hr,hondromalacija patele,1
+PF OA,el,επιγονατιδομηριαί,0
+PF OA,bg,пателофеморал,0
+Effusion,en,effusion,1
+Effusion,en,joint fluid,0
+Effusion,en,suprapatellar fluid,0
+Effusion,es,derrame,1
+Effusion,es,líquido articular,0
+Effusion,tr,eklem sıvısı,1
+Effusion,tr,efüzyon,0
+Effusion,tr,sıvı artışı,0
+Effusion,de,gelenkerguss,1
+Effusion,de,erguss,1
+Effusion,nl,hydrops,1
+Effusion,nl,gewrichtsvocht,0
+Effusion,fr,épanchement,0
+Effusion,hr,izljev,0
+Effusion,hr,izljeva,0
+Effusion,el,συλλογή υγρού,1
+Effusion,el,αρθρικού υγρού,1
+Effusion,bg,ставен излив,1
+Effusion,bg,излив,1
+Synovitis,en,synovitis,1
+Synovitis,en,synovial thickening,0
+Synovitis,es,sinovitis,0
+Synovitis,tr,sinovit,0
+Synovitis,de,synovialitis,0
+Synovitis,de,synovitis,0
+Synovitis,nl,synovitis,0
+Synovitis,fr,synovite,0
+Synovitis,hr,sinovitis,0
+Synovitis,el,υμενίτιδα,0
+Synovitis,bg,синовит,0
+Baker's,en,baker,1
+Baker's,en,popliteal cyst,0
+Baker's,es,quiste de baker,0
+Baker's,es,quiste poplíteo,0
+Baker's,tr,baker,0
+Baker's,tr,popliteal kist,0
+Baker's,de,bakerzyste,0
+Baker's,de,baker-zyste,0
+Baker's,de,poplitealzyste,0
+Baker's,nl,bakercyste,0
+Baker's,fr,kyste poplité,0
+Baker's,hr,bakerova cista,0
+Baker's,hr,poplitealna cista,0
+Baker's,el,κύστη baker,0
+Baker's,bg,киста на бейкър,0
+Baker's,bg,бейкърова киста,0
+Contusion,en,bone marrow edema,1
+Contusion,en,bone marrow oedema,0
+Contusion,en,bone bruise,0
+Contusion,en,contusion,1
+Contusion,es,edema óseo,1
+Contusion,es,edema de médula ósea,0
+Contusion,es,contusión,0
+Contusion,tr,kemik iliği ödem,1
+Contusion,tr,kontüzyon,0
+Contusion,de,knochenmarködem,1
+Contusion,de,knochenmarksödem,0
+Contusion,de,bone bruise,0
+Contusion,nl,botoedeem,1
+Contusion,nl,beenmergoedeem,0
+Contusion,fr,œdème osseux,0
+Contusion,hr,edem koštane srži,0
+Contusion,el,οίδημα μυελού,0
+Contusion,el,οίδηµα,1
+Contusion,bg,костен едем,0
+Contusion,bg,едем,1
+Fracture,en,fracture,1
+Fracture,en,avulsion,0
+Fracture,es,fractura,0
+Fracture,es,avulsión,0
+Fracture,tr,kırık,0
+Fracture,tr,fraktür,0
+Fracture,de,fraktur,0
+Fracture,de,knochenbruch,0
+Fracture,nl,fractuur,0
+Fracture,fr,fracture,0
+Fracture,hr,prijelom,0
+Fracture,hr,fraktura,0
+Fracture,el,κάταγμα,0
+Fracture,bg,фрактура,0
+Fracture,bg,счупване,0

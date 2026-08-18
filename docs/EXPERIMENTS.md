@@ -388,3 +388,47 @@ Notes on the fields that people fudge:
   of the data with a perfectly healthy-looking loss curve. It now collects
   across all shards and warns on duplicates.
 - **next**: fold 0 result against the 0.669 bar.
+
+### E012 — first imaging model: fold 0 macro AUC 0.6928 vs a 0.669 bar
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **config**: resnet18, 2.5D over (3 planes × 20 slices) at 192px, attention
+  pooling, 12 heads, 6 epochs, batch 8, LR 3e-4, gold weight 8, abstain masked,
+  scanner-grouped fold 0 of 5
+- **runtime**: **9.2 min/epoch, 54.9 min total** on **2× Tesla T4** (compute 7.5
+  — `NvidiaTeslaT4` grants two cards). ~1.8 GPU-hours of the ~30/week budget.
+- **CV**: best val macro AUC **0.6928** (report-derived labels, fold 0)
+- **LB**: not submitted
+- **prediction spread**: 0.159 — healthy, no collapse to priors
+
+| epoch | loss | val macro AUC |
+|---:|---:|---:|
+| 0 | 0.6482 | 0.6164 |
+| 1 | 0.6258 | 0.6520 |
+| 2 | 0.6208 | 0.6648 |
+| 3 | 0.6087 | 0.6300 |
+| 4 | 0.6016 | 0.6669 |
+| 5 | 0.5931 | **0.6928** |
+
+- **what it means — read this carefully.** It clears the metadata bar, but by
+  **0.024**, and that is weak evidence rather than a result.
+
+  The metadata model reached 0.669 using **no pixels at all**, purely by
+  correlating scanner identity with reporting convention. An imaging model
+  sitting 0.024 above that has not yet shown it is reading *anatomy* — image
+  appearance is itself scanner-correlated (contrast, noise, resolution), so a
+  CNN can rediscover the same shortcut through the pixels. **The margin is too
+  small to distinguish "sees pathology" from "sees the scanner".**
+
+  Two things do point the right way: prediction spread is healthy at 0.159, so
+  it is not predicting priors; and it was **still improving when it stopped** —
+  AUC rose 0.667 → 0.693 on the last epoch and loss was still falling. This run
+  is undertrained, not converged.
+
+- **what would actually settle it**: a leaderboard submission. The metadata
+  model's CV-to-LB gap was 0.138; if this model's gap is materially smaller,
+  the pixels are contributing real anatomical signal. If it is similar, the CNN
+  has found the same shortcut. That comparison is worth more than another
+  epoch.
+- **next**: (a) more epochs, since it had not converged; (b) an inference kernel
+  so the gap can be measured. (b) is more informative.

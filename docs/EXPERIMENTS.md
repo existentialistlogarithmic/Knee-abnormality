@@ -351,3 +351,40 @@ Notes on the fields that people fudge:
 - **next**: Phase 2 cache-build kernel. The bar an imaging model must clear is
   **0.669 grouped CV / 0.531 LB** — below that, the pixels are contributing
   nothing.
+
+### E011 — cache built; the P100 trap; accelerator names found
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: four cache shard kernels built the full training cache;
+  `kaggle/04_train` written and pushed.
+- **runtime**: four cache shards ran in parallel and all completed
+- **what it means**: three results, one of them a trap that would have cost days.
+
+  **1. The cache is complete and correct.** The training kernel mounted all four
+  shards and reported **4,407 cached / 4,407 usable / 58 gold present**, with
+  fold 0 splitting 3,525 train against 882 validation across **35 scanner
+  groups**. That verification came from the training log because the
+  output-download endpoint was rate-limited — worth noting as a technique.
+
+  **2. Kaggle's default GPU is a P100 and it cannot run this build.** Not slowly
+  — at all. `enable_gpu: true` with no shape gives compute capability 6.0, and
+  the first CUDA launch dies with `no kernel image is available for execution on
+  the device`. The brief's warning was right and understated.
+
+  **3. The accelerator names were in the SDK the whole time**: `NvidiaTeslaT4`,
+  `NvidiaTeslaP100`, `Tpu1VmV38`, documented in the `kagglesdk` docstring for
+  `machine_shape` — while the CLI source comments that the enum "is not
+  currently included in kagglesdk". That comment cost three probe runs.
+  Two dead ends recorded: `--accelerator` is **not validated** (an invalid value
+  pushes silently), and a wrong-but-plausible name (`GpuT4x2`) is **silently
+  ignored**, returning a P100 rather than erroring.
+
+- **the cheap thing that paid off**: putting a device check at the top of the
+  kernel that exits before touching CUDA. Each wrong shape name cost ~8 seconds
+  instead of a session. Against a ~30 GPU-hour weekly budget, three dead
+  sessions is real money.
+- **caught before it mattered**: the training kernel originally found a single
+  cache directory. With four mounted shards it would have trained on a quarter
+  of the data with a perfectly healthy-looking loss curve. It now collects
+  across all shards and warns on duplicates.
+- **next**: fold 0 result against the 0.669 bar.

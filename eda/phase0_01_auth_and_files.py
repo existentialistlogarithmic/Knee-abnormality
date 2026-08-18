@@ -24,6 +24,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from collections import Counter, defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -98,6 +99,14 @@ def main() -> int:
     parser.add_argument("--competition", default=COMPETITION)
     parser.add_argument("--page-size", type=int, default=200, help="API max is 200")
     parser.add_argument("--out-dir", default=str(OUT_DIR))
+    parser.add_argument("--sleep", type=float, default=0.0,
+                        help="seconds to wait between pages; use to avoid rate limits")
+    parser.add_argument("--backoff", type=float, default=5.0,
+                        help="initial backoff after a 429, doubling each retry")
+    parser.add_argument("--max-backoff", type=float, default=120.0)
+    parser.add_argument("--max-retries", type=int, default=8)
+    parser.add_argument("--no-resume", dest="resume", action="store_false",
+                        help="ignore any saved checkpoint and list from the start")
     parser.add_argument(
         "--max-pages",
         type=int,
@@ -180,15 +189,80 @@ def main() -> int:
         print("  >>> page before the data listing below will work.")
 
     # ---- file listing ------------------------------------------------------ #
-    print("\n--- listing files (names + sizes only, nothing downloaded) ---")
+    # A competition with hundreds of thousands of files needs thousands of pages,
+    # and Kaggle rate-limits well before the end. Two consequences shape this
+    # loop: back off and retry rather than dying, and checkpoint every page so a
+    # run that is interrupted resumes instead of starting over.
+    import csv
+
+    files_csv = out_dir / "competition_files.csv"
+    state_path = out_dir / "listing_state.json"
+
     rows: list[tuple[str, int, str]] = []
     token = None
     pages = 0
-    try:
-        while True:
-            page = api.competition_list_files(
-                args.competition, page_token=token, page_size=args.page_size
+
+    if args.resume and files_csv.exists() and state_path.exists():
+        state = json.loads(state_path.read_text())
+        if state.get("competition") == args.competition:
+            with files_csv.open(newline="", encoding="utf-8") as fh:
+                reader = csv.reader(fh)
+                next(reader, None)
+                rows = [(r[0], int(r[1]), r[2]) for r in reader if len(r) >= 3]
+            token = state.get("next_page_token") or None
+            pages = int(state.get("pages", 0))
+            if token:
+                print(f"\n  resuming after page {pages} with {len(rows):,} files already listed")
+            else:
+                print(f"\n  previous listing was complete: {len(rows):,} files")
+
+    def write_checkpoint(next_token, page_count):
+        with files_csv.open("w", newline="", encoding="utf-8") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(["name", "total_bytes", "creation_date"])
+            writer.writerows(rows)
+        state_path.write_text(
+            json.dumps(
+                {
+                    "competition": args.competition,
+                    "next_page_token": next_token,
+                    "pages": page_count,
+                    "n_files": len(rows),
+                    "updated": datetime.now(UTC).isoformat(timespec="seconds"),
+                },
+                indent=2,
             )
+        )
+
+    def fetch_page(page_token):
+        """One page, with backoff on rate limits and transient server errors."""
+        delay = args.backoff
+        for attempt in range(args.max_retries + 1):
+            try:
+                return api.competition_list_files(
+                    args.competition, page_token=page_token, page_size=args.page_size
+                )
+            except Exception as exc:  # noqa: BLE001
+                status = getattr(getattr(exc, "response", None), "status_code", None)
+                retryable = status in (429, 500, 502, 503, 504)
+                if not retryable or attempt == args.max_retries:
+                    raise
+                wait = delay
+                retry_after = getattr(getattr(exc, "response", None), "headers", {}) or {}
+                if retry_after.get("Retry-After", "").isdigit():
+                    wait = max(wait, int(retry_after["Retry-After"]))
+                print(f"\n  HTTP {status}; waiting {wait:.0f}s "
+                      f"(retry {attempt + 1}/{args.max_retries})")
+                time.sleep(wait)
+                delay = min(delay * 2, args.max_backoff)
+        raise RuntimeError("unreachable")
+
+    print("\n--- listing files (names + sizes only, nothing downloaded) ---")
+    interrupted = False
+    complete = bool(rows) and token is None and pages > 0
+    try:
+        while not complete:
+            page = fetch_page(token)
             files = list(getattr(page, "files", None) or [])
             for f in files:
                 created = getattr(f, "creation_date", None)
@@ -201,29 +275,39 @@ def main() -> int:
                 )
             pages += 1
             token = getattr(page, "next_page_token", None) or None
-            print(f"  page {pages:>4d}  files so far: {len(rows):,}", end="\r", flush=True)
+            if pages % 25 == 0 or not token:
+                write_checkpoint(token, pages)
+            print(f"  page {pages:>5d}  files so far: {len(rows):,}", end="\r", flush=True)
             if not token or not files:
+                complete = True
                 break
             if args.max_pages and pages >= args.max_pages:
-                print(f"\n  stopped early at --max-pages={args.max_pages}; listing is PARTIAL")
+                print(f"\n  stopped at --max-pages={args.max_pages}; listing is PARTIAL")
                 break
+            if args.sleep:
+                time.sleep(args.sleep)
+    except KeyboardInterrupt:
+        interrupted = True
+        print("\n  interrupted; checkpoint saved, re-run to resume")
     except Exception as exc:  # noqa: BLE001
-        print(f"\nFILE LISTING FAILED: {type(exc).__name__}: {exc}")
-        print("A 403 here almost always means the competition rules are not accepted.")
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        print(f"\n  LISTING STOPPED: {type(exc).__name__}: {exc}")
+        if status == 403:
+            print("  403 means the competition rules have not been accepted.")
+        elif status == 429:
+            print("  429 is rate limiting. The checkpoint is saved — re-run to resume,")
+            print("  optionally with --sleep 1 to pace the requests.")
+        interrupted = True
+
+    write_checkpoint(token, pages)
+    partial = bool(token) or interrupted
+    print(f"\n  pages fetched: {pages}   files listed: {len(rows):,}"
+          f"{'  (PARTIAL — re-run to resume)' if partial else '  (COMPLETE)'}")
+
+    if not rows:
+        print("no files listed; nothing to summarise")
         return 3
 
-    partial = bool(args.max_pages and pages >= args.max_pages and token)
-    print(f"\n  pages fetched: {pages}   files listed: {len(rows):,}"
-          f"{'  (PARTIAL)' if partial else ''}")
-
-    # ---- write outputs ----------------------------------------------------- #
-    import csv
-
-    files_csv = out_dir / "competition_files.csv"
-    with files_csv.open("w", newline="", encoding="utf-8") as fh:
-        writer = csv.writer(fh)
-        writer.writerow(["name", "total_bytes", "creation_date"])
-        writer.writerows(rows)
 
     (out_dir / "competition_meta.json").write_text(
         json.dumps(meta, indent=2, default=str), encoding="utf-8"
@@ -285,7 +369,7 @@ def main() -> int:
             "## Totals",
             "",
             f"- files listed: **{len(rows):,}**"
-            f"{'  (PARTIAL LISTING)' if partial else ''}",
+            f"{'  ⚠️ PARTIAL — the listing did not finish' if partial else ''}",
             f"- total size: **{human_bytes(total_bytes)}** ({total_bytes:,} bytes)",
             "",
             "## By top-level directory",

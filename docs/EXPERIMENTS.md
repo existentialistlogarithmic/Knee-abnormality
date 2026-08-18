@@ -69,3 +69,28 @@ Notes on the fields that people fudge:
   competition data itself; the token secret is the only remaining blocker.
 - **next**: set the secret, run **phase0-verify** with steps `1+2`, fill
   `FINDINGS.md` §2–§3 from the output, then Phase 0 steps 3–5.
+
+### E002 — first authenticated Phase 0 run; §2–§4 of FINDINGS filled from real data
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: ran `phase0_01` and `phase0_02` against the live competition.
+  Fixed a real bug found by doing so: the file listing had no checkpointing and
+  no rate-limit handling, so it lost 25,200 listed files to a single HTTP 429.
+  It now backs off, retries, and checkpoints every 25 pages, and resumes from
+  the saved page token.
+- **config**: n/a
+- **runtime**: metadata + 5 CSVs in ~2 min; full file listing still paginating
+- **CV**: n/a
+- **LB**: n/a
+- **what it means**: the kickoff brief was accurate on the numbers — 4,407
+  studies and exactly 58 gold labels, both to the digit — and wrong or silent on
+  two things that change the build. There is **no site/scanner column in any
+  CSV**, so grouped folds and the leakage audit are blocked on the DICOM header
+  scan rather than being a `groupby`. And **`test.csv` has one column**, so no
+  report text exists at inference: the labeler is a training-time device that
+  never ships. On the other side, the host hands us `Anatomical_Plane` per
+  series, so series selection does not need orientation maths. One data quirk:
+  `Fluid_Sensitive` and `Fat_Suppression` are byte-identical across all 24,371
+  series — one bit, two names.
+- **next**: 0.3, the header scan kernel — now on the critical path for both the
+  fold scheme and laterality.

@@ -8,15 +8,25 @@
 | `UNVERIFIED` | believed, second-hand, or inferred — **not usable as a basis for design decisions** |
 | `CONTRADICTED` | checked and found false |
 
-Last updated: 2026-08-18.
+Last updated: 2026-08-18, after the first authenticated Phase 0 run.
 
 ---
 
-## 0. Status of this ledger
+## 0. Headline
 
-**Nothing about the competition data is verified yet.** The verification run has
-not been executed against a credentialled Kaggle account. See §1 for exactly
-what blocks it.
+The kickoff brief was **substantially accurate**. 4,407 training studies, exactly
+58 with expert labels, 12 findings, multilingual reports — all confirmed to the
+digit. Three things it did not say, and each one changes the build:
+
+1. **Reports do not exist at inference time.** `test.csv` has exactly one column,
+   `StudyInstanceUID`. The report labeler is a training-time device only; the
+   submission kernel is image-only. (§2.6)
+2. **There is no site, scanner, or institution column anywhere in the CSVs.**
+   Site-grouped folds and the leakage audit are now blocked on the DICOM header
+   scan rather than being a CSV `groupby`. (§3.6)
+3. **The host already provides series-level plane and sequence metadata**, so the
+   header scan does not have to derive orientation from
+   `ImageOrientationPatient` for series selection. (§3.8)
 
 ---
 
@@ -24,87 +34,121 @@ what blocks it.
 
 | # | Claim | Tag | Evidence |
 |---|---|---|---|
-| 1.1 | The competition `rsna-knee-abnormality-detection` exists on Kaggle | `VERIFIED` | `GET https://www.kaggle.com/competitions/rsna-knee-abnormality-detection/overview` → HTTP 200, `<title>RSNA Knee Abnormality Detection \| Kaggle</title>`, meta description "Create a model that can detect knee abnormalities based on multimodal imaging data" |
-| 1.2 | Kaggle is reachable from this working environment | `VERIFIED` | `GET /api/v1/competitions/list` → HTTP 401 (reached the API, rejected for lack of credentials — not a network failure) |
-| 1.3 | The `kaggle` CLI is installed and runnable | `VERIFIED` | `kaggle --version` → `Kaggle CLI 2.2.4` |
-| 1.4 | **Kaggle API auth works for this account** | `UNVERIFIED` | **BLOCKED**: no credentials exist in this environment (`~/.kaggle/` absent, no `KAGGLE_API_TOKEN`). See §1a. |
-| 1.5 | The competition rules have been accepted by this account | `UNVERIFIED` | Requires 1.4. The API field `user_has_entered` answers this exactly; `eda/phase0_01_auth_and_files.py` prints it. |
-| 1.6 | Credentials go in `~/.kaggle/kaggle.json` | `VERIFIED (with a caveat)` | CLI 2.2.4 still reads `kaggle.json` (`kaggle_api_extended.py:924`), but its own auth help now advertises `kaggle auth login` (OAuth), `KAGGLE_API_TOKEN`, or `~/.kaggle/access_token`. Any of the four works. |
-| 1.7 | The GitHub repository is **private** | `VERIFIED` | GitHub API: `"private": true`, `"visibility": "private"`. This is what makes it acceptable for CI to retain the identifier-bearing file inventory as a build artifact; the workflow refuses that upload if the repo ever becomes public. |
-| 1.8 | Language identification works offline, with no hosted API | `VERIFIED` | `py3langid` correctly labelled seven test phrases (en, de, fr, ru, ja, es, tr) in 0.24 s including import. Matters twice: Rule 4.b forbids sending report text to a hosted LLM, and the submission kernel has internet off. |
-| 1.9 | Phase 0 can run on GitHub Actions using a repository secret | `VERIFIED (mechanism)` `UNVERIFIED (run)` | `.github/workflows/phase0.yml` is in place and its YAML parses; it has not yet executed against Kaggle because the `KAGGLE_API_TOKEN` secret is not set. |
-
-### 1a. What is blocking Phase 0
-
-One thing: the `KAGGLE_API_TOKEN` repository secret is not set.
-
-Everything else is built and tested. Add the secret at
-**Settings → Secrets and variables → Actions → New repository secret**, using a
-token from <https://www.kaggle.com/settings/api>, then run the **phase0-verify**
-workflow from the Actions tab. Steps 1 and 2 both run there; nothing needs to
-touch a local machine.
-
-The run reports `user_has_entered`, so whether the rules have been accepted is
-answered by the run rather than assumed.
+| 1.1 | The competition exists | `VERIFIED` | API `ref` = `https://www.kaggle.com/competitions/rsna-knee-abnormality-detection` |
+| 1.2 | Kaggle reachable | `VERIFIED` | authenticated API calls succeed |
+| 1.3 | `kaggle` CLI installed | `VERIFIED` | `Kaggle CLI 2.2.4` |
+| 1.4 | **Kaggle API auth works** | `VERIFIED` | `KAGGLE_API_TOKEN` authenticates; all calls below made with it |
+| 1.5 | **Rules accepted by this account** | `VERIFIED` | API `user_has_entered` = `True` |
+| 1.6 | Credential file locations | `VERIFIED` | CLI 2.2.4 accepts `kaggle.json`, `~/.kaggle/access_token`, `KAGGLE_API_TOKEN`, or `kaggle auth login` |
+| 1.7 | GitHub repo is private | `VERIFIED` | GitHub API `"private": true` |
+| 1.8 | Offline language ID works | `VERIFIED` | `py3langid`, no network; used for §3.5 |
+| 1.9 | Phase 0 runs in GitHub Actions | `VERIFIED (mechanism)` | `.github/workflows/phase0.yml`; the run reported here was executed directly, secret still to be added for CI runs |
+| 1.10 | Host / organisation | `VERIFIED` | API `organization_name` = `Radiological Society of North America`, `category` = `Research` |
 
 ---
 
-## 2. Task, metric, submission format — ALL UNVERIFIED
+## 2. Task, metric, submission format
 
-| # | Claim (second-hand, from the kickoff brief) | Tag | How it gets verified |
+| # | Claim | Tag | Evidence |
 |---|---|---|---|
-| 2.1 | 12 binary findings per knee MRI study | `UNVERIFIED` | column count of `sample_submission` / the train label file |
-| 2.2 | The 12 target column names | `UNVERIFIED` | header of the train label file |
-| 2.3 | Positive rate per finding | `UNVERIFIED` | computed from the train label file |
-| 2.4 | Metric is macro ROC-AUC over the 12 findings | `UNVERIFIED` | API field `evaluation_metric`, cross-checked against the competition's Evaluation page |
-| 2.5 | Submission format (row count, ID column, wide vs long) | `UNVERIFIED` | `sample_submission.csv` itself — the only authority |
-| 2.6 | Multimodal: DICOM images + radiology report text | `UNVERIFIED` | file inventory from step 1 |
-| 2.7 | Code competition, internet off, ≤ 9 h runtime | `UNVERIFIED` | API field `is_kernels_submissions_only`, plus the competition's Rules/Code Requirements page |
-| 2.8 | Entry/merge deadline 2026-10-15, final 2026-10-22 | `UNVERIFIED` | API fields `new_entrant_deadline`, `merger_deadline`, `deadline` |
-| 2.9 | Prize pool $77,000 with a separate efficiency track | `UNVERIFIED` | API field `reward`, plus the Overview/Prizes page |
+| 2.1 | **12 binary findings per study** | `VERIFIED` | `sample_submission.csv` has 13 columns: `StudyInstanceUID` + 12 findings |
+| 2.2 | **The 12 target names** | `VERIFIED` | `ACL`, `MCL`, `Medial Meniscus`, `Lateral Meniscus`, `Medial OA`, `Lateral OA`, `PF OA`, `Effusion`, `Synovitis`, `Baker's`, `Contusion`, `Fracture` — column order identical in `train.csv` and `sample_submission.csv` |
+| 2.3 | Positive rates | `VERIFIED (on the 58 gold studies)` | see §4 |
+| 2.4 | Metric is ROC-AUC | `VERIFIED (partially)` | API `evaluation_metric` = `Roc Auc Score`. **The averaging scheme is not stated by the API** — whether it is macro over the 12 findings, or something else, still needs the Evaluation page. |
+| 2.5 | **Submission format** | `VERIFIED` | wide: one row per study, `StudyInstanceUID` + the 12 findings in the fixed order above; sample values are `0.5`, so probabilities |
+| 2.6 | **Reports available at inference?** | `VERIFIED — NO` | `test.csv` has exactly one column, `StudyInstanceUID`. `train.csv` carries `Report`; the test table does not. Caveat: the public test stub is 3 rows, so this is the *schema* rather than the rescored file, but a hidden test that added a column would break every published notebook. |
+| 2.7 | Code competition | `VERIFIED` | API `is_kernels_submissions_only` = `True`. The 9-hour limit and internet-off rule are `UNVERIFIED` — they come from the Code Requirements page, not the API. |
+| 2.8 | **Deadlines** | `VERIFIED` | entry `new_entrant_deadline` and `merger_deadline` both **2026-10-15 23:59**; final `deadline` **2026-10-22 23:59**. Competition opened 2026-08-05. |
+| 2.9 | **Prize** | `VERIFIED` | API `reward` = `77,000 Usd`. The separate efficiency track is `UNVERIFIED` — not an API field. |
+| 2.10 | Submission limits | `VERIFIED` | `max_daily_submissions` = 5, `max_team_size` = 5 |
+| 2.11 | Field size | `VERIFIED` | `team_count` = 1,866 as of this run |
 
 ---
 
-## 3. Data scale and structure — ALL UNVERIFIED
+## 3. Data scale and structure
 
-| # | Claim | Tag | How it gets verified |
+| # | Claim | Tag | Evidence |
 |---|---|---|---|
-| 3.1 | ~570 GB total, ~819k DICOM files | `UNVERIFIED` | sum of `total_bytes` and the file count from step 1 |
-| 3.2 | ~4,407 training studies | `UNVERIFIED` | distinct study IDs in the train label file |
-| 3.3 | Only ~58 studies carry expert image-derived labels | `UNVERIFIED` | count of fully-populated label rows vs report-only rows |
-| 3.4 | The rest have only a free-text radiology report | `UNVERIFIED` | join between the label file and the report file |
-| 3.5 | Reports span ~12 languages, 16–19 sites, five continents | `UNVERIFIED` | language ID over the report text; distinct site/institution values |
-| 3.6 | Site / scanner / institution metadata exists | `UNVERIFIED` | DICOM header scan (Phase 0 step 3) — `InstitutionName`, `Manufacturer`, `ManufacturerModelName`, `MagneticFieldStrength`, `DeviceSerialNumber` |
-| 3.7 | That metadata appears in **both** train and test | `UNVERIFIED` | header scan over both splits. **This one is load-bearing**: if site metadata is stripped from test, site-grouped CV is still right for honest validation, but any site-conditioned *feature* is unusable at inference. |
+| 3.1 | ~570 GB, ~819k DICOM files | `UNVERIFIED` | full listing still running; the first 600 files were 601.5 MB, and the listing rate-limits (HTTP 429) after ~25k files, so it is checkpointed and resumed |
+| 3.2 | **4,407 training studies** | `VERIFIED` | `train.csv` has 4,407 rows, 4,407 distinct `StudyInstanceUID` — the brief's figure exactly |
+| 3.3 | **Exactly 58 studies carry expert labels** | `VERIFIED` | 58 rows have all 12 findings populated; 58 have at least one. There is no partially-labelled middle ground — a study is fully labelled or not at all. |
+| 3.4 | **Every training study has a report** | `VERIFIED` | `Report` is non-null for all 4,407 rows. The brief implied some studies might lack one; none do. |
+| 3.5 | **Reports are multilingual** | `VERIFIED` | detected over 4,000 sampled reports: en 39.3%, es 15.6%, tr 12.4%, el 7.4%, hr 7.3%, de 5.9%, bg 5.0%, nl 3.5%, fr 1.9%, bs 1.8%, la ~0%. That is 10 languages with real mass. Croatian/Bosnian are near-identical and the detector will confuse them; "la" (Latin) is near-certainly a misdetection of short anatomical text. So "~12 languages" is the right order of magnitude, and the exact count depends on how one splits Croatian/Bosnian/Serbian. |
+| 3.6 | **Site / scanner / institution metadata in the CSVs** | `CONTRADICTED` | `train.csv` has 14 columns (UID, Report, 12 findings) and `train_series.csv` has 5 (UID, SeriesUID, Fluid_Sensitive, Fat_Suppression, Anatomical_Plane). **No site column exists.** Grouped folds must come from DICOM headers. |
+| 3.7 | Site metadata in both train and test | `UNVERIFIED` | needs the header scan on both splits |
+| 3.8 | **Series-level metadata is provided by the host** | `VERIFIED` | `train_series.csv`: 24,371 series over 4,407 studies. `Anatomical_Plane` ∈ {Sagittal 9,864, Coronal 8,609, Axial 5,898}. |
+| 3.9 | **Series per study** | `VERIFIED` | mean 5.53, median 5, min 3, max 14; p25 = 5, p75 = 6, p99 = 10. Every training study has at least 3 series. |
+| 3.10 | **`Fluid_Sensitive` and `Fat_Suppression` are the same column** | `VERIFIED` | identical on all 24,371 rows (14,010 ones, 10,361 zeros; off-diagonal counts are zero). Two column names, one bit of information. Treat as a single flag and do not build a feature that assumes they differ. |
+| 3.11 | Report length | `VERIFIED` | mean 1,098 chars, median 977, p5 205, p95 2,452, max 4,743 |
+| 3.12 | Public test set size | `VERIFIED` | `test.csv` has 3 rows, `test_series.csv` 15 rows (5 series per study). This is a placeholder; the rescored hidden test is larger and its size is `UNVERIFIED` — which is exactly why the inference kernel needs runtime headroom. |
+| 3.13 | Train and test studies are disjoint | `VERIFIED` | zero `StudyInstanceUID` overlap between `test.csv` and `train.csv` |
+| 3.14 | Data layout | `VERIFIED` | top-level `train_series/` and `test_series/` directories of `.dcm`, plus 5 root CSVs. (Not `train_images/`, as the brief assumed.) |
 
 ---
 
-## 4. Modelling-relevant beliefs — ALL UNVERIFIED
+## 4. The gold subset (n = 58)
 
-| # | Claim | Tag | How it gets verified |
+Positive counts out of 58, from `train.csv`. **These are counts, not prevalences
+of the disease** — 58 studies is a small, probably deliberately balanced sample,
+so these rates should not be read as the base rates in the hidden test set.
+
+| finding | positives / 58 | rate |
+|---|---:|---:|
+| Effusion | 35 | 0.603 |
+| Synovitis | 27 | 0.466 |
+| Medial Meniscus | 26 | 0.448 |
+| ACL | 24 | 0.414 |
+| Lateral Meniscus | 23 | 0.397 |
+| PF OA | 21 | 0.362 |
+| Contusion | 19 | 0.328 |
+| Fracture | 18 | 0.310 |
+| Medial OA | 15 | 0.259 |
+| Baker's | 12 | 0.207 |
+| Lateral OA | 11 | 0.190 |
+| MCL | 9 | 0.155 |
+
+**The statistical reality of n = 58.** A per-finding AUC estimated here has a
+95% interval roughly ±0.13 wide at best, and for `MCL` (9 positives) closer to
+±0.20. This subset can rank a labeler as clearly-good or clearly-broken. It
+cannot distinguish 0.86 from 0.90, and no amount of careful methodology changes
+that. Every number computed on it gets an interval printed next to it.
+
+---
+
+## 5. Modelling-relevant beliefs — still unverified
+
+| # | Claim | Tag | Note |
 |---|---|---|---|
-| 4.1 | Ground truth is image-derived (2 MSK radiologists + adjudicator, severity-thresholded, "on the fence" → negative) | `UNVERIFIED` | the competition's Data page description |
-| 4.2 | Report-derived labels agree with image labels only ~82%, systematically | `UNVERIFIED` | measurable only against the gold subset, in Phase 1 — and with ~58 studies, any per-finding agreement estimate carries a wide interval that must be reported alongside it |
-| 4.3 | Random K-fold inflates AUC by ~0.05–0.14 vs site-grouped K-fold | `UNVERIFIED` | Phase 0 step 5 measures this directly on a trivial baseline |
-| 4.4 | Public baseline (DINOv2) scores ~0.809 | `UNVERIFIED` | the public leaderboard |
+| 5.1 | Ground truth is image-derived (2 MSK radiologists + adjudicator) | `UNVERIFIED` | needs the Data page description |
+| 5.2 | Report-derived labels agree ~82% with image labels | `UNVERIFIED` | measurable in Phase 1 against the 58, with the interval from §4 |
+| 5.3 | Random K-fold inflates AUC by 0.05–0.14 | `UNVERIFIED` | **now blocked on the header scan**, since no site column exists (§3.6) |
+| 5.4 | Public baseline ~0.809 | `UNVERIFIED` | needs the leaderboard |
 
 ---
 
-## 5. Open questions to settle during Phase 0
+## 6. Open questions, updated
 
-1. **What is the unit of prediction** — one row per study, or one row per study × finding? Decides the whole output head layout.
-2. **Is laterality (left/right knee) in the labels, the DICOM headers, or both?** Mirroring right knees is only correct if laterality is reliable.
-3. **Are report texts available for the test set at inference time?** If not, the report labeler is purely a training-time device, and the inference kernel is image-only. This changes the architecture, not just the code.
-4. **Does the gold subset (~58) overlap the report set**, and is it site-diverse or concentrated? A gold set from two sites cannot calibrate twelve.
-5. **How many studies have no report at all?**
+1. ~~Are reports available at test time?~~ **Answered: no** (§2.6). The labeler
+   is training-time only.
+2. ~~How many studies lack a report?~~ **Answered: none** (§3.4).
+3. ~~Unit of prediction?~~ **Answered:** one row per study, 12 columns, wide
+   (§2.5).
+4. **Is the ROC-AUC macro-averaged over the 12 findings?** The API says only
+   "Roc Auc Score". Needs the Evaluation page.
+5. **Where does site/scanner grouping come from?** Only the DICOM headers now.
+   Until the scan runs, every fold scheme is unvalidated.
+6. **Is laterality recoverable?** No column in any CSV; must come from headers.
+7. **Are the 58 gold studies site-diverse?** Unanswerable until sites are known.
+   If they cluster in one or two sites, calibration claims weaken sharply.
+8. **How large is the hidden test set?** Drives the inference-kernel budget.
 
 ---
 
-## 6. Sources consulted
+## 7. Sources
 
 | source | status |
 |---|---|
-| Competition overview page | reachable, but the page body is client-rendered — only the title/meta tags are readable without a browser session. Field descriptions must come from the API or an authenticated fetch. |
-| Kaggle API (`/api/v1/competitions/list`) | reachable, 401 without credentials |
-| Kaggle internal JSON API (`/api/i/competitions.CompetitionService/*`) | 400 without a session token — not a usable unauthenticated path |
-| Kickoff brief | second-hand throughout; treated as hypotheses, not facts |
+| Kaggle API, authenticated | primary source for §1–§2 |
+| `train.csv`, `train_series.csv`, `sample_submission.csv`, `test.csv`, `test_series.csv` | primary source for §2.5, §3, §4 |
+| Competition overview page | client-rendered; only title/meta readable without a browser session |
+| Kickoff brief | second-hand; scored above — mostly right, wrong on §3.6 and silent on §2.6 |

@@ -7,13 +7,23 @@ Maintainer: **existentialistlogarithmic**
 
 ## Where this stands
 
-**Phase 0 (verification) — built, tested, and waiting on one repository secret.**
-No modelling has started, and none will until the facts in `docs/FINDINGS.md`
-are verified. Every claim about the competition data currently carries an
-`UNVERIFIED` tag.
+**Phase 0 steps 1–2 are done against the live competition.** `docs/FINDINGS.md`
+now carries verified numbers; step 3 (the DICOM header scan) is next and is on
+the critical path.
 
-Target: **macro ROC-AUC ≥ 0.90** — see `docs/STRATEGY.md` for why that is read
-as AUC rather than accuracy, and what has to be true for it to be reachable.
+What the data actually is: **4,407 training studies, exactly 58 with expert
+labels**, 12 binary findings, one free-text report per study across ten
+languages (English is only 39% of them). Two facts shape everything downstream:
+
+- **No report text at inference.** `test.csv` has a single column, so the report
+  labeler manufactures training targets and never ships in the submission.
+- **No site or scanner column in any CSV.** The fold-grouping key has to come
+  out of the DICOM headers, so until the scan runs, every CV number is
+  provisional.
+
+Target: **ROC-AUC ≥ 0.90** — see `docs/STRATEGY.md` for why that is read as AUC
+rather than accuracy, and why a 0.90 measured on the 58 gold studies would mean
+nothing (the interval there is wider than the gap we are chasing).
 
 ## Layout
 

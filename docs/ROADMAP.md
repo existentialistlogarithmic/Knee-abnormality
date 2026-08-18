@@ -25,11 +25,12 @@ against unverified facts.
 |---|---|---|
 | 0.1 | Auth verified; competition metadata and file inventory | **DONE for metadata** (metric, deadlines, prize, code-comp flag, rules accepted). Full file listing is paginating with checkpoints — Kaggle rate-limits after ~25k files, so it resumes rather than restarting. Total size/count still open (`FINDINGS.md` 3.1). |
 | 0.2 | Metric, submission schema, study counts, gold-label count, target names and positive rates, site metadata presence, report language/length | **DONE.** See `FINDINGS.md` §2–§4. Headline: 4,407 studies, 58 gold, 12 named targets, 10 languages, **no reports at test time**, **no site column anywhere**. |
-| 0.3 | Kaggle CPU kernel: DICOM **header-only** scan → metadata parquet (site, manufacturer, model, field strength, laterality, pixel spacing, slice thickness, slice count) | **NEXT, and now on the critical path.** It is the only source of a fold-grouping key (§3.6) and of laterality. Series *plane* no longer needs deriving — the host provides it. |
+| 0.3 | DICOM header-only scan | **DONE.** 24,386 series, **819,635 slices**, 0 errors, **372 s** on a Kaggle CPU kernel (0.015 s/series). Output 2.6 MB parquet. |
 | 0.4 | Series-per-study distribution; consistent sequences/planes; cheapest series-selection rule | **PARTLY DONE from the CSVs**: 24,371 series over 4,407 studies, mean 5.53, median 5, range 3–14; planes Sagittal 9,864 / Coronal 8,609 / Axial 5,898; one fluid-sensitive flag (the two columns are identical). Remaining: which combination is reliably present per study. |
-| 0.5 | **Leakage audit**: AUC gap between random and site-grouped K-fold on a trivial baseline | **BLOCKED on 0.3** — there is no site column to group by until the headers are scanned. |
+| 0.5 | **Leakage audit** | **DONE. Random K-fold inflates macro AUC by 0.087** (`FINDINGS.md` §9). Grouping key is a scanner fingerprint with frequency rounded to 2 dp; 178 groups. |
 
-**Gate: full stop after 0.5 for review before any modelling.**
+**PHASE 0 COMPLETE — 2026-08-18.** All five steps done. Gate reached: review
+`docs/FINDINGS.md` before Phase 2 modelling begins.
 
 Sequencing note: 0.3 is now the bottleneck for both 0.4 and 0.5, so it launches
 first. It needs no pixels and no GPU.

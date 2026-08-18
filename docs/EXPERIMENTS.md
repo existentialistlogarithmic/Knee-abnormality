@@ -282,3 +282,39 @@ Notes on the fields that people fudge:
   Set `id` to the slug in the URL the first push prints.
 - **next**: the header scan is running over ~31,500 series; its output gives the
   scanner fingerprint, and with it grouped folds and the leakage audit.
+
+### E009 — header scan complete; leakage audit closes Phase 0
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: header scan ran to completion on Kaggle; added
+  `src/folds.py` (scanner fingerprint, the single source of truth for splits)
+  and `eda/leakage_audit.py`.
+- **runtime**: header scan **372 s** for 24,386 series / **819,635 slices**,
+  0 errors, 2.6 MB parquet — 0.015 s per series on a CPU kernel.
+- **CV**: **random K-fold inflates macro AUC by 0.087** on metadata alone
+  (0.752 random vs 0.664 scanner-grouped).
+- **what it means**: the brief's 0.05–0.14 estimate was right, and grouped folds
+  are now settled rather than a preference.
+  Two findings matter more than the headline number:
+
+  **1. The fingerprint nearly failed silently.** The first design used
+  `ImagingFrequency` at full precision and produced 8,618 groups for 4,410
+  studies — 5,633 of them singletons. A "grouped" K-fold on that key is a random
+  K-fold in disguise: it would have reported near-zero inflation and hidden the
+  leak completely, while every downstream CV number stayed quietly wrong.
+  The cause is Larmor drift between sessions on one magnet — the Philips Ingenia
+  3 T units here emit **739 distinct raw values across 2,480 series**. Rounding
+  to 2 decimals gives 178 usable groups (median 8 studies, max 246, 42
+  singletons). This is recorded prominently in `src/folds.py`.
+
+  **2. Metadata alone scores 0.664 grouped**, where memorisation is impossible.
+  Part is genuine — protocol choice reflects clinical suspicion — and part is
+  population effects that transfer across scanners of a class. It is a baseline
+  any imaging model must beat before we can claim the pixels are contributing.
+  Caveat: targets are report-derived, so shared site convention inflates this;
+  against expert labels it would likely be lower.
+
+  Also confirmed: **no patient appears in more than one study** (0 of 4,410), so
+  folds do not additionally need patient grouping.
+- **next**: Phase 0 gate. Then a metadata-only submission — it should land near
+  0.6 rather than 0.5, and would tell us whether LB agrees with grouped CV.

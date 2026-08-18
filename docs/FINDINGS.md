@@ -203,6 +203,76 @@ that. Every number computed on it gets an interval printed next to it.
 
 ---
 
+## 9. Leakage audit — Phase 0 step 5, `VERIFIED`
+
+`eda/leakage_audit.py`. A gradient-boosted model is given **only scanner
+metadata** — manufacturer, model, field strength, coil, slice counts, pixel
+spacing, image dimensions, sex, laterality. No pixels, no text. Such a model
+cannot know whether a knee has a torn ACL, so anything above 0.5 is site
+memorisation by construction. Targets are the Phase 1 report-derived labels,
+because they cover all 4,407 studies; 58 gold studies cannot measure a fold
+effect.
+
+| finding | random K-fold | scanner-grouped | inflation |
+|---|---:|---:|---:|
+| MCL | 0.802 | 0.695 | **0.107** |
+| Fracture | 0.692 | 0.592 | 0.100 |
+| Effusion | 0.755 | 0.660 | 0.095 |
+| Baker's | 0.694 | 0.600 | 0.094 |
+| Medial OA | 0.788 | 0.698 | 0.091 |
+| PF OA | 0.749 | 0.659 | 0.090 |
+| ACL | 0.771 | 0.682 | 0.089 |
+| Contusion | 0.681 | 0.593 | 0.088 |
+| Lateral OA | 0.842 | 0.759 | 0.083 |
+| Synovitis | 0.802 | 0.728 | 0.074 |
+| Lateral Meniscus | 0.740 | 0.666 | 0.074 |
+| Medial Meniscus | 0.702 | 0.643 | 0.059 |
+| **MACRO** | **0.752** | **0.664** | **0.087** |
+
+**Random K-fold inflates macro AUC by 0.087 on metadata alone**, and a real
+model would enjoy that on top of its own signal. The brief's 0.05–0.14 estimate
+was right. Grouped folds are settled, not a preference.
+
+### The more interesting number is 0.664
+
+Scanner metadata still scores **0.664 macro AUC under grouped K-fold**, where
+memorisation is impossible because every validation scanner is unseen. Two
+things are mixed in there, and they are worth separating in Phase 2:
+
+- **Genuine clinical signal.** Protocol choice reflects suspicion — a
+  radiologist who orders extra sequences is looking for something. Slice counts
+  and sequence mix legitimately carry information.
+- **Population effects that generalise.** A 3 T academic centre and a 1.5 T
+  community clinic see different patients, and that difference transfers to
+  unseen scanners of the same class.
+
+**Caveat, and it matters:** these targets are report-derived, not expert labels.
+Some of the 0.664 is shared site convention — a site whose radiologists write
+verbosely produces both more positive report labels *and* a distinctive scanner
+signature. Against true expert labels the figure would likely be lower. It is a
+baseline to beat, not a result to celebrate.
+
+### Grouping structure
+
+178 scanner fingerprints over 4,407 studies: median group 8 studies, mean 24.8,
+largest 246, 42 singletons, and the five largest groups hold 21% of the data.
+That is workable for 5-fold `GroupKFold`.
+
+### The precision trap that would have silenced this whole audit
+
+The first fingerprint design used `ImagingFrequency` at full precision and
+produced **8,618 fingerprints for 4,410 studies, 5,633 of them singletons** — a
+key nearly unique per study, on which "grouped" K-fold would have been a random
+K-fold in disguise, reporting no inflation and hiding the leak completely.
+
+The cause: Larmor frequency drifts between sessions on the same magnet. The
+Philips Ingenia 3 T scanners here produce **739 distinct raw values across 2,480
+series**. Rounding to 2 decimals collapses that cluster to 4 values and yields
+the 178 usable groups above. `src/folds.py` documents this, because it is the
+kind of detail that silently invalidates everything downstream.
+
+---
+
 ## 8. Where the leaderboard actually sits — `VERIFIED`
 
 Read via `competition_leaderboard_view` on 2026-08-18, top 200 of 1,866 teams.
@@ -308,7 +378,7 @@ discovering later.
 |---|---|---|---|
 | 5.1 | Ground truth is image-derived (2 MSK radiologists + adjudicator, severity-thresholded) | `UNVERIFIED` | the data-description page does **not** describe the annotation process. Not stated anywhere I can reach through the API; would need the forum or the RSNA challenge page. |
 | 5.2 | Report-derived labels agree ~82% with image labels | `UNVERIFIED` | measurable in Phase 1 against the 58, with the interval from §4 |
-| 5.3 | Random K-fold inflates AUC by 0.05–0.14 | `UNVERIFIED` | blocked on the header scan. Note the audit now compares random K-fold against **scanner-fingerprint**-grouped K-fold, since no true site label exists (§5.1). |
+| 5.3 | Random K-fold inflates AUC by 0.05–0.14 | **`VERIFIED` — 0.087** | Measured (§9). Squarely inside the claimed range. |
 | 5.4 | Public baseline ~0.809 | `CONTRADICTED` | Read from the public leaderboard: **top score 0.9510**, and the **top 200 teams all score ≥ 0.9170** (median of that group 0.9200). The 0.809 figure is stale by a wide margin — it may have been an early baseline notebook. See §8. |
 
 ---

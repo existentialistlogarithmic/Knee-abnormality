@@ -103,27 +103,34 @@ def find_marker(marker: str, max_depth: int = 4):
     return None
 
 
-def report_environment():
+def report_environment() -> bool:
     """Record the accelerator actually granted.
 
     The Kaggle CLI does not expose the valid `machine_shape` strings, so which
     GPU a kernel receives has been UNVERIFIED for this project. This prints it,
     which matters because the current PyTorch build ships no Pascal kernels and
     a P100 would fail rather than run slowly.
+
+    Returns True if the accelerator can actually run this build.
     """
     import torch
 
     print(f"torch {torch.__version__}  cuda available: {torch.cuda.is_available()}")
-    if torch.cuda.is_available():
-        for i in range(torch.cuda.device_count()):
-            name = torch.cuda.get_device_name(i)
-            major, minor = torch.cuda.get_device_capability(i)
-            print(f"  GPU {i}: {name}  compute capability {major}.{minor}")
-            if major < 7:
-                print("  >>> WARNING: pre-Volta GPU. The current PyTorch build has no")
-                print("  >>> Pascal kernels — request a T4 instead.")
-    else:
+    if not torch.cuda.is_available():
         print("  no GPU visible; this will be very slow")
+        return True
+    usable = True
+    for i in range(torch.cuda.device_count()):
+        name = torch.cuda.get_device_name(i)
+        major, minor = torch.cuda.get_device_capability(i)
+        print(f"  GPU {i}: {name}  compute capability {major}.{minor}")
+        if major < 7:
+            usable = False
+            print("  >>> PRE-VOLTA GPU. The Kaggle PyTorch build ships no Pascal")
+            print("  >>> kernels, so every CUDA launch fails with")
+            print("  >>> 'no kernel image is available for execution on the device'.")
+            print("  >>> Push with --accelerator set to a T4 shape instead.")
+    return usable
 
 
 class StudyDataset:
@@ -216,7 +223,11 @@ def main() -> int:
     from torch.utils.data import DataLoader
 
     started = time.time()
-    report_environment()
+    if not report_environment():
+        # Exit immediately rather than burning a session that cannot possibly
+        # run. This makes probing accelerator strings cost seconds, not hours.
+        print("\nUnusable accelerator — stopping before any work.")
+        return 0
 
     cache_dirs = ([Path(args.cache)] if args.cache
                   else find_all_markers("cache_index_train_*.parquet"))

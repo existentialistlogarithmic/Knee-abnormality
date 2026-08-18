@@ -102,7 +102,8 @@ clever workaround.
 | 3.17 | **The host expects report-derived labels** | `VERIFIED` | data-description: "Only a small subset of training studies carry per-condition labels. We also provide the original text of the radiology report **from which you may wish to derive the labels for the remaining studies**." The weak-supervision framing is the intended solution path, not a workaround. |
 | 3.13 | Train and test studies are disjoint | `VERIFIED` | zero `StudyInstanceUID` overlap between `test.csv` and `train.csv` |
 | 3.14 | Data layout | `VERIFIED` | top-level `train_series/` and `test_series/` directories of `.dcm`, plus 5 root CSVs. (Not `train_images/`, as the brief assumed.) |
-| 3.18 | **Kaggle mount path** | `VERIFIED` | The competition data mounts at **`/kaggle/input/competitions/rsna-knee-abnormality-detection`**, nested under `competitions/` — *not* at `/kaggle/input/<slug>`. The first header-scan kernel run failed on this and scanned zero series. Both kernels now discover the root by searching for files that must exist. |
+| 3.18 | **Kaggle mount paths** | `VERIFIED` | Three shapes, each discovered by a failed run: competition data at **`/kaggle/input/competitions/<slug>`**, datasets at **`/kaggle/input/datasets/<owner>/<name>`**, and another kernel's output at **`/kaggle/input/notebooks/<owner>/<kernel-slug>/`**. None is at `/kaggle/input/<name>`. All kernels now share a depth-bounded search for files that must exist, skipping the ~1M-file image directories. |
+| 3.20 | **The cache is complete** | `VERIFIED` | The training kernel mounted all four cache shards and reported **4,407 cached studies, 4,407 usable, 58 gold present**, with fold 0 splitting 3,525 train / 882 val across **35 validation scanner groups**. |
 | 3.19 | **Cost of reaching the DICOM data** | `VERIFIED (measured on Kaggle)` | Directory traversal plus one header read per series costs **0.059 s per study** (3 studies, 15 series, 557 files). Extrapolated to the ~1,300-study hidden test that is **77 seconds, or 0.2% of the 9-hour cap**. So file access is effectively free and the entire ~24 s/study budget is available for pixel decoding and inference. Note this did **not** decode pixels — the real constraint remains the ~215,000 slices. |
 
 ---
@@ -200,6 +201,46 @@ so these rates should not be read as the base rates in the hidden test set.
 ±0.20. This subset can rank a labeler as clearly-good or clearly-broken. It
 cannot distinguish 0.86 from 0.90, and no amount of careful methodology changes
 that. Every number computed on it gets an interval printed next to it.
+
+---
+
+## 12. The accelerator question, settled — `VERIFIED`
+
+The brief said "request T4, not P100 — current Kaggle PyTorch ships no Pascal
+kernels". That was `UNVERIFIED` for the whole project because the CLI does not
+expose the valid `machine_shape` strings. It is now confirmed, the expensive way:
+
+A training kernel pushed with `enable_gpu: true` and no explicit shape was
+granted a **Tesla P100-PCIE-16GB, compute capability 6.0**, and died on the
+first CUDA launch with:
+
+```
+torch.AcceleratorError: CUDA error: no kernel image is available for
+execution on the device
+```
+
+So a P100 does not run slowly here — it **fails outright**. The brief was right
+and the consequence is harder than it sounded.
+
+### How to name the accelerator
+
+The CLI accepts `--accelerator` but **does not validate it** — pushing
+`--accelerator INVALID_PROBE` succeeded silently, so error-probing does not
+work. The route that does: push, then `kaggle kernels pull <kernel> -m`, which
+writes the server's own metadata. It reported:
+
+```json
+{"enable_gpu": true, "machine_shape": "Gpu"}
+```
+
+`"Gpu"` is the value that yields a P100. The vocabulary is therefore
+CamelCase shape names, and the T4 variant is being confirmed the same way.
+
+### Making the probe cheap
+
+`report_environment()` in `kaggle/04_train/run.py` now returns whether the
+device can run the build at all, and the kernel exits in seconds if not. Probing
+an accelerator string costs a few seconds rather than a session.
 
 ---
 

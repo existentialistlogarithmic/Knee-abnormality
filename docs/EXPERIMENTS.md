@@ -800,3 +800,27 @@ Notes on the fields that people fudge:
   from the union and retrain. On this project's history — the imaging model
   scored 0.725 against a 0.769 teacher — a better teacher is the change most
   likely to move the board.
+
+### E024 — 30 more epochs of 288px bought nothing, and the guards held
+- **date**: 2026-08-19
+- **runtime**: 3.6 GPU-hours.
+- **result**: **no improvement.** Resumed at 0.7282 and never beat it. The best
+  of the 30 new epochs was 0.7280 at epoch 34; from there it declined
+  monotonically to **0.706** by epoch 59.
+- **what this corrects**: E017 read the last three epochs (0.725, 0.727, 0.7282)
+  as "still climbing" and called 0.7282 a floor. It was not a floor, it was the
+  top. Thirty epochs of evidence say that curve had converged and the small
+  rises at the end were noise. **A rising tail of three points is not a trend**,
+  and this cost 3.6 GPU-hours to learn — on a geometry the board had already
+  placed 0.037 behind.
+- **both guards fired, and one of them mattered a lot**:
+  - The run **inherited** the mounted checkpoint's 0.7282 as its best, so a
+    continuation that never recovered exported the old weights rather than its
+    own. Log: `inherited best macro AUC 0.7282 from the mounted checkpoint`.
+  - The **best-epoch export** kept epoch 29's weights instead of the last
+    epoch's. Under the previous behaviour this run would have shipped epoch 59
+    at **0.706** — a 0.022 loss, silently, with a healthy-looking log.
+
+  Final line: `best val macro AUC 0.7282 (epoch 29, and these are the weights
+  saved)`. Between them the two guards turned a wasted run into a no-op instead
+  of a regression, which is what they were built for.

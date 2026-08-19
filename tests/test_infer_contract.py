@@ -260,3 +260,30 @@ def test_ensemble_prefers_the_checkpoint_geometry_over_its_own_spec():
     assert 'state.get("slice_subsample"' in source
     assert "using the checkpoint" in source, "must prefer the recorded value"
     assert "MODELS[i] = spec" in source, "corrected geometry must reach the builder"
+
+
+FOLDS = REPO_ROOT / "kaggle" / "11_infer_folds" / "run.py"
+
+
+def test_fold_ensemble_averages_all_models_not_one():
+    """A leftover single-model call would silently ignore every other fold —
+    the ensemble would run, cost N times the compute, and score like one model."""
+    source = _source(FOLDS)
+    assert "torch.sigmoid(model(batch))" not in source, "stale single-model prediction path"
+    assert "np.mean([torch.sigmoid(m(batch))" in source, "must average across models"
+    assert "for m in models" in source
+
+
+def test_fold_ensemble_refuses_mismatched_geometries():
+    """Averaging models fed different slice counts compares different inputs."""
+    source = _source(FOLDS)
+    assert "SLICE_SUBSAMPLE_EXPECTED" in source
+    assert "averaging them would be invalid" in source
+
+
+def test_fold_ensemble_decodes_once_for_all_models():
+    """Decode dominates cost; rebuilding per model would make an N-fold ensemble
+    N times slower for no benefit."""
+    source = _source(FOLDS)
+    build_calls = source.count("build_study(root,")
+    assert build_calls == 1, f"volume built {build_calls} times; should be once per study"

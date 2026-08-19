@@ -476,6 +476,15 @@ def main() -> int:
 
     pending: list = []
 
+    # Each model's raw probabilities are kept separately so they can be combined
+    # by RANK at the end. The metric is macro ROC-AUC, which reads order only,
+    # so averaging sigmoids is the wrong operation: a member that happens to be
+    # confidently wrong drags the mean, while under rank averaging every member
+    # gets exactly one vote per study. Ranking has to span the whole test set —
+    # ranks inside a batch of four studies mean nothing — which is why this is
+    # accumulated here and resolved after the loop.
+    raw = np.full((len(models), len(studies), len(FINDINGS)), np.nan, np.float32)
+
     def flush(pending_batch):
         if not pending_batch:
             return
@@ -483,11 +492,10 @@ def main() -> int:
         batch = torch.from_numpy(
             np.stack([p[1] for p in pending_batch]).astype(np.float32) / 255.0).to(device)
         with torch.no_grad():
-            # One decode, N models. Equal weights: the folds differ only by
-            # split, so weighting them would be fitting validation noise.
-            out = np.mean([torch.sigmoid(m(batch)).cpu().numpy() for m in models], axis=0)
-        for slot, index in enumerate(indices):
-            predictions[index] = out[slot]
+            for m_index, model in enumerate(models):
+                out = torch.sigmoid(model(batch)).cpu().numpy()
+                for slot, index in enumerate(indices):
+                    raw[m_index, index] = out[slot]
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         for done, (index, stack, error) in enumerate(
@@ -509,6 +517,35 @@ def main() -> int:
                       f"{1 / rate:.2f} s/study  eta "
                       f"{(len(studies) - done) / rate / 60:.1f} min", flush=True)
         flush(pending)
+
+    # Rank-average across members. Equal weights: the folds differ only by
+    # split, so weighting them would be fitting validation noise.
+    scored = ~np.isnan(raw[0, :, 0])
+    if scored.any():
+        ranked = np.zeros((int(scored.sum()), len(FINDINGS)), np.float64)
+        for m_index in range(len(models)):
+            for j in range(len(FINDINGS)):
+                column = raw[m_index, scored, j].astype(np.float64)
+                order = np.argsort(column, kind="mergesort")
+                ranks = np.empty(len(column), np.float64)
+                ranks[order] = np.arange(len(column), dtype=np.float64)
+                # average tied ranks, so identical probabilities cannot be
+                # separated by whichever study happened to be decoded first
+                unique, inverse, counts = np.unique(column, return_inverse=True,
+                                                    return_counts=True)
+                if len(unique) < len(column):
+                    sums = np.zeros(len(unique))
+                    np.add.at(sums, inverse, ranks)
+                    ranks = (sums / counts)[inverse]
+                ranked[:, j] += ranks
+        # back to (0, 1). Monotone, so with a single model this is a no-op for
+        # AUC and the submission is unchanged.
+        denominator = max(len(models) * (int(scored.sum()) - 1), 1)
+        predictions[scored] = ranked / denominator
+        # Studies that could not be decoded sit in the middle rather than at an
+        # arbitrary prior: with a rank score there is no meaningful "prevalence",
+        # and the middle is the position that costs the least either way.
+        predictions[~scored] = 0.5
 
     submission = pd.DataFrame({"StudyInstanceUID": studies})
     for j, finding in enumerate(FINDINGS):

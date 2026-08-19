@@ -311,3 +311,58 @@ def test_a_resuming_trainer_mounts_what_it_resumes_from():
             if trainer.resume_from:
                 assert trainer.resume_from in by_slug[trainer.slug].depends, \
                     f"{trainer.slug} resumes from an output it does not mount"
+
+
+def _rank_block(directory: str):
+    """The ensemble's rank-averaging step, lifted out of a generated kernel."""
+    source = (KAGGLE / directory / "run.py").read_text()
+    block = source[source.index("    scored = ~np.isnan"):
+                   source.index("    submission = pd.DataFrame")]
+    return "\n".join(l[4:] if l.startswith("    ") else l for l in block.splitlines())
+
+
+def test_rank_averaging_is_a_no_op_for_a_single_model():
+    """The metric reads order, so a rank transform cannot change a one-model
+    submission's AUC. If it does, the transform is wrong."""
+    import numpy as np
+    from sklearn.metrics import roc_auc_score
+
+    rng = np.random.default_rng(0)
+    n, f = 200, 12
+    truth = rng.integers(0, 2, (n, f))
+    raw = 1 / (1 + np.exp(-(truth * 1.2 + rng.normal(0, 1, (n, f)))))[None].astype(np.float32)
+    predictions = np.full((n, f), 0.3, np.float32)
+    ns = {"raw": raw, "predictions": predictions, "models": [0], "FINDINGS": list(range(f))}
+    exec(_rank_block("11_infer_folds"), {"np": np}, ns)
+    before = np.mean([roc_auc_score(truth[:, j], raw[0, :, j]) for j in range(f)])
+    after = np.mean([roc_auc_score(truth[:, j], ns["predictions"][:, j]) for j in range(f)])
+    assert abs(before - after) < 1e-12, f"{before} != {after}"
+
+
+def test_rank_averaging_stays_in_range_and_centres_failed_studies():
+    """A study that could not be decoded has no rank. With a rank score there is
+    no meaningful prevalence to fall back to, so it belongs in the middle."""
+    import numpy as np
+
+    rng = np.random.default_rng(1)
+    n, f, m = 60, 12, 3
+    raw = rng.random((m, n, f)).astype(np.float32)
+    raw[:, :, 0] = np.round(raw[:, :, 0], 1)            # ties
+    failed = [4, 17, 41]
+    raw[:, failed] = np.nan
+    predictions = np.full((n, f), 0.3, np.float32)
+    ns = {"raw": raw, "predictions": predictions, "models": list(range(m)),
+          "FINDINGS": list(range(f))}
+    exec(_rank_block("11_infer_folds"), {"np": np}, ns)
+    out = ns["predictions"]
+    assert out.min() >= 0.0 and out.max() <= 1.0, (out.min(), out.max())
+    assert np.allclose(out[failed], 0.5)
+
+
+def test_the_ensemble_does_not_average_probabilities():
+    """Averaging sigmoids lets the most confident member dominate for no reason
+    the metric rewards."""
+    for directory in ("11_infer_folds", "08_infer_v2", "13_infer_dinov2"):
+        source = (KAGGLE / directory / "run.py").read_text()
+        assert "np.mean([torch.sigmoid" not in source, f"{directory} still probability-means"
+        assert "ranks[order] = np.arange" in source, f"{directory} has no rank transform"

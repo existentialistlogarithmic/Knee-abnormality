@@ -287,13 +287,24 @@ def test_ensemble_prefers_the_checkpoint_geometry_over_its_own_spec():
 FOLDS = REPO_ROOT / "kaggle" / "11_infer_folds" / "run.py"
 
 
-def test_fold_ensemble_averages_all_models_not_one():
+def test_fold_ensemble_combines_all_models_not_one():
     """A leftover single-model call would silently ignore every other fold —
-    the ensemble would run, cost N times the compute, and score like one model."""
+    the ensemble would run, cost N times the compute, and score like one model.
+
+    Combination is by rank rather than by probability: the metric reads order
+    only, so averaging sigmoids lets the most confident member dominate for
+    nothing in return.
+    """
     source = _source(FOLDS)
-    assert "torch.sigmoid(model(batch))" not in source, "stale single-model prediction path"
-    assert "np.mean([torch.sigmoid(m(batch))" in source, "must average across models"
-    assert "for m in models" in source
+    # The sigmoid call is fine — what matters is that it sits INSIDE the loop
+    # over members. A copy outside it would score one model and discard the rest.
+    loop = "for m_index, model in enumerate(models):"
+    assert loop in source, "every model must be run on each batch"
+    body = source[source.index(loop):source.index("with ThreadPoolExecutor")]
+    assert "torch.sigmoid(model(batch))" in body, "the forward pass is not in the loop"
+    assert source.count("torch.sigmoid(") == 1, "a second prediction path exists"
+    assert "ranked[:, j] += ranks" in source, "members must be combined by rank"
+    assert "np.mean([torch.sigmoid" not in source, "probability averaging is the wrong operation"
 
 
 def test_fold_ensemble_refuses_mismatched_geometries():

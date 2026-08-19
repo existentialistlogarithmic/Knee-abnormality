@@ -415,11 +415,15 @@ EXTRAS = [
                    # sat idle.
                    "RUN_GPU_BUDGET": "9GiB",
                    "RUN_MAX_REPORTS": 0,      # 0 = every report
-                   # 8, not 32. A 3,000-token prompt times 32 is a KV cache
-                   # larger than the headroom above; run_batch halves from here
-                   # on an OOM rather than abstaining.
-                   "RUN_BATCH": 8,
-                   "RUN_MAX_NEW_TOKENS": 220,
+                   # Measured locally rather than guessed (E022): prompts are
+                   # 716-1,138 tokens, not the ~3,000 the truncation limit
+                   # allows for, and completions are 109-128 tokens. The first
+                   # run's OOM came from batch 32 on a single card, not from
+                   # long sequences. 16 is affordable at ~1.1k tokens across two
+                   # sharded cards, and run_batch halves on an OOM anyway, so a
+                   # wrong guess costs one retry rather than the session.
+                   "RUN_BATCH": 16,
+                   "RUN_MAX_NEW_TOKENS": 160,
                    "RUN_TIME_BUDGET": Raw("8.0 * 3600")},
         note="Reads every report into a closed 7-state ladder with an\n"
              "open-weights model, then maps states to soft targets in Python.\n"

@@ -52,8 +52,8 @@ import pandas as pd
 RUN_MODEL          = "Qwen/Qwen2.5-7B-Instruct"
 RUN_GPU_BUDGET     = "9GiB"
 RUN_MAX_REPORTS    = 0
-RUN_BATCH          = 8
-RUN_MAX_NEW_TOKENS = 220
+RUN_BATCH          = 16
+RUN_MAX_NEW_TOKENS = 160
 RUN_TIME_BUDGET    = 8.0 * 3600
 # --------------------------------------------------------------------------- #
 

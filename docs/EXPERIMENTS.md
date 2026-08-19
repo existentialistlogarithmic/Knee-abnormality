@@ -713,3 +713,39 @@ Notes on the fields that people fudge:
 - **also corrected**: the results file recorded `RUN_MODEL` as the model, which
   named a 14B AWQ checkpoint the run never loaded. It now records what actually
   ran.
+
+### E022 — local CPU dry run: the schema holds, the token budget was over-provisioned
+- **date**: 2026-08-19
+- **what it is**: the labeling kernel's whole path — chat template, generation,
+  parse, states, ranks, macro AUC — run locally on **CPU** with
+  `Qwen2.5-0.5B-Instruct` over 8 gold reports. Deliberately a plumbing test: a
+  0.5B model's answers say nothing about what a 7B will score, but the last
+  Kaggle run died on infrastructure and this catches that class of bug for a
+  local minute instead of a GPU session.
+- **the format holds completely**, which was the open question a worked example
+  was added to address:
+
+  | | count | share |
+  |---|---:|---:|
+  | unparseable or truncated outputs | 0 | 0% |
+  | key absent from the object | 0 | 0% |
+  | key present, value invalid | 0 | 0% |
+  | key present, value `not_mentioned` | 60 | 62% |
+
+  All twelve findings were emitted every time. So the 62% abstention is the
+  **model's judgement**, not a schema failure — which is the distinction that
+  decides whether to fix the prompt or change the model, and they are not the
+  same problem.
+- **the token budget was wrong in the safe direction**: prompts run 716–1,138
+  tokens against a 3,000-token truncation limit, and completions 109–128 against
+  a 220 cap. So the first run's out-of-memory came from **batch 32 on a single
+  card**, not from long sequences. Batch raised 8 → 16 and the completion cap
+  lowered 220 → 160, roughly halving the wall clock, with `run_batch`'s halving
+  as the safety net if 16 is still too many.
+- **the number to watch when the real run lands**: the lexicon labeler abstains
+  on **40.6%** of gold findings. If the 7B abstains more than that, it is not
+  obviously better regardless of what its AUC says, because abstention and AUC
+  have tracked each other closely across every version of this labeler.
+- **compliance note**: this reads report text into a *local* process. Nothing
+  was printed but aggregates. `STRATEGY.md` rule 4 covers why that distinction
+  is the whole difference.

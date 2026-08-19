@@ -256,7 +256,8 @@ IMAGENET_STD = (0.229, 0.224, 0.225)
 PATCH_MULTIPLE = 14
 
 
-def build_model(backbone: str, n_planes: int, n_out: int, normalise_input: bool):
+def build_model(backbone: str, n_planes: int, n_out: int, normalise_input: bool,
+                per_finding_pool: bool = False):
     """2.5D: a 2D backbone over slices, attention-pooled to a study.
 
     Attention pooling rather than mean pooling because a finding is usually
@@ -317,8 +318,28 @@ def build_model(backbone: str, n_planes: int, n_out: int, normalise_input: bool)
                                  persistent=False)
             self.register_buffer("std", torch.tensor(IMAGENET_STD).view(1, 3, 1, 1),
                                  persistent=False)
-            self.attention = nn.Sequential(nn.Linear(features, 128), nn.Tanh(), nn.Linear(128, 1))
-            self.head = nn.Linear(features, n_out)
+            # One attention map for twelve findings forces a single compromise
+            # over which slices matter. A meniscal tear occupies a handful of
+            # sagittal slices and a large effusion occupies most of the study,
+            # so the compromise is paid mostly by the focal findings — which are
+            # exactly the four weakest here (Medial Meniscus 0.656, PF OA 0.659,
+            # Synovitis 0.663, MCL 0.669 on fold 1).
+            #
+            # With per_finding_pool each finding gets its own attention map over
+            # the same slice embeddings and its own weight vector over features.
+            # Cost is one 128xN linear and an einsum over ~60 tokens: negligible
+            # against the backbone, which is why this is worth trying before
+            # anything that buys AUC with runtime.
+            self.per_finding = per_finding_pool
+            maps = n_out if per_finding_pool else 1
+            self.attention = nn.Sequential(nn.Linear(features, 128), nn.Tanh(),
+                                           nn.Linear(128, maps))
+            if per_finding_pool:
+                self.head_weight = nn.Parameter(torch.zeros(n_out, features))
+                nn.init.trunc_normal_(self.head_weight, std=0.02)
+                self.head_bias = nn.Parameter(torch.zeros(n_out))
+            else:
+                self.head = nn.Linear(features, n_out)
 
         def forward(self, x):                      # x: (B, P, S, H, W)
             b, p, s, h, w = x.shape
@@ -335,7 +356,12 @@ def build_model(backbone: str, n_planes: int, n_out: int, normalise_input: bool)
             if self.normalise:
                 flat = (flat - self.mean) / self.std
             embedded = self.backbone(flat).reshape(b, p * s, -1)
-            scores = self.attention(embedded).softmax(dim=1)
+            scores = self.attention(embedded).softmax(dim=1)   # (B, T, maps)
+            if self.per_finding:
+                # (B, T, F) x (B, T, C) -> (B, F, C): one pooled vector per
+                # finding, each attending wherever that finding actually lives.
+                pooled = torch.einsum("btf,btc->bfc", scores, embedded)
+                return (pooled * self.head_weight).sum(-1) + self.head_bias
             pooled = (embedded * scores).sum(dim=1)
             return self.head(pooled)
 
@@ -403,7 +429,13 @@ def main() -> int:
                     "invalid — refusing to predict.")
 
         backbone = state.get("backbone", "resnet18")
-        model = build_model(backbone, 3, len(FINDINGS), INPUT_NORM_EXPECTED).to(device)
+        # Architecture comes from the checkpoint, not the manifest: this one
+        # changes the shape of the weights, so a mismatch is caught by the
+        # strict load below rather than silently mis-assembled. Absent means a
+        # checkpoint from before the option existed, which had a single map.
+        pooling = bool(state.get("per_finding_pool", False))
+        model = build_model(backbone, 3, len(FINDINGS), INPUT_NORM_EXPECTED,
+                            pooling).to(device)
 
         # The ImageNet mean/std were briefly saved as persistent buffers, so
         # checkpoints written in that window carry two extra keys. They are
@@ -411,7 +443,17 @@ def main() -> int:
         # lossless — but leaving them in would trip the strict-load check below
         # and refuse a perfectly good set of weights.
         weights = {k: v for k, v in state["model"].items() if k not in ("mean", "std")}
-        missing, unexpected = model.load_state_dict(weights, strict=False)
+        try:
+            missing, unexpected = model.load_state_dict(weights, strict=False)
+        except RuntimeError as exc:
+            # strict=False forgives absent and extra keys but NOT a shape
+            # mismatch, which is what an architecture change looks like. Good —
+            # but the raw traceback in a Kaggle log buries the reason.
+            raise SystemExit(
+                f"{path.parent.parent.name}/{path.name} does not fit the model this "
+                f"kernel built (backbone={backbone}, per_finding_pool={pooling}). "
+                f"The checkpoint records a different architecture, so its weights "
+                f"mean something else. Original error: {exc}") from exc
         if missing or unexpected:
             raise SystemExit(f"weight mismatch in {path.name} — missing={len(missing)} "
                              f"unexpected={len(unexpected)}; refusing to predict")

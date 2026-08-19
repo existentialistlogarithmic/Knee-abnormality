@@ -366,3 +366,50 @@ def test_the_ensemble_does_not_average_probabilities():
         source = (KAGGLE / directory / "run.py").read_text()
         assert "np.mean([torch.sigmoid" not in source, f"{directory} still probability-means"
         assert "ranks[order] = np.arange" in source, f"{directory} has no rank transform"
+
+
+def test_per_finding_pooling_gives_each_finding_its_own_attention():
+    """One attention map for twelve findings forces a single compromise about
+    which slices matter, and the focal findings pay for it. If the twelve maps
+    were identical the change would be cosmetic."""
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+    import runpy
+
+    ns = runpy.run_path(str(KAGGLE / "04_train" / "run.py"), run_name="__not_main__")
+    torch.manual_seed(0)
+    model = ns["build_model"]("resnet18", 3, 12, False, True)
+    model.eval()
+    out = model(torch.rand(1, 3, 4, 64, 64))
+    assert out.shape == (1, 12) and torch.isfinite(out).all()
+
+    embedded = torch.randn(2, 18, model.head_weight.shape[1])
+    maps = model.attention(embedded).softmax(dim=1)
+    assert maps.shape[-1] == 12, "there must be one map per finding"
+    assert maps.std(dim=2).mean() > 0, "the twelve maps are identical"
+
+
+def test_the_pooling_choice_is_read_from_the_checkpoint_not_the_manifest():
+    """It changes the shape of the weights. Building from the manifest instead
+    would assemble the wrong architecture whenever the two disagree."""
+    for directory in ("11_infer_folds", "08_infer_v2", "13_infer_dinov2"):
+        source = (KAGGLE / directory / "run.py").read_text()
+        assert 'state.get("per_finding_pool", False)' in source, directory
+        assert "does not fit the model this" in source, \
+            f"{directory} would report an architecture mismatch as a raw traceback"
+
+
+def test_a_pre_existing_checkpoint_still_loads():
+    """Every checkpoint written so far has a single attention map. A new option
+    that orphaned them would throw away the 0.725 model."""
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+    import runpy
+
+    ns = runpy.run_path(str(KAGGLE / "04_train" / "run.py"), run_name="__not_main__")
+    torch.manual_seed(0)
+    legacy = ns["build_model"]("resnet18", 3, 12, False, False)
+    torch.manual_seed(1)
+    rebuilt = ns["build_model"]("resnet18", 3, 12, False, False)
+    missing, unexpected = rebuilt.load_state_dict(legacy.state_dict(), strict=False)
+    assert not missing and not unexpected

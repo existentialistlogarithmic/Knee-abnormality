@@ -121,7 +121,13 @@ def main() -> int:
                     "invalid — refusing to predict.")
 
         backbone = state.get("backbone", "resnet18")
-        model = build_model(backbone, 3, len(FINDINGS), INPUT_NORM_EXPECTED).to(device)
+        # Architecture comes from the checkpoint, not the manifest: this one
+        # changes the shape of the weights, so a mismatch is caught by the
+        # strict load below rather than silently mis-assembled. Absent means a
+        # checkpoint from before the option existed, which had a single map.
+        pooling = bool(state.get("per_finding_pool", False))
+        model = build_model(backbone, 3, len(FINDINGS), INPUT_NORM_EXPECTED,
+                            pooling).to(device)
 
         # The ImageNet mean/std were briefly saved as persistent buffers, so
         # checkpoints written in that window carry two extra keys. They are
@@ -129,7 +135,17 @@ def main() -> int:
         # lossless — but leaving them in would trip the strict-load check below
         # and refuse a perfectly good set of weights.
         weights = {k: v for k, v in state["model"].items() if k not in ("mean", "std")}
-        missing, unexpected = model.load_state_dict(weights, strict=False)
+        try:
+            missing, unexpected = model.load_state_dict(weights, strict=False)
+        except RuntimeError as exc:
+            # strict=False forgives absent and extra keys but NOT a shape
+            # mismatch, which is what an architecture change looks like. Good —
+            # but the raw traceback in a Kaggle log buries the reason.
+            raise SystemExit(
+                f"{path.parent.parent.name}/{path.name} does not fit the model this "
+                f"kernel built (backbone={backbone}, per_finding_pool={pooling}). "
+                f"The checkpoint records a different architecture, so its weights "
+                f"mean something else. Original error: {exc}") from exc
         if missing or unexpected:
             raise SystemExit(f"weight mismatch in {path.name} — missing={len(missing)} "
                              f"unexpected={len(unexpected)}; refusing to predict")

@@ -208,6 +208,21 @@ def main() -> int:
     masks = np.ones_like(targets, dtype=np.float32)
     if ABSTAIN_MASKS_LOSS:
         masks[channels == "absent"] = 0.0
+
+    # Per-finding confidence, when the labeler recorded it. The loss already
+    # multiplies by `mask`, so a continuous mask IS a confidence weight — an
+    # explicit "severe" contributes fully, a hedge contributes less, without any
+    # change to the loss itself. Older label files have no such column and are
+    # unaffected, which is what keeps this comparable to the runs before it.
+    confidence_columns = [f"{f}__weight" for f in FINDINGS]
+    if all(column in soft.columns for column in confidence_columns):
+        confidence = soft.loc[studies, confidence_columns].to_numpy(dtype=np.float32)
+        masks = masks * np.nan_to_num(confidence, nan=1.0)
+        print(f"per-finding confidence weights in use "
+              f"(mean {float(masks[masks > 0].mean()):.3f} where supervised)")
+    else:
+        print("no per-finding confidence column; every supervised target counts equally")
+
     targets = np.nan_to_num(targets, nan=0.0).astype(np.float32)
 
     # Gold studies: every finding populated in train.csv. Weighted up because
@@ -233,7 +248,7 @@ def main() -> int:
           f"val groups {pd.Series(group_values[val_idx]).nunique()}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = build_model(args.backbone, 3, len(FINDINGS), INPUT_NORM).to(device)
+    model = build_model(args.backbone, 3, len(FINDINGS), INPUT_NORM, PER_FINDING_POOL).to(device)
 
     # Both cards were sitting idle: NvidiaTeslaT4 grants two, and the first run
     # used one. With AMP as well this is roughly a 4x throughput change, which is
@@ -435,6 +450,7 @@ def main() -> int:
                     "backbone": args.backbone,
                     "slice_subsample": SLICE_SUBSAMPLE,
                     "input_norm": INPUT_NORM,
+                    "per_finding_pool": PER_FINDING_POOL,
                     }, checkpoint_path)
         (out_dir / f"history_fold{args.fold}.json").write_text(json.dumps(history, indent=2))
 

@@ -109,6 +109,7 @@ class TrainConfig:
     accum: int = 1
     slice_subsample: int | None = None
     input_norm: bool = False
+    per_finding_pool: bool = False
     note: str = ""
 
     def constants(self) -> dict[str, object]:
@@ -117,6 +118,7 @@ class TrainConfig:
                 "RUN_BACKBONE": self.backbone,
                 "SLICE_SUBSAMPLE": self.slice_subsample,
                 "INPUT_NORM": self.input_norm,
+                "PER_FINDING_POOL": self.per_finding_pool,
                 "RUN_TIME_BUDGET": Raw("7.5 * 3600"),
                 "GOLD_WEIGHT": 8.0, "ABSTAIN_MASKS_LOSS": True,
                 "WARMUP_EPOCHS": 2, "EMA_DECAY": 0.999, "LABEL_SMOOTH": 0.02}

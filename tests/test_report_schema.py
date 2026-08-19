@@ -132,3 +132,53 @@ def test_the_kernel_writes_states_and_metrics_but_never_report_text():
     for block in writes:
         assert ".Report" not in block, "a report column is being written out"
         assert "build_prompt" not in block, "a prompt embeds the report text"
+
+
+# --------------------------------------------------------------------------- #
+# the collision between two vocabularies that both use the word "absent"
+# --------------------------------------------------------------------------- #
+def test_silence_and_explicit_normal_map_to_different_channels():
+    """The training parquet's channel `"absent"` means *no supervision here* and
+    masks the loss. The state ladder's rung `"absent"` means *the report says
+    this is normal*, which is supervision and among the best the corpus has.
+
+    Mapping one onto the other would mask every explicit normal and teach every
+    silence as a negative — the precise inversion the five-channel design exists
+    to prevent, and nothing would raise.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "s2s", REPO_ROOT / "eda" / "states_to_soft_labels.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    assert module.CHANNEL["not_mentioned"] == "absent", \
+        "silence must map to the channel that masks the loss"
+    assert module.CHANNEL["absent"] == "negated", \
+        "an explicit normal must stay supervision, not become an abstention"
+
+
+def test_every_rung_has_a_channel_and_channels_stay_in_the_known_vocabulary():
+    import importlib.util
+
+    from src import report_schema
+
+    spec = importlib.util.spec_from_file_location(
+        "s2s", REPO_ROOT / "eda" / "states_to_soft_labels.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    assert set(module.CHANNEL) == set(report_schema.STATES)
+    known = {"absent", "negated", "hedged", "low_severity", "asserted"}
+    assert set(module.CHANNEL.values()) <= known, \
+        f"unknown channel value: {set(module.CHANNEL.values()) - known}"
+
+
+def test_training_uses_a_confidence_column_only_when_it_exists():
+    """Older label files have no per-finding weight. Silently defaulting one in
+    would make every run before this incomparable to every run after it."""
+    source = (REPO_ROOT / "kaggle" / "04_train" / "run.py").read_text()
+    assert 'if all(column in soft.columns for column in confidence_columns):' in source
+    assert "no per-finding confidence column" in source, \
+        "the absence must be visible in the log, not silent"

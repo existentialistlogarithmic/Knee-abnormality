@@ -35,16 +35,23 @@ PLANES = ("Sagittal", "Coronal", "Axial")
 SKIP_DIRECTORIES = {"train_series", "test_series"}
 OUTPUT = Path("/kaggle/working/submission.csv")
 
-# These must match the cache the weights were trained on, exactly.
-TARGET_MM_PER_PIXEL = 0.40
-TARGET_SIZE = 288
-SLICES_PER_PLANE = 24
+# One entry per model in the ensemble. Each must match the cache its weights
+# were trained on, exactly — a mismatch here feeds a model input it never saw
+# and raises nothing.
+# `kernel` is the slug whose output holds the weights. Models are matched to
+# checkpoints BY NAME, never by sort order — pairing the 288px spec with the
+# 192px weights would feed a model input it never saw and raise nothing.
+MODELS = [
+    {"name": "v1-192", "kernel": "knee-train",
+     "mm_per_pixel": 0.60, "size": 192, "slices": 20, "subsample": None},
+    {"name": "v2-288", "kernel": "knee-train-v2",
+     "mm_per_pixel": 0.40, "size": 288, "slices": 24, "subsample": 18},
+]
+TARGET_MM_PER_PIXEL = 0.60   # defaults, overridden per model
+TARGET_SIZE = 192
+SLICES_PER_PLANE = 20
 FALLBACK_PRIOR = 0.3     # used only if a study cannot be read at all
-BATCH_STUDIES = 2        # studies pushed through the network at once
-# v2 trained on a random 14 of 24 slices per plane and validated on an evenly
-# spaced 14. Inference must present the same count the model was scored with —
-# feeding it 24 would be a silent train/inference mismatch that raises nothing.
-SLICE_SUBSAMPLE = 18
+BATCH_STUDIES = 4        # studies pushed through the network at once
 
 
 def find_marker(marker: str, max_depth: int = 4):
@@ -248,155 +255,161 @@ def build_model(backbone: str, n_planes: int, n_out: int):
     return Model()
 
 
+
+def build_study_geom(root, split, study, series_rows, mm_per_pixel, size, slices):
+    """build_study, parameterised by geometry instead of module constants."""
+    global TARGET_MM_PER_PIXEL, TARGET_SIZE, SLICES_PER_PLANE
+    TARGET_MM_PER_PIXEL, TARGET_SIZE, SLICES_PER_PLANE = mm_per_pixel, size, slices
+    return build_study(root, split, study, series_rows)
+
+
+def build_all_geometries(root, study, rows):
+    """One study -> one stack per model. Decoding dominates cost, so this is the
+    place to be careful; the geometries differ only in resample and crop."""
+    stacks = {}
+    for spec in MODELS:
+        stack, _record = build_study_geom(root, "test", study, rows,
+                                          spec["mm_per_pixel"], spec["size"], spec["slices"])
+        sub = spec.get("subsample")
+        if sub and stack.shape[1] > sub:
+            idx = np.linspace(0, stack.shape[1] - 1, sub).round().astype(int)
+            stack = stack[:, idx]
+        stacks[spec["name"]] = stack
+    return stacks
+
+
 def main() -> int:
     import torch
 
     started = time.time()
     root = find_marker("test.csv")
-    weights_dir = find_marker("checkpoint_fold0.pt")
     if root is None:
         raise SystemExit("competition data not found")
-    if weights_dir is None:
-        raise SystemExit("trained weights not mounted (checkpoint_fold0.pt)")
-    print(f"competition root: {root}\nweights: {weights_dir}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cuda":
         major, _ = torch.cuda.get_device_capability(0)
         print(f"GPU: {torch.cuda.get_device_name(0)} (compute {major}.x)")
         if major < 7:
-            print("pre-Volta GPU; falling back to CPU to avoid a CUDA failure")
             device = "cpu"
+            print("pre-Volta GPU; using CPU instead of failing on a CUDA launch")
 
-    state = torch.load(weights_dir / "checkpoint_fold0.pt", map_location=device,
-                       weights_only=False)
-    # Read the backbone from the checkpoint rather than hardcoding it. When
-    # training switched resnet18 -> resnet34 a hardcoded name here would have
-    # thrown a size-mismatch at best, and silently loaded nothing at worst.
-    backbone = state.get("backbone", "resnet18")
-    print(f"backbone from checkpoint: {backbone}")
-    model = build_model(backbone, 3, len(FINDINGS)).to(device)
-    missing, unexpected = model.load_state_dict(state["model"], strict=False)
-    if missing or unexpected:
-        raise SystemExit(f"weight mismatch — missing={len(missing)} "
-                         f"unexpected={len(unexpected)}; refusing to predict")
-    model.eval()
-    print(f"loaded weights from epoch {state.get('epoch')} "
-          f"(val macro AUC {state.get('macro_auc', float('nan')):.4f})")
+    # Each mounted training kernel contributes one model. They are matched to
+    # their geometry by the order in MODELS, and the checkpoint's own recorded
+    # backbone is used rather than a hardcoded name.
+    found = {p.parent.name: p for p in
+             Path("/kaggle/input").glob("notebooks/*/*/checkpoint_fold0.pt")}
+    print(f"checkpoints found: {sorted(found)}")
+    missing_kernels = [m["kernel"] for m in MODELS if m["kernel"] not in found]
+    if missing_kernels:
+        raise SystemExit(f"no checkpoint mounted for {missing_kernels}; "
+                         f"available: {sorted(found)}")
+
+    loaded = []
+    for spec in MODELS:
+        checkpoint_path = found[spec["kernel"]]
+        state = torch.load(checkpoint_path, map_location=device, weights_only=False)
+        backbone = state.get("backbone", "resnet18")
+        model = build_model(backbone, 3, len(FINDINGS)).to(device)
+        missing, unexpected = model.load_state_dict(state["model"], strict=False)
+        if missing or unexpected:
+            raise SystemExit(f"weight mismatch for {spec['name']}: "
+                             f"missing={len(missing)} unexpected={len(unexpected)}")
+        # The checkpoint is the authority on slice count, not this file. A
+        # training config change would otherwise silently mismatch here.
+        recorded = state.get("slice_subsample", "MISSING")
+        if recorded != "MISSING" and recorded != spec.get("subsample"):
+            print(f"  {spec['name']}: checkpoint says slice_subsample={recorded}, "
+                  f"spec said {spec.get('subsample')} — using the checkpoint")
+            spec = {**spec, "subsample": recorded}
+        model.eval()
+        loaded.append((spec, model))
+        print(f"  {spec['name']} <- {spec['kernel']}: {backbone}, "
+              f"epoch {state.get('epoch')}, "
+              f"val macro AUC {state.get('macro_auc', float('nan')):.4f}, "
+              f"{spec['size']}px @ {spec['mm_per_pixel']} mm/px")
 
     test = pd.read_csv(root / "test.csv")
     series = pd.read_csv(root / "test_series.csv")
     if "n_slices" not in series.columns:
         series["n_slices"] = 1
     studies = test.StudyInstanceUID.astype(str).tolist()
-    print(f"test studies: {len(studies):,}   series: {len(series):,}")
-
     by_study = dict(list(series.groupby("StudyInstanceUID")))
+    print(f"test studies: {len(studies):,}   ensemble of {len(loaded)} models")
+
     predictions = np.full((len(studies), len(FINDINGS)), FALLBACK_PRIOR, dtype=np.float32)
     failures = 0
 
-    # Decoding DICOMs is I/O- and CPU-bound and was the whole cost: 19.7 s/study
-    # measured single-threaded, which projects to 7.1 h of a 9 h cap on ~1,300
-    # studies. Far too little headroom for the run that actually counts. Build
-    # volumes on a thread pool and predict in batches so decode overlaps compute.
     def build_one(index_and_study):
         index, study = index_and_study
         try:
             rows = by_study.get(study)
             if rows is None or rows.empty:
                 return index, None, "no series rows"
-            stack, _record = build_study(root, "test", study, rows)
-            # v2 trained on a random 14 of 24 slices per plane and validated on
-            # an evenly spaced 14. Inference must present the same count the
-            # model was scored with — handing it 24 changes the sequence length
-            # the attention pool sees and raises nothing.
-            if SLICE_SUBSAMPLE and stack.shape[1] > SLICE_SUBSAMPLE:
-                idx = np.linspace(0, stack.shape[1] - 1, SLICE_SUBSAMPLE).round().astype(int)
-                stack = stack[:, idx]
-            return index, stack, None
+            return index, build_all_geometries(root, study, rows), None
         except Exception as exc:  # noqa: BLE001
             return index, None, f"{type(exc).__name__}: {exc}"
 
     workers = max(2, min(8, (os.cpu_count() or 4)))
-    print(f"decoding on {workers} threads, predicting in batches of {BATCH_STUDIES}")
-
-    # Time the study loop separately from kernel startup. Model construction,
-    # imports and the first CUDA/BLAS call cost ~50 s and are paid ONCE, but the
-    # public test set is 3 studies, so folding them into a per-study average and
-    # multiplying by 1,300 overstates the real cost by an order of magnitude.
-    # That mistake nearly ruled out CPU inference on a 20x-too-pessimistic number.
     setup_seconds = time.time() - started
     loop_started = time.time()
-    print(f"setup took {setup_seconds:.1f}s (paid once, not per study)")
+    print(f"setup {setup_seconds:.0f}s; decoding on {workers} threads")
 
-    pending: list = []
-
-    def flush(pending_batch):
-        if not pending_batch:
-            return
-        indices = [p[0] for p in pending_batch]
-        batch = torch.from_numpy(
-            np.stack([p[1] for p in pending_batch]).astype(np.float32) / 255.0).to(device)
-        with torch.no_grad():
-            out = torch.sigmoid(model(batch)).cpu().numpy()
-        for slot, index in enumerate(indices):
-            predictions[index] = out[slot]
+    # build_all_geometries reads MODELS, so reflect any checkpoint-corrected
+    # geometry back into it before decoding starts.
+    for i, (spec, _model) in enumerate(loaded):
+        MODELS[i] = spec
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        for done, (index, stack, error) in enumerate(
+        for done, (index, stacks, error) in enumerate(
                 pool.map(build_one, enumerate(studies)), start=1):
-            if error is not None or stack is None:
+            if error is not None or stacks is None:
                 failures += 1
                 if failures <= 5:
                     print(f"  study {index} failed: {error}")
             else:
-                pending.append((index, stack))
-                if len(pending) >= BATCH_STUDIES:
-                    flush(pending)
-                    pending = []
+                # Average the sigmoid outputs. Equal weights: the two models sit
+                # within 0.01 CV of each other, so weighting by CV would be
+                # fitting noise on a 882-study validation fold.
+                total = np.zeros(len(FINDINGS), dtype=np.float32)
+                with torch.no_grad():
+                    for spec, model in loaded:
+                        batch = torch.from_numpy(
+                            stacks[spec["name"]].astype(np.float32) / 255.0
+                        ).unsqueeze(0).to(device)
+                        total += torch.sigmoid(model(batch))[0].cpu().numpy()
+                predictions[index] = total / len(loaded)
 
-            if done % 100 == 0 or done == len(studies):
+            if done % 50 == 0 or done == len(studies):
                 elapsed = time.time() - loop_started
                 rate = done / max(elapsed, 1e-6)
                 print(f"  {done:,}/{len(studies):,}  {elapsed / 60:.1f} min  "
                       f"{1 / rate:.2f} s/study  eta "
                       f"{(len(studies) - done) / rate / 60:.1f} min", flush=True)
-        flush(pending)
 
     submission = pd.DataFrame({"StudyInstanceUID": studies})
     for j, finding in enumerate(FINDINGS):
         submission[finding] = np.clip(predictions[:, j], 1e-6, 1 - 1e-6)
 
     sample = pd.read_csv(root / "sample_submission.csv")
-    assert list(submission.columns) == list(sample.columns), (
-        f"columns differ from sample_submission: {list(sample.columns)}")
-    assert len(submission) == len(test), "row count must match test.csv"
-    assert submission[FINDINGS].notna().all().all(), "no NaNs allowed"
-    assert ((submission[FINDINGS] > 0) & (submission[FINDINGS] < 1)).all().all(), "probabilities"
-    assert submission.StudyInstanceUID.is_unique, "duplicate study ids"
+    assert list(submission.columns) == list(sample.columns), "column mismatch"
+    assert len(submission) == len(test), "row count"
+    assert submission[FINDINGS].notna().all().all(), "NaNs"
+    assert submission.StudyInstanceUID.is_unique, "duplicate ids"
     submission.to_csv(OUTPUT, index=False)
 
-    elapsed = time.time() - started
     loop_seconds = time.time() - loop_started
     per_study = loop_seconds / max(len(studies), 1)
     projected = (setup_seconds + per_study * 1300) / 3600
     spread = {f: round(float(submission[f].std()), 4) for f in FINDINGS}
-    print(f"\nwrote {OUTPUT}  rows={len(submission):,}")
-    print(f"failed studies (kept prior): {failures}")
-    print(f"wall clock {elapsed / 60:.1f} min  (setup {setup_seconds:.0f}s + "
-          f"loop {loop_seconds / 60:.1f} min)")
-    print(f"per-study cost EXCLUDING setup: {per_study:.2f} s")
-    print(f"projected on 1,300 studies: {projected:.2f} h of the 9 h cap "
-          f"(setup once + {per_study:.2f} s x 1300)")
+    print(f"\nwrote {OUTPUT}  rows={len(submission):,}  failures={failures}")
+    print(f"per-study cost excluding setup: {per_study:.2f} s")
+    print(f"projected on 1,300 studies: {projected:.2f} h of the 9 h cap")
     print(f"prediction spread: {spread}")
     Path("/kaggle/working/infer_manifest.json").write_text(json.dumps({
-        "n_studies": len(studies), "failures": failures,
-        "seconds_per_study_excluding_setup": round(per_study, 3),
-        "setup_seconds": round(setup_seconds, 1),
-        "wall_clock_seconds": round(elapsed, 1),
+        "models": [s["name"] for s, _ in loaded], "n_studies": len(studies),
+        "failures": failures, "seconds_per_study_excluding_setup": round(per_study, 3),
         "projected_hours_1300_studies": round(projected, 3),
-        "checkpoint_epoch": state.get("epoch"),
-        "checkpoint_val_macro_auc": state.get("macro_auc"),
         "prediction_spread": spread}, indent=2))
     return 0
 

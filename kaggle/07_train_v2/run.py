@@ -43,19 +43,20 @@ import pandas as pd
 # KERNEL RUN CONFIG — Kaggle script kernels take no arguments.
 # --------------------------------------------------------------------------- #
 RUN_FOLD = 0
-RUN_EPOCHS = 20
+RUN_EPOCHS = 30
 # 288px is 2.25x the pixels of the v1 cache, and each study is 3 planes x 24
 # slices = 72 images. Batch 16 would be 1,152 images of 288^2 per step, which
 # does not fit a T4 even with AMP. Batch 4 does, and SLICE_SUBSAMPLE below buys
 # back most of the throughput while acting as augmentation.
 RUN_BATCH = 4
-RUN_LR = 3e-4
+ACCUM_STEPS = 4          # 4 x 4 = effective batch 16, matching the 192px run
+RUN_LR = 6e-4            # the LR that produced 0.7001 at effective batch 16
 RUN_BACKBONE = "resnet34"
 # Train on a random subset of slices per plane, evaluate on an evenly-spaced
 # subset of the same size. Halves the compute per step and randomises which
 # slices the attention pool sees, which is a genuine augmentation rather than
 # only a saving.
-SLICE_SUBSAMPLE = 14
+SLICE_SUBSAMPLE = 18
 RUN_TIME_BUDGET = 7.5 * 3600
 GOLD_WEIGHT = 8.0          # how much more an expert label counts than a report one
 ABSTAIN_MASKS_LOSS = True  # silence is not supervision
@@ -423,18 +424,19 @@ def main() -> int:
             mask, weight = mask.to(device), weight.to(device)
             target = target * (1 - 2 * LABEL_SMOOTH) + LABEL_SMOOTH
 
-            optimiser.zero_grad(set_to_none=True)
             with torch.amp.autocast("cuda", enabled=use_amp):
                 logits = model(volumes)
                 loss = criterion(logits.float(), target) * mask * weight.unsqueeze(1)
                 denominator = (mask * weight.unsqueeze(1)).sum().clamp(min=1.0)
                 loss = loss.sum() / denominator
 
-            scaler.scale(loss).backward()
-            scaler.unscale_(optimiser)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
-            scaler.step(optimiser)
-            scaler.update()
+            scaler.scale(loss / ACCUM_STEPS).backward()
+            if (step + 1) % ACCUM_STEPS == 0 or (step + 1) == len(train_loader):
+                scaler.unscale_(optimiser)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
+                scaler.step(optimiser)
+                scaler.update()
+                optimiser.zero_grad(set_to_none=True)
 
             with torch.no_grad():
                 for key, value in core.state_dict().items():
@@ -485,9 +487,14 @@ def main() -> int:
         # "module." prefix on every key, and the inference kernel builds a plain
         # model — it would fail to load, or worse, load partially.
         # The saved weights are the EMA ones, i.e. exactly what was scored above.
+        # Record the input geometry alongside the weights. Inference reads it
+        # rather than assuming, which is what stops a config change here from
+        # silently feeding the model something it never saw.
         torch.save({"model": ema_state, "optimiser": optimiser.state_dict(),
                     "ema": ema_state, "epoch": epoch, "macro_auc": macro,
-                    "backbone": args.backbone}, checkpoint_path)
+                    "backbone": args.backbone,
+                    "slice_subsample": SLICE_SUBSAMPLE,
+                    }, checkpoint_path)
         (out_dir / f"history_fold{args.fold}.json").write_text(json.dumps(history, indent=2))
 
         if time.time() - started > args.time_budget:

@@ -467,9 +467,14 @@ def main() -> int:
         # "module." prefix on every key, and the inference kernel builds a plain
         # model — it would fail to load, or worse, load partially.
         # The saved weights are the EMA ones, i.e. exactly what was scored above.
+        # Record the input geometry alongside the weights. Inference reads it
+        # rather than assuming, which is what stops a config change here from
+        # silently feeding the model something it never saw.
         torch.save({"model": ema_state, "optimiser": optimiser.state_dict(),
                     "ema": ema_state, "epoch": epoch, "macro_auc": macro,
-                    "backbone": args.backbone}, checkpoint_path)
+                    "backbone": args.backbone,
+                    "slice_subsample": None,
+                    }, checkpoint_path)
         (out_dir / f"history_fold{args.fold}.json").write_text(json.dumps(history, indent=2))
 
         if time.time() - started > args.time_budget:

@@ -217,3 +217,46 @@ def test_v2_inference_subsamples_slices_like_training_did():
     assert a and b and a.group(1) == b.group(1), "SLICE_SUBSAMPLE differs"
     assert "np.linspace(0, stack.shape[1] - 1, SLICE_SUBSAMPLE)" in infer, \
         "inference must take an evenly spaced subset, as validation did"
+
+
+ENSEMBLE = REPO_ROOT / "kaggle" / "09_infer_ensemble" / "run.py"
+
+
+def test_ensemble_pairs_models_to_checkpoints_by_name():
+    """Pairing by sort order would silently hand the 288px spec the 192px
+    weights — wrong input geometry, no exception, just a worse score."""
+    source = _source(ENSEMBLE)
+    assert '"kernel": "knee-train"' in source and '"kernel": "knee-train-v2"' in source
+    assert "found[spec[\"kernel\"]]" in source, "must look up the checkpoint by kernel slug"
+    assert "zip(MODELS, weight_dirs)" not in source, "order-based pairing is unsafe"
+    assert "missing_kernels" in source, "must fail loudly if a checkpoint is absent"
+
+
+def test_ensemble_geometries_match_their_caches():
+    """Each ensemble member's geometry must match the cache it trained on."""
+    source = _source(ENSEMBLE)
+    v1, v2 = _source(CACHE), _source(CACHE_V2)
+    for cache_src, size_key in ((v1, "192"), (v2, "288")):
+        size = re.search(r"^TARGET_SIZE = (\d+)", cache_src, re.M).group(1)
+        mm = re.search(r"^TARGET_MM_PER_PIXEL = ([0-9.]+)", cache_src, re.M).group(1)
+        assert size == size_key
+        assert f'"size": {size}' in source, f"no ensemble member at {size}px"
+        assert f'"mm_per_pixel": {float(mm):.2f}' in source, f"mm/px {mm} missing"
+
+
+def test_training_records_input_geometry_in_the_checkpoint():
+    """The checkpoint, not a constant in the inference file, is the authority on
+    how the model was fed. Otherwise changing training config silently
+    mismatches inference and nothing raises."""
+    for source_path in (TRAIN, TRAIN_V2):
+        save = _source(source_path)
+        save = save[save.index("torch.save("):]
+        assert '"backbone"' in save, f"{source_path.parent.name}: backbone not recorded"
+        assert '"slice_subsample"' in save, f"{source_path.parent.name}: slice count not recorded"
+
+
+def test_ensemble_prefers_the_checkpoint_geometry_over_its_own_spec():
+    source = _source(ENSEMBLE)
+    assert 'state.get("slice_subsample"' in source
+    assert "using the checkpoint" in source, "must prefer the recorded value"
+    assert "MODELS[i] = spec" in source, "corrected geometry must reach the builder"

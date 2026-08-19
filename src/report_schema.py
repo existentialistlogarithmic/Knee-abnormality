@@ -100,6 +100,17 @@ def build_prompt(report: str) -> str:
         "- Degeneration, mucoid change or signal change WITHOUT a tear is "
         "'minimal', not a tear.\n"
         "- Report what the text says, not what you would expect to see.\n\n"
+        # A worked example is the cheapest available substitute for a decoding
+        # grammar. Without it a chat model reaches for markdown fences and
+        # commentary, and every unparseable answer is a study dropped to no
+        # supervision at all.
+        "Format, shown on a fragment that is not a real report — copy this "
+        "shape exactly:\n"
+        '{"ACL": "absent", "MCL": "not_mentioned", "Medial Meniscus": "severe", '
+        '"Lateral Meniscus": "minimal", "Medial OA": "mild", "Lateral OA": '
+        '"not_mentioned", "PF OA": "moderate", "Effusion": "mild", "Synovitis": '
+        '"not_mentioned", "Baker\'s": "absent", "Contusion": "not_mentioned", '
+        '"Fracture": "not_mentioned"}\n\n'
         f"Report:\n<<<\n{report}\n>>>\n\n"
         "Return a JSON object mapping each of the twelve finding names to one "
         "state string. No other keys, no commentary."

@@ -182,3 +182,38 @@ def test_training_uses_a_confidence_column_only_when_it_exists():
     assert 'if all(column in soft.columns for column in confidence_columns):' in source
     assert "no per-finding confidence column" in source, \
         "the absence must be visible in the log, not silent"
+
+
+def test_the_prompt_carries_a_worked_example_in_the_exact_output_shape():
+    """A chat model without an example reaches for markdown fences and prose,
+    and every unparseable answer is a study left with no supervision. The
+    example is the cheapest substitute for a decoding grammar."""
+    from src import report_schema
+
+    prompt = report_schema.build_prompt("REPORT BODY")
+    start, end = prompt.find("{"), prompt.find("}")
+    assert start >= 0 and end > start, "no example object in the prompt"
+    example = json.loads(prompt[start:end + 1])
+    assert set(example) == set(report_schema.FINDINGS), \
+        "the example must show every finding, or the model will omit some"
+    assert set(example.values()) <= set(report_schema.STATES)
+
+
+def test_the_kernel_retries_a_batch_instead_of_abstaining_on_memory():
+    """An out-of-memory error is a statement about batch size, not about the
+    report. The first run of this kernel abstained on 100% of studies for that
+    reason and printed a 0.500 that read like a verdict on the method."""
+    source = KERNEL.read_text()
+    assert "except torch.cuda.OutOfMemoryError:" in source
+    assert "size //= 2" in source, "an OOM must shrink the batch and retry"
+    assert "RUN FAILED, not a verdict" in source, \
+        "a broken run and a bad method must not report the same way"
+
+
+def test_the_reader_is_spread_across_every_visible_gpu():
+    """device_map="auto" filled one T4 and left the other idle, which is what
+    caused the out-of-memory in the first place."""
+    source = KERNEL.read_text()
+    assert "max_memory=budget" in source
+    assert "torch.cuda.device_count()" in source
+    assert "RUN_GPU_BUDGET" in source

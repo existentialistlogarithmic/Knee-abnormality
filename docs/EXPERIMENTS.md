@@ -678,3 +678,38 @@ Notes on the fields that people fudge:
   backbone currently cannot be compared to the baseline on anything but CV,
   which `FINDINGS.md` §11 shows mis-ranks. The continuation run fixes that,
   which is a second reason to run it.
+
+### E021 — the LLM labeler's first run failed on memory, and cost three minutes
+- **date**: 2026-08-19
+- **result**: **no result.** Every batch raised `OutOfMemoryError`, every study
+  abstained, and the reported macro AUC was 0.500 — the value you get from
+  ranking nothing. Not a measurement of the method.
+- **the cause**: `device_map="auto"` put all of Qwen2.5-7B's fp16 weights on
+  GPU 0 — **13.59 GiB of a 14.56 GiB card** — leaving under a gigabyte for
+  activations, while the second T4 that `NvidiaTeslaT4` grants sat completely
+  idle. Batch 32 at 3,000-token prompts then needed several GiB of KV cache.
+- **what worked**: scoring the 58 gold studies **first** cost three minutes to
+  learn the run was broken, against roughly an hour if the 4,349 had gone first.
+  That ordering was the single best decision in the kernel's design and it paid
+  off on its first use.
+- **what did not work — a defect in the design, not the run**: the kernel
+  treated "abstained on everything because the GPU ran out of memory" and
+  "read the reports and chose states that rank badly" as the same outcome, and
+  printed the same message for both. Those call for opposite responses — fix the
+  run versus abandon the method — and the log said abandon. Fixed: an abstain
+  rate above 50% now reports **RUN FAILED, not a verdict** and exits non-zero.
+- **three fixes, in order of importance**:
+  1. **Shard across both cards.** `max_memory` per device, 9 GiB each, so a 15 GiB
+     model occupies both T4s and leaves real headroom. The idle second GPU was
+     free capacity the whole time.
+  2. **Halve the batch and retry on OOM** instead of abstaining. An
+     out-of-memory error is a statement about batch size, not about the report,
+     and abstaining discards real supervision for an infrastructure reason.
+  3. **A worked example in the prompt**, showing all twelve findings in the exact
+     output shape. vLLM's grammar-constrained decoding is not available — it is
+     not on the Kaggle image and installing it would drag its own torch build
+     onto a Turing card mid-session — so an example is the cheapest substitute,
+     and the parser still abstains on anything it cannot read.
+- **also corrected**: the results file recorded `RUN_MODEL` as the model, which
+  named a 14B AWQ checkpoint the run never loaded. It now records what actually
+  ran.

@@ -407,10 +407,18 @@ EXTRAS = [
         gpu=True,
         internet=True,      # a training-time kernel: it fetches open weights
         datasets=[ARTIFACTS_DATASET],
-        constants={"RUN_MODEL": "Qwen/Qwen2.5-14B-Instruct-AWQ",
-                   "RUN_FALLBACK_MODEL": "Qwen/Qwen2.5-7B-Instruct",
+        constants={"RUN_MODEL": "Qwen/Qwen2.5-7B-Instruct",
+                   # Both T4s, with headroom. The first attempt used
+                   # device_map="auto", which put every weight on GPU 0 —
+                   # 13.59 of 14.56 GiB — and left nothing for activations, so
+                   # every batch raised OutOfMemoryError while the second card
+                   # sat idle.
+                   "RUN_GPU_BUDGET": "9GiB",
                    "RUN_MAX_REPORTS": 0,      # 0 = every report
-                   "RUN_BATCH": 32,
+                   # 8, not 32. A 3,000-token prompt times 32 is a KV cache
+                   # larger than the headroom above; run_batch halves from here
+                   # on an OOM rather than abstaining.
+                   "RUN_BATCH": 8,
                    "RUN_MAX_NEW_TOKENS": 220,
                    "RUN_TIME_BUDGET": Raw("8.0 * 3600")},
         note="Reads every report into a closed 7-state ladder with an\n"

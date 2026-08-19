@@ -49,10 +49,10 @@ import pandas as pd
 # leaves this kernel and no hosted API is contacted — see
 # docs/STRATEGY.md on competition Rule 4.b.
 #
-RUN_MODEL          = "Qwen/Qwen2.5-14B-Instruct-AWQ"
-RUN_FALLBACK_MODEL = "Qwen/Qwen2.5-7B-Instruct"
+RUN_MODEL          = "Qwen/Qwen2.5-7B-Instruct"
+RUN_GPU_BUDGET     = "9GiB"
 RUN_MAX_REPORTS    = 0
-RUN_BATCH          = 32
+RUN_BATCH          = 8
 RUN_MAX_NEW_TOKENS = 220
 RUN_TIME_BUDGET    = 8.0 * 3600
 # --------------------------------------------------------------------------- #
@@ -156,6 +156,17 @@ def build_prompt(report: str) -> str:
         "- Degeneration, mucoid change or signal change WITHOUT a tear is "
         "'minimal', not a tear.\n"
         "- Report what the text says, not what you would expect to see.\n\n"
+        # A worked example is the cheapest available substitute for a decoding
+        # grammar. Without it a chat model reaches for markdown fences and
+        # commentary, and every unparseable answer is a study dropped to no
+        # supervision at all.
+        "Format, shown on a fragment that is not a real report — copy this "
+        "shape exactly:\n"
+        '{"ACL": "absent", "MCL": "not_mentioned", "Medial Meniscus": "severe", '
+        '"Lateral Meniscus": "minimal", "Medial OA": "mild", "Lateral OA": '
+        '"not_mentioned", "PF OA": "moderate", "Effusion": "mild", "Synovitis": '
+        '"not_mentioned", "Baker\'s": "absent", "Contusion": "not_mentioned", '
+        '"Fracture": "not_mentioned"}\n\n'
         f"Report:\n<<<\n{report}\n>>>\n\n"
         "Return a JSON object mapping each of the twelve finding names to one "
         "state string. No other keys, no commentary."
@@ -204,43 +215,38 @@ def macro_auc(expert: np.ndarray, score: np.ndarray) -> tuple:
 
 
 def load_engine():
-    """vLLM with a JSON grammar if it will start, plain transformers if not.
+    """Load the reader, SPREAD ACROSS BOTH T4s.
 
-    Constrained decoding is worth real effort — it makes malformed output
-    impossible rather than merely caught — but vLLM on a Turing card is exactly
-    the kind of thing that fails at import time after the session is already
-    spent. So it is attempted, and a transformers path with the same prompt is
-    kept behind it. Whichever runs is printed.
+    The first attempt at this run died on `device_map="auto"`, which put all of
+    Qwen2.5-7B's fp16 weights on GPU 0 — 13.59 GiB of a 14.56 GiB card — leaving
+    under a gigabyte for activations, and every batch then raised
+    OutOfMemoryError. `NvidiaTeslaT4` grants two cards and the second sat idle.
+    Capping per-device memory forces the shard.
+
+    vLLM is not attempted. It is not installed on the Kaggle image, and pulling
+    it in would drag its own torch build onto a Turing card mid-session. The
+    grammar-constrained decoding it offers is worth having, but not at the price
+    of the session; the prompt below carries a worked example instead, and the
+    parser abstains on anything it cannot read.
     """
-    try:
-        from vllm import LLM, SamplingParams
-
-        engine = LLM(model=RUN_MODEL, dtype="float16", gpu_memory_utilization=0.90,
-                     max_model_len=4096, enforce_eager=True)
-        print(f"engine: vLLM on {RUN_MODEL}")
-
-        def generate(prompts):
-            params = SamplingParams(temperature=0.0, max_tokens=RUN_MAX_NEW_TOKENS)
-            chats = [[{"role": "system", "content": SYSTEM_PROMPT},
-                      {"role": "user", "content": p}] for p in prompts]
-            return [o.outputs[0].text for o in engine.chat(chats, params, use_tqdm=False)]
-
-        return generate, "vllm"
-    except Exception as exc:  # noqa: BLE001 - any failure falls back
-        print(f"vLLM unavailable ({type(exc).__name__}: {exc}); using transformers")
-
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    name = RUN_FALLBACK_MODEL
+    name = RUN_MODEL
     tokenizer = AutoTokenizer.from_pretrained(name)
     tokenizer.padding_side = "left"
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    # Leave headroom on every visible card rather than filling the first one.
+    visible = torch.cuda.device_count() or 1
+    budget = {i: RUN_GPU_BUDGET for i in range(visible)}
+    print(f"loading {name} across {visible} device(s), {RUN_GPU_BUDGET} each")
     model = AutoModelForCausalLM.from_pretrained(
-        name, torch_dtype=torch.float16, device_map="auto")
+        name, dtype=torch.float16, device_map="auto", max_memory=budget)
     model.eval()
-    print(f"engine: transformers on {name}")
+    placement = sorted({str(p.device) for p in model.parameters()})
+    print(f"engine: transformers on {name}; weights on {placement}")
 
     def generate(prompts):
         chats = [tokenizer.apply_chat_template(
@@ -248,7 +254,8 @@ def load_engine():
              {"role": "user", "content": p}],
             tokenize=False, add_generation_prompt=True) for p in prompts]
         batch = tokenizer(chats, return_tensors="pt", padding=True,
-                          truncation=True, max_length=3500).to(model.device)
+                          truncation=True, max_length=3000)
+        batch = {k: v.to(model.device) for k, v in batch.items()}
         with torch.no_grad():
             out = model.generate(**batch, max_new_tokens=RUN_MAX_NEW_TOKENS,
                                  do_sample=False,
@@ -256,7 +263,36 @@ def load_engine():
         return tokenizer.batch_decode(out[:, batch["input_ids"].shape[1]:],
                                       skip_special_tokens=True)
 
-    return generate, "transformers"
+    return generate, name
+
+
+def run_batch(generate, chunk: list[str]) -> list[str]:
+    """Generate for a chunk, halving on out-of-memory rather than giving up.
+
+    An OOM is a statement about batch size, not about the report — abstaining on
+    it throws away real supervision for an infrastructure reason. The first run
+    of this kernel abstained on 100% of studies for exactly that, and reported
+    the resulting 0.500 as though it were a verdict on the method.
+    """
+    import torch
+
+    size = len(chunk)
+    while size >= 1:
+        try:
+            out = []
+            for start in range(0, len(chunk), size):
+                out.extend(generate([build_prompt(r) for r in chunk[start:start + size]]))
+            return out
+        except torch.cuda.OutOfMemoryError:
+            torch.cuda.empty_cache()
+            size //= 2
+            if size >= 1:
+                print(f"  out of memory; retrying at batch {size}", flush=True)
+        except Exception as exc:  # noqa: BLE001 - anything else abstains
+            print(f"  batch failed ({type(exc).__name__}: {exc}); abstaining")
+            return [""] * len(chunk)
+    print("  out of memory even at batch 1; abstaining")
+    return [""] * len(chunk)
 
 
 def score_reports(generate, reports: list[str], label: str) -> list[dict]:
@@ -264,11 +300,7 @@ def score_reports(generate, reports: list[str], label: str) -> list[dict]:
     results, started = [], time.time()
     for start in range(0, len(reports), RUN_BATCH):
         chunk = reports[start:start + RUN_BATCH]
-        try:
-            raw = generate([build_prompt(r) for r in chunk])
-        except Exception as exc:  # noqa: BLE001 - a bad batch abstains, not aborts
-            print(f"  batch at {start} failed ({type(exc).__name__}: {exc}); abstaining")
-            raw = [""] * len(chunk)
+        raw = run_batch(generate, chunk)
         results.extend(parse_states(text) for text in raw)
         done = len(results)
         if start == 0 or done % (RUN_BATCH * 10) == 0 or done == len(reports):
@@ -320,7 +352,7 @@ def main() -> int:
     print(flush=True)
 
     (OUT / "llm_gold_eval.json").write_text(json.dumps({
-        "engine": engine_name, "model": RUN_MODEL,
+        "engine": "transformers", "model": engine_name,
         "n_gold": len(gold), "macro_auc": round(macro, 4),
         "abstain_rate": round(abstain, 4),
         "per_finding": {k: round(v, 4) for k, v in per_finding.items()},
@@ -331,10 +363,21 @@ def main() -> int:
         {"StudyInstanceUID": gold.StudyInstanceUID.astype(str).tolist(),
          "states": gold_states}, indent=2))
 
+    # A near-total abstain rate is an infrastructure failure, not a result. The
+    # first run of this kernel abstained on every study after an out-of-memory
+    # error and printed a 0.500 that read like a judgement on the method. Say
+    # which of the two it is, because they call for opposite responses.
+    if abstain > 0.5:
+        print(f"RUN FAILED, not a verdict: {abstain:.0%} of findings abstained, "
+              "which means the model produced nothing readable rather than "
+              "reading the reports and finding nothing. Fix the run and repeat; "
+              "do not record this as a measurement of the method.")
+        return 1
     if macro < 0.769:
-        print("NOT better than the lexicon labeler on the 58. Stopping before "
-              "the other 4,349 — the point of scoring gold first is to make "
-              "this decision cheap.")
+        print("Genuinely NOT better than the lexicon labeler on the 58 — the "
+              "model read the reports and the states it chose rank worse. "
+              "Stopping before the other 4,349; scoring gold first is what makes "
+              "this decision cost a minute.")
         return 0
 
     limit = RUN_MAX_REPORTS or len(rest)

@@ -346,6 +346,39 @@ LINEAGES = [
 ]
 
 
+# --------------------------------------------------------------------------- #
+# Kernels that belong to no lineage: they produce or evaluate the TARGETS rather
+# than consume the cache. They are declared here rather than hand-written so
+# they inherit the shared code and the metadata contract like everything else.
+# --------------------------------------------------------------------------- #
+EXTRAS = [
+    Kernel(
+        slug="knee-llm-labeler",
+        directory="16_llm_labeler",
+        template="llm_label",
+        gpu=True,
+        internet=True,      # a training-time kernel: it fetches open weights
+        datasets=[ARTIFACTS_DATASET],
+        constants={"RUN_MODEL": "Qwen/Qwen2.5-14B-Instruct-AWQ",
+                   "RUN_FALLBACK_MODEL": "Qwen/Qwen2.5-7B-Instruct",
+                   "RUN_MAX_REPORTS": 0,      # 0 = every report
+                   "RUN_BATCH": 32,
+                   "RUN_MAX_NEW_TOKENS": 220,
+                   "RUN_TIME_BUDGET": Raw("8.0 * 3600")},
+        note="Reads every report into a closed 7-state ladder with an\n"
+             "open-weights model, then maps states to soft targets in Python.\n"
+             "The lexicon labeler reaches 0.769 against the 58 expert-labelled\n"
+             "studies; published systems using this method reach 0.881, and the\n"
+             "gap is paraphrase and negation scope across ten languages rather\n"
+             "than missing vocabulary.\n"
+             "\n"
+             "COMPLIANCE: open weights, inside a Kaggle kernel. No report text\n"
+             "leaves this kernel and no hosted API is contacted — see\n"
+             "docs/STRATEGY.md on competition Rule 4.b.",
+    ),
+]
+
+
 def caches() -> list[Cache]:
     seen, out = set(), []
     for lineage in LINEAGES:
@@ -361,6 +394,7 @@ def all_kernels() -> list[Kernel]:
         out.extend(cache.kernels())
     for lineage in LINEAGES:
         out.extend(lineage.kernels())
+    out.extend(EXTRAS)
     return out
 
 
@@ -390,6 +424,9 @@ def check() -> list[str]:
     by_slug = {k.slug: k for k in kernels}
     for kernel in kernels:
         if kernel.template != "infer":
+            continue
+        if not kernel.depends:
+            problems.append(f"{kernel.slug} is an inference kernel mounting nothing")
             continue
         for key, expected in (("SLICE_SUBSAMPLE", "SLICE_SUBSAMPLE_EXPECTED"),
                               ("INPUT_NORM", "INPUT_NORM_EXPECTED"),

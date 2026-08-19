@@ -647,3 +647,34 @@ Notes on the fields that people fudge:
   configuration** — same config, different splits, no new hypothesis that can be
   wrong — and completing 5 folds also produces the only offline selection signal
   left: one expert-scored out-of-fold prediction per gold study, n = 58.
+
+### E020 — DINOv2 at 16 epochs: 0.6878, and the curve never flattened
+- **date**: 2026-08-19
+- **what changed**: backbone only. `vit_small_patch14_dinov2.lvd142m` on the
+  **same v1 cache**, same fold, batch 6 × 3-step accumulation for an effective
+  18 against the resnet34 run's 16. ImageNet normalisation on, which the
+  resnet34 runs did not have.
+- **result**: best val macro AUC **0.6878** at epoch 15 of 16, against
+  resnet34's 0.7001 at epoch 23 of 24 on the same fold.
+- **why that comparison is not a comparison**: the curve went 0.588 → 0.688 and
+  **the last three epochs still added 0.002 each**. It never plateaued. The
+  resnet34 run flattened by epoch 18 of 24 and spent its last six epochs moving
+  0.0055. So 0.6878 is not a measurement of this backbone; it is where the clock
+  stopped, and the clock was set to 16 because a ViT costs more per epoch.
+  `knee-train-dinov2-long` continues it to 40.
+- **what the per-finding profile suggests**, held loosely because it is
+  cross-fold: DINOv2 reaches **Medial Meniscus 0.740** and **MCL 0.731** where
+  the resnet34 fold-1 model reaches 0.656 and 0.669 — the focal findings, and
+  the direction published work predicts for a self-supervised backbone
+  (`COMPETITIVE_ANALYSIS.md` §3). It is much weaker on **Medial OA 0.561** and
+  **Lateral OA 0.579**. Different folds, so this ranks nothing; it is a reason
+  to finish the run rather than a result.
+- **a bug this surfaced before it cost anything**: `knee-train-dinov2` was
+  written when the ImageNet mean/std were *persistent* buffers, so its
+  checkpoint carries two keys the current model rebuilds for itself. The resume
+  path used a strict load and would have **refused the very run meant to
+  continue it**. Inference already dropped those keys; resume now does too.
+- **what it does not have**: a gold dump. It predates that output, so this
+  backbone currently cannot be compared to the baseline on anything but CV,
+  which `FINDINGS.md` §11 shows mis-ranks. The continuation run fixes that,
+  which is a second reason to run it.

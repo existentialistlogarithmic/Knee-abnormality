@@ -538,12 +538,21 @@ def main() -> int:
     start_epoch = 0
     if resume_from is not None:
         state = torch.load(resume_from, map_location=device, weights_only=False)
+
+        # The ImageNet mean/std were briefly persistent buffers, so checkpoints
+        # written in that window carry two extra keys that the current model
+        # rebuilds for itself. Inference already drops them; resume must too, or
+        # a strict load rejects the run it is meant to continue. That is not
+        # hypothetical: knee-train-dinov2 is exactly such a checkpoint.
+        def usable(weights):
+            return {k: v for k, v in weights.items() if k not in ("mean", "std")}
+
         # "model" is now the best-scoring EMA export, which is NOT where
         # training left off. Older checkpoints have no "live" key and their
         # "model" was the live weights, so that is the correct fallback.
-        core.load_state_dict(state.get("live") or state["model"])
+        core.load_state_dict(usable(state.get("live") or state["model"]))
         if state.get("ema"):
-            ema = {k: v.to(device).float() for k, v in state["ema"].items()}
+            ema = {k: v.to(device).float() for k, v in usable(state["ema"]).items()}
         optimiser.load_state_dict(state["optimiser"])
         start_epoch = state["epoch"] + 1
         print(f"resumed from epoch {start_epoch} "

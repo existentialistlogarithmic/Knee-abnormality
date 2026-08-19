@@ -300,6 +300,32 @@ LINEAGES = [
         infer_directory="08_infer_v2",
     ),
     Lineage(
+        # DINOv2 reached 0.6878 in 16 epochs and NEVER FLATTENED — it climbed
+        # 0.588 to 0.688 with the last three epochs still adding 0.002 each,
+        # where the resnet34 run plateaued by epoch 18 of 24. So 0.6878 is not a
+        # measurement of this backbone, it is where the clock stopped. This
+        # continues it to 40 epochs.
+        #
+        # It also earns the run a gold dump: knee-train-dinov2 predates that
+        # output, so there is currently no way to compare this backbone against
+        # the resnet34 baseline on anything except CV, which mis-ranks.
+        name="dinov2long",
+        cache=CACHE_V1,
+        train=TrainConfig(
+            backbone="vit_small_patch14_dinov2.lvd142m",
+            epochs=40, batch=6, lr=1e-4, accum=3, input_norm=True,
+            note="Continues knee-train-dinov2. As with v2-long the cosine\n"
+                 "schedule is absolute in epoch, so resuming at 16 of 40 puts\n"
+                 "the LR back up — a warm restart, not a smooth continuation.\n"
+                 "The run inherits the 0.6878 checkpoint as its best, so a\n"
+                 "restart that never recovers exports the old weights.",
+        ),
+        trainers=(Trainer(0, "knee-train-dinov2-long", "19_train_dinov2_long",
+                          resume_from="knee-train-dinov2"),),
+        infer_slug="knee-infer-dinov2-long",
+        infer_directory="20_infer_dinov2_long",
+    ),
+    Lineage(
         # A one-variable A/B against knee-train: same cache, same fold, same
         # everything except that each finding gets its own attention map. Fold 0
         # scored 0.7001 CV and 0.725 on the board, so the comparison is against

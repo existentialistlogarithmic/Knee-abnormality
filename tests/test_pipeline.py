@@ -278,7 +278,7 @@ def test_resume_continues_the_trajectory_not_the_export():
     """`model` is now the best EMA export, which is not where training left off.
     Resuming from it would restart a run from an average of its own past."""
     source = (KAGGLE / "04_train" / "run.py").read_text()
-    assert 'core.load_state_dict(state.get("live") or state["model"])' in source
+    assert 'core.load_state_dict(usable(state.get("live") or state["model"]))' in source
     assert '"live": {k: v.detach().cpu().clone()' in source, \
         "the live weights must be saved for resume"
 
@@ -423,3 +423,12 @@ def test_the_pooling_ab_differs_in_exactly_one_constant():
     differing = {k for k in set(baseline) | set(variant)
                  if baseline.get(k) != variant.get(k)}
     assert differing == {"PER_FINDING_POOL"}, differing
+
+
+def test_resume_tolerates_the_briefly_persistent_constant_buffers():
+    """knee-train-dinov2 is exactly such a checkpoint, and a strict load would
+    reject the run meant to continue it."""
+    source = (KAGGLE / "19_train_dinov2_long" / "run.py").read_text()
+    assert 'k not in ("mean", "std")' in source, "resume would be refused"
+    assert "core.load_state_dict(usable(" in source
+    assert "usable(state[\"ema\"])" in source, "the EMA copy carries the same keys"

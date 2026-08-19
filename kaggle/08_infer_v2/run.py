@@ -527,17 +527,23 @@ def main() -> int:
     # accumulated here and resolved after the loop.
     raw = np.full((len(models), len(studies), len(FINDINGS)), np.nan, np.float32)
 
+    timing = {"forward_seconds": 0.0}
+
     def flush(pending_batch):
         if not pending_batch:
             return
         indices = [p[0] for p in pending_batch]
         batch = torch.from_numpy(
             np.stack([p[1] for p in pending_batch]).astype(np.float32) / 255.0).to(device)
+        forward_started = time.time()
         with torch.no_grad():
             for m_index, model in enumerate(models):
                 out = torch.sigmoid(model(batch)).cpu().numpy()
                 for slot, index in enumerate(indices):
                     raw[m_index, index] = out[slot]
+        if device == "cuda":
+            torch.cuda.synchronize()      # otherwise this times queueing, not work
+        timing["forward_seconds"] += time.time() - forward_started
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         for done, (index, stack, error) in enumerate(
@@ -614,6 +620,24 @@ def main() -> int:
     print(f"per-study cost EXCLUDING setup: {per_study:.2f} s")
     print(f"projected on 1,300 studies: {projected:.2f} h of the 9 h cap "
           f"(setup once + {per_study:.2f} s x 1300)")
+
+    # Where the runtime actually goes. The efficiency prize charges 0.0502 AUC
+    # per extra hour (COMPETITIVE_ANALYSIS.md §4), so the split between decode
+    # and forward passes decides whether another fold is nearly free or the most
+    # expensive thing available — and until now it has been guessed at. Decode is
+    # threaded and overlaps the GPU, so these do not sum to wall clock; the
+    # forward total is the part that scales with the number of members.
+    scored_count = max(int(scored.sum()), 1)
+    forward_per_study = timing["forward_seconds"] / scored_count
+    per_member = forward_per_study / max(len(models), 1)
+    member_hours = per_member * 1300 / 3600
+    print(f"forward passes: {timing['forward_seconds']:.1f}s over {len(models)} "
+          f"member(s) = {forward_per_study * 1000:.0f} ms/study, "
+          f"{per_member * 1000:.0f} ms/study/member")
+    print(f"everything else (decode, threaded and overlapped): "
+          f"{max(per_study - forward_per_study, 0) * 1000:.0f} ms/study")
+    print(f"one more member costs ~{member_hours:.3f} h on 1,300 studies, so it "
+          f"pays for itself above ~{member_hours * 0.0502:.4f} AUC")
     print(f"prediction spread: {spread}")
     Path("/kaggle/working/infer_manifest.json").write_text(json.dumps({
         "n_studies": len(studies), "failures": failures,
@@ -621,6 +645,9 @@ def main() -> int:
         "setup_seconds": round(setup_seconds, 1),
         "wall_clock_seconds": round(elapsed, 1),
         "projected_hours_1300_studies": round(projected, 3),
+        "forward_seconds_per_study": round(forward_per_study, 4),
+        "forward_seconds_per_study_per_member": round(per_member, 4),
+        "hours_per_extra_member_on_1300": round(member_hours, 4),
         "n_models": len(models),
         "prediction_spread": spread}, indent=2))
     return 0

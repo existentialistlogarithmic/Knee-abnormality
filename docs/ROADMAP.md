@@ -172,9 +172,18 @@ project currently leads the field, and the two configurations should diverge:
 | anything free at inference | yes | yes |
 
 **Free-at-inference changes are worth double** and should be exhausted first:
-rank averaging, better labels, a better backbone, per-finding pooling. Folds
-and resolution buy AUC with runtime and are roughly break-even on the efficiency
-board, so they are where the configurations part company — not earlier.
+rank averaging, better labels, a better backbone, per-finding pooling. Folds and
+resolution buy AUC with runtime, so they are where the configurations part
+company — not earlier.
+
+**How much an extra fold costs is now measured rather than assumed.** Each study
+is decoded once and passed through every member, so a fold adds one forward pass
+and no decoding. The inference kernel reports the split — total forward seconds,
+per study, per member — and states outright how much AUC an extra member has to
+buy to pay for itself at 0.0502 AUC/hour. Until the next run reports it this is
+`UNVERIFIED`: the only related measurement is that CPU-only inference cost
+19.7 s/study against 2.2 s/study on a T4, which bounds the model's share but
+does not separate it from decode.
 
 ---
 

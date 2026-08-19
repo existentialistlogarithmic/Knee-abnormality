@@ -16,7 +16,7 @@ Phase 1 (the report labeler) is built. Phase 2 (imaging) is in progress.
 | Phase 0 — verification | complete, 5/5 steps |
 | Phase 1 — report labeler | macro AUC **0.769** vs the 58 expert-labelled studies |
 | Phase 2 — cache | v1 192px (4 shards) and v2 288px (8 shards), both verified complete |
-| Phase 2 — imaging model | **0.725 on the leaderboard**; 288px at CV 0.728 pending |
+| Phase 2 — imaging model | **0.725 on the leaderboard** (192px); 288px scored 0.688 |
 | Phase 2 — kernel tree | generated from `src/pipeline.py`; 22 of 28 kernels |
 | Phase 3 — inference | working, 2.2 s/study → 0.8 h of the 9 h cap |
 
@@ -34,26 +34,33 @@ Six measurements govern everything downstream:
 - **No site label exists anywhere** — the DICOM headers are de-identified too.
   Folds group on a *scanner fingerprint* instead (`src/folds.py`). Random
   K-fold inflates macro AUC by **0.087**.
-- **The CV-to-leaderboard gap has opposite signs for different models**, so it
-  cannot be used as a correction:
+- **Report-label CV neither predicts the score nor reliably ranks models.**
+  This is the most important thing measured, and it is bad news:
 
-  | model | report-label CV | leaderboard | gap |
-  |---|---:|---:|---:|
-  | scanner metadata (no pixels) | 0.669 | 0.531 | **+0.138** |
-  | imaging, 192px | 0.700 | **0.725** | **−0.025** |
-  | imaging, 288px, effective batch 4 | 0.690 | 0.668 | **+0.022** |
-  | imaging, 288px, effective batch 16 | **0.728** | pending | — |
+  | model | report-label CV | leaderboard | gap | CV rank | LB rank |
+  |---|---:|---:|---:|:--:|:--:|
+  | scanner metadata (no pixels) | 0.669 | 0.531 | +0.138 | 4 | 4 |
+  | imaging, 192px, eff. batch 16 | 0.700 | **0.725** | −0.025 | 2 | **1** |
+  | imaging, 288px, eff. batch 4 | 0.690 | 0.668 | +0.022 | 3 | 3 |
+  | imaging, 288px, eff. batch 16 | **0.728** | 0.688 | **+0.040** | **1** | 2 |
 
-  What holds across all three scored rows: **CV ranks models correctly**
-  (0.700 > 0.690 predicted 0.725 > 0.668) but does not predict the absolute
-  score. Use CV to choose between configurations; use the board for any claim
-  about where the solution actually stands.
-- **A confounded experiment is worse than no experiment.** The first 288px run
-  changed five things at once and scored below the 192px baseline, which was
-  read as evidence against higher resolution. Re-running it with only the batch
-  size corrected — 4×4 gradient accumulation to reach the same effective 16 —
-  moved the *same fold* from 0.7001 to **0.7282**. The conclusion inverted, and
-  what actually differed was one variable that had been changed in passing.
+  CV called the last row the best model by **+0.028** — a wider margin than any
+  difference this project had acted on. The board says it is **0.037 worse**.
+  CV is scored against noisy report labels and the board against expert ones, so
+  a model can raise its CV by **fitting label noise more precisely**, and every
+  point bought that way is worth nothing on the board. See `FINDINGS.md` §11.
+
+  **Consequence: there is no trustworthy offline selection signal**, and the
+  board allows 2 submissions a day. The one scalable alternative is out-of-fold
+  scoring against the 58 expert-labelled studies — training already uses expert
+  labels for gold studies and splits afterwards, so a complete 5-fold run yields
+  one expert-scored prediction per gold study from a model that never saw it.
+- **A confounded experiment is worse than no experiment — and correcting it does
+  not always vindicate the idea.** The first 288px run changed five things at
+  once. Re-running it with only the effective batch corrected moved the board
+  from 0.668 to 0.688, so the diagnosis was right and worth +0.020. But 288px is
+  **still 0.037 behind 192px**, in both runs. The resolution hypothesis is not
+  supported; the confounded run simply never tested it.
 - **Fold spread is 0.033.** The same configuration reached 0.7001 on fold 0 and
   0.7334 on fold 1. That is wider than most differences this project has treated
   as signal, so single-fold comparisons carry it as a caveat.

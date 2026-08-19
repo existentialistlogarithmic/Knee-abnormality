@@ -314,12 +314,14 @@ rather than quietly edited, because the wrong version was acted on.
 The two imaging models have gaps of opposite sign. So "imaging inverts the gap"
 was an over-generalisation from n=1.
 
-**What actually survives both data points:**
+**What survived those two data points — and what a third destroyed:**
 
-1. **CV ranks correctly.** CV said 0.7001 > 0.6903; the board said
-   0.725 > 0.668. The ordering held, and that is what CV is for.
+1. ~~**CV ranks correctly.** CV said 0.7001 > 0.6903; the board said
+   0.725 > 0.668.~~ **`CONTRADICTED` by the fourth submission — see
+   "Report-label CV does not rank either" below.**
 2. **CV does not predict the absolute score.** The offset varies by model
-   (+0.138, −0.025, +0.022) and cannot be applied as a correction.
+   (+0.138, −0.025, +0.022, +0.040) and cannot be applied as a correction.
+   This one still holds and has only got stronger.
 3. ~~**The 288px model is genuinely worse**, and by *more* than CV suggested — a
    0.010 CV deficit became a 0.057 leaderboard deficit.~~ **`CONTRADICTED`,
    see below.** The 288px *configuration* was worse; the 288px *geometry* was
@@ -366,6 +368,64 @@ expensive to have learned:
 The 288px CV also had not converged — the last three epochs were 0.725, 0.727,
 0.7282, still climbing at 29 of 30 — so 0.7282 is a floor for that
 configuration, not a measurement of it.
+
+### Report-label CV does not rank either — `VERIFIED`, and it is the worst news so far
+
+The corrected 288px model was submitted. **CV 0.7282 → leaderboard 0.688.**
+
+| model | report-label CV | leaderboard | gap | CV rank | LB rank |
+|---|---:|---:|---:|:--:|:--:|
+| scanner metadata (no pixels) | 0.6687 | 0.531 | +0.138 | 4 | 4 |
+| imaging 192px, eff. batch 16 | 0.7001 | **0.725** | −0.025 | 2 | **1** |
+| imaging 288px, eff. batch 4 | 0.6903 | 0.668 | +0.022 | 3 | 3 |
+| imaging 288px, eff. batch 16 | **0.7282** | 0.688 | **+0.040** | **1** | 2 |
+
+CV said the corrected 288px model was the best by a clear margin — **+0.028
+over the 192px model, larger than any difference this project has acted on.**
+The board says it is **0.037 worse**. The ranking is not merely noisy; it is
+inverted on the single comparison that mattered.
+
+**Two things are true at once, and separating them matters:**
+
+- **The batch-size confound was real.** 288px went 0.668 → **0.688** on the
+  board when only the effective batch was corrected. That is a genuine +0.020
+  and the diagnosis was right.
+- **288px is still worse than 192px on the board**, by 0.037, in both runs. The
+  resolution hypothesis is **not** supported. It was not refuted by the
+  confounded run either — that run simply measured nothing — but the corrected
+  run is a clean measurement and it says 192px wins.
+
+**Why report-label CV can rank backwards.** CV is scored against
+report-derived labels, which are noisy (labeler macro AUC 0.769 vs expert
+truth). The board is scored against expert labels. A higher-capacity or
+higher-resolution model can improve its CV by **fitting the label noise more
+precisely** — and every point of CV bought that way is worth nothing or less
+than nothing on the board.
+
+There is suggestive support for that in the per-finding numbers. The 288px
+model's largest CV gain is **Synovitis, 0.781** against the 192px fold-1 model's
+0.663 — and Synovitis is precisely the finding §6 measured as **text-limited**,
+where report vocabulary carries almost no real information (sensitivity 0.59 at
+precision 0.57 against a 0.47 base rate). A model scoring 0.781 against
+Synovitis labels that are themselves near-noise is not learning synovitis. Its
+other big swings are also on the two findings with the weakest labels — Medial
+OA 0.519 and Lateral OA 0.599, both far *below* the 192px model. This is a
+comparison across different folds and so is suggestive, not conclusive.
+
+**What this costs the project.** There is now **no trustworthy offline
+model-selection signal**. The board allows 2 submissions per day. Every
+configuration choice from here is either paid for at that rate or made on a
+signal that has been shown to mis-rank.
+
+**The only scalable alternative** is out-of-fold evaluation against the 58
+expert-labelled studies. Training already uses expert labels as targets for
+gold studies (`targets[position] = train_csv.loc[study, FINDINGS]`, weight 8),
+and the fold split is applied afterwards, so each fold's validation set contains
+the gold studies that fall in it and scores them against expert truth. A full
+5-fold run therefore yields one expert-scored prediction per gold study from a
+model that never saw it — **n = 58, which is small but is the right target**.
+That is the argument for completing a 5-fold run of one configuration before
+testing any further hypothesis.
 
 The mechanism is straightforward once seen. CV is scored against
 **report-derived labels**, which are noisy — the labeler reaches 0.769 macro AUC

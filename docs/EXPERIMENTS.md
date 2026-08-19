@@ -616,3 +616,34 @@ Notes on the fields that people fudge:
   0.7334 on the same configuration. **0.033 of spread between folds** is larger
   than most of the differences this project has been treating as signal. Any
   single-fold comparison from here needs that number attached to it.
+
+### E019 — the corrected 288px model scores 0.688, and report-label CV is no longer a ranking device
+- **date**: 2026-08-19
+- **submission**: `knee-infer-v2` v3, public score **0.688**.
+- **what it settles**: two things, and they point in opposite directions.
+  - The batch-size diagnosis in E017 was **right**: 288px went **0.668 → 0.688**
+    on the board with only the effective batch corrected. +0.020 of real gain.
+  - The resolution hypothesis is **not supported**. 288px is 0.037 behind 192px
+    on the board in both runs. The confounded run never tested the idea; the
+    corrected run tested it and it lost.
+- **what it breaks**: E017 leaned on "CV ranks models correctly", which had held
+  across three submissions. It does not hold. CV said the corrected 288px model
+  was the best available by **+0.028**; the board put it **0.037 behind**. The
+  ranking inverted on exactly the comparison that was being used to steer.
+- **the mechanism, stated as a hypothesis**: CV is scored against report-derived
+  labels (0.769 macro AUC vs expert truth) and the board against expert labels.
+  A model can raise CV by fitting the label noise more precisely. The 288px
+  model's biggest CV gain is **Synovitis 0.781** — the one finding measured as
+  text-limited, where report vocabulary carries almost no information (sens 0.59
+  at prec 0.57, base rate 0.47). Scoring 0.781 against near-noise labels is not
+  learning synovitis. Cross-fold comparison, so suggestive rather than proven.
+- **what I got wrong, plainly**: E017 was written as though the CV reversal
+  settled the resolution question, with the submission described as
+  confirmation. It was not confirmation, it was the test, and the test failed.
+  The 14 GPU-hours of 288px fold training that E017 implied were worth
+  considering would have been spent on the losing geometry.
+- **what this changes about the plan**: the 192px configuration is the one that
+  scores. The highest-confidence gain available is a **fold ensemble of that
+  configuration** — same config, different splits, no new hypothesis that can be
+  wrong — and completing 5 folds also produces the only offline selection signal
+  left: one expert-scored out-of-fold prediction per gold study, n = 58.

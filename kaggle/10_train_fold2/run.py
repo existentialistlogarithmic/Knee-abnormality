@@ -417,6 +417,7 @@ def main() -> int:
     # they are the only targets known to match what the leaderboard scores.
     competition = find_marker("train.csv")
     weights = np.ones(len(studies), dtype=np.float32)
+    is_gold = np.zeros(len(studies), bool)
     if competition is not None:
         train_csv = pd.read_csv(competition / "train.csv").set_index("StudyInstanceUID")
         gold = train_csv[train_csv[FINDINGS].notna().all(axis=1)].index
@@ -463,6 +464,16 @@ def main() -> int:
 
     train_loader = make_loader(train_idx, True, True)
     val_loader = make_loader(val_idx, False, False)
+
+    # The gold studies inside this fold's VALIDATION set are the only expert
+    # labels this model never trained on. Report-label CV has been shown to
+    # mis-rank models (FINDINGS.md §11), so this is the signal that matters,
+    # even though a single fold holds far too few studies to stand alone. The
+    # raw predictions are written out so the five folds can be pooled into one
+    # n=58 out-of-fold evaluation rather than averaging five tiny AUCs.
+    val_studies = [studies[i] for i in val_idx]
+    gold_positions = [pos for pos, i in enumerate(val_idx) if is_gold[i]]
+    print(f"gold studies held out in this fold: {len(gold_positions)}")
 
     out_dir = Path(args.out)
     checkpoint_path = out_dir / f"checkpoint_fold{args.fold}.pt"
@@ -579,11 +590,24 @@ def main() -> int:
                 aucs[finding] = roc_auc_score(y, predictions[keep, i])
         macro = float(np.mean(list(aucs.values()))) if aucs else float("nan")
         spread = float(np.mean(predictions.std(axis=0)))
+
+        # Gold-only macro AUC over this fold's held-out expert labels.
+        gold_macro = float("nan")
+        if gold_positions:
+            g = np.array(gold_positions)
+            gold_aucs = []
+            for i in range(len(FINDINGS)):
+                y = (truths[g, i] > 0.5).astype(int)
+                if 0 < y.sum() < len(y):
+                    gold_aucs.append(roc_auc_score(y, predictions[g, i]))
+            if gold_aucs:
+                gold_macro = float(np.mean(gold_aucs))
         elapsed = time.time() - started
         print(f"epoch {epoch}  loss {total / max(len(train_loader), 1):.4f}  "
-              f"val macro AUC {macro:.4f}  spread {spread:.4f}  {elapsed / 60:.1f} min",
-              flush=True)
+              f"val macro AUC {macro:.4f}  gold {gold_macro:.4f}  "
+              f"spread {spread:.4f}  {elapsed / 60:.1f} min", flush=True)
         history.append({"epoch": epoch, "macro_auc": round(macro, 4),
+                        "gold_macro_auc": round(gold_macro, 4),
                         "spread": round(spread, 4),
                         "per_finding": {k: round(v, 4) for k, v in aucs.items()}})
 
@@ -616,6 +640,22 @@ def main() -> int:
                     "input_norm": INPUT_NORM,
                     }, checkpoint_path)
         (out_dir / f"history_fold{args.fold}.json").write_text(json.dumps(history, indent=2))
+
+        # Raw predictions for the held-out gold studies, so the folds can be
+        # pooled. Written from the same weights that are exported: when this
+        # epoch set a new best, these are the best model's predictions.
+        if gold_positions and best_epoch == epoch:
+            g = np.array(gold_positions)
+            (out_dir / f"gold_oof_fold{args.fold}.json").write_text(json.dumps({
+                "fold": args.fold, "epoch": epoch, "backbone": args.backbone,
+                "geometry": {"mm_per_pixel": TARGET_MM_PER_PIXEL,
+                             "size": TARGET_SIZE, "slices": SLICES_PER_PLANE,
+                             "slice_subsample": SLICE_SUBSAMPLE},
+                "findings": FINDINGS,
+                "studies": [val_studies[pos] for pos in gold_positions],
+                "predicted": predictions[g].round(5).tolist(),
+                "expert": truths[g].round(5).tolist(),
+            }, indent=2))
 
         if time.time() - started > args.time_budget:
             print("time budget reached; checkpoint saved, re-run to resume")

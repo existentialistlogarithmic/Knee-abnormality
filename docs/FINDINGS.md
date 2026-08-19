@@ -695,6 +695,43 @@ discovering later.
 
 ---
 
+## 13. How much the gold set can actually settle — `VERIFIED` by simulation
+
+§11 leaves the project with report-label CV that mis-ranks, a leaderboard that
+allows two submissions a day, and 58 expert-labelled studies. Before building a
+development loop on those 58 studies it is worth knowing what they can resolve.
+Simulated at macro AUC ≈ 0.73 over 12 findings, 400 bootstrap resamples,
+5 repeats — `eda/pool_gold_oof.py` carries the same method:
+
+| comparison | n | 95% interval width |
+|---|---:|---:|
+| one model, absolute | 12 (a single fold's gold subset) | **0.173** |
+| one model, absolute | 46 (four folds) | **0.081** |
+| one model, absolute | 58 (five folds) | **0.079** |
+| **two models, paired on the same studies** | 58 | **0.044** |
+
+Three consequences, and the second one is uncomfortable:
+
+1. **A single fold's gold subset is worthless alone.** ±0.09 cannot distinguish
+   anything this project will ever choose between. The per-fold number is only
+   useful as an input to the pool.
+2. **The pooled absolute number could NOT have settled 192px vs 288px.** That
+   gap was 0.037 on the board and the interval is 0.079 wide. The gold set would
+   have said "not separated" — correctly, given what it can see. It is a filter
+   for bad ideas, not an arbiter of close ones.
+3. **Pairing roughly doubles the sensitivity**, to a 0.044 interval on the
+   *difference*, because two models scored on the same studies make correlated
+   errors and comparing independent intervals throws that correlation away. In
+   simulation it separates a 0.08 gap every time and a 0.04 gap about 40% of the
+   time.
+
+**The development loop this implies.** Use the paired gold comparison to reject
+changes that are clearly worse and to confirm ones that are clearly better;
+spend leaderboard submissions on the close calls, of which there are two a day.
+And prefer changes that have a prior reason to be safe — averaging folds of a
+configuration already known to score is not a hypothesis that can be wrong —
+over changes that need a measurement this project cannot afford to make.
+
 ## 7. Sources
 
 | source | status |

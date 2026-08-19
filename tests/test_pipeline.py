@@ -432,3 +432,35 @@ def test_resume_tolerates_the_briefly_persistent_constant_buffers():
     assert 'k not in ("mean", "std")' in source, "resume would be refused"
     assert "core.load_state_dict(usable(" in source
     assert "usable(state[\"ema\"])" in source, "the EMA copy carries the same keys"
+
+
+def test_exactly_one_labels_dataset_is_mounted_per_trainer():
+    """The training kernel finds soft_labels.parquet by searching the mounted
+    inputs. Two datasets carrying that file would make the targets depend on
+    directory order — a silent, unreproducible choice of what the model learns.
+    """
+    known = {pipeline.ARTIFACTS_DATASET, pipeline.FUSED_DATASET}
+    for lineage in pipeline.LINEAGES:
+        for kernel in lineage.kernels():
+            if kernel.template != "train":
+                continue
+            carrying = [d for d in kernel.datasets if d in known]
+            assert len(carrying) == 1, f"{kernel.slug} mounts {carrying}"
+
+
+def test_the_label_ab_differs_only_in_which_dataset_supplies_the_labels():
+    """The union of the two labelers is worth +0.070 on gold. Measuring what
+    that buys requires the labels to be the only thing that changed."""
+    baseline = constants(KAGGLE / "04_train" / "run.py")
+    variant = constants(KAGGLE / "21_train_v1fused" / "run.py")
+    differing = {k for k in set(baseline) | set(variant)
+                 if baseline.get(k) != variant.get(k)}
+    assert not differing, differing
+
+    import json
+    a = json.loads((KAGGLE / "04_train" / "kernel-metadata.json").read_text())
+    b = json.loads((KAGGLE / "21_train_v1fused" / "kernel-metadata.json").read_text())
+    assert a["dataset_sources"] != b["dataset_sources"], "the labels must differ"
+    assert b["dataset_sources"] == [pipeline.FUSED_DATASET]
+    for field in ("kernel_sources", "enable_gpu", "enable_internet", "machine_shape"):
+        assert a[field] == b[field], f"{field} differs; this is no longer an A/B"

@@ -46,6 +46,11 @@ from dataclasses import dataclass, field
 ACCOUNT = "achelijndiamantidis"
 COMPETITION = "rsna-knee-abnormality-detection"
 ARTIFACTS_DATASET = f"{ACCOUNT}/knee-phase1-artifacts"
+# Same headers, but soft_labels.parquet is the FUSION of the lexicon labeler
+# and the LLM reader. A separate dataset rather than a new version of the
+# one above, so every run already made stays comparable — replacing the
+# labels in place would silently change what every earlier number meant.
+FUSED_DATASET = f"{ACCOUNT}/knee-phase1-fused"
 T4 = "NvidiaTeslaT4"
 
 
@@ -191,6 +196,12 @@ class Lineage:
     trainers: tuple[Trainer, ...]
     infer_slug: str | None = None
     infer_directory: str | None = None
+    labels: str = ARTIFACTS_DATASET
+    """Which dataset supplies soft_labels.parquet.
+
+    Exactly one must be mounted: the training kernel finds the file by search,
+    so mounting two would make the targets depend on directory order.
+    """
 
     @property
     def geometry(self) -> Geometry:
@@ -208,7 +219,7 @@ class Lineage:
                 internet=True,      # pretrained weights; only submissions go offline
                 depends=cache_slugs + ([trainer.resume_from]
                                        if trainer.resume_from else []),
-                datasets=[ARTIFACTS_DATASET],
+                datasets=[self.labels],
                 constants={"RUN_FOLD": trainer.fold,
                            **self.geometry.constants(),
                            **self.train.constants()},
@@ -298,6 +309,29 @@ LINEAGES = [
         trainers=(Trainer(0, "knee-train-v2", "07_train_v2"),),
         infer_slug="knee-infer-v2",
         infer_directory="08_infer_v2",
+    ),
+    Lineage(
+        # The label experiment. Identical to knee-train in every constant; the
+        # only difference is which dataset supplies soft_labels.parquet.
+        #
+        # Measured on the 58 gold studies (E023): neither labeler beats the
+        # other — the paired interval on their difference contains zero — but
+        # their union beats both by +0.070, because they abstain on different
+        # findings. Across the corpus the fusion drops unsupervised slots from
+        # 49.4% to 34.6%. The 0.725 imaging model was trained by a 0.769
+        # teacher, so a better teacher is the change most likely to move the
+        # board, and nothing else here has that much headroom.
+        name="v1fused",
+        cache=CACHE_V1,
+        labels=FUSED_DATASET,
+        train=TrainConfig(
+            backbone="resnet34", epochs=24, batch=16, lr=6e-4,
+            note="Identical to the 0.725 configuration. The labels are the\n"
+                 "single variable.",
+        ),
+        trainers=(Trainer(0, "knee-train-v1fused", "21_train_v1fused"),),
+        infer_slug="knee-infer-v1fused",
+        infer_directory="22_infer_v1fused",
     ),
     Lineage(
         # DINOv2 reached 0.6878 in 16 epochs and NEVER FLATTENED — it climbed

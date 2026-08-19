@@ -320,14 +320,52 @@ was an over-generalisation from n=1.
    0.725 > 0.668. The ordering held, and that is what CV is for.
 2. **CV does not predict the absolute score.** The offset varies by model
    (+0.138, −0.025, +0.022) and cannot be applied as a correction.
-3. **The 288px model is genuinely worse**, and by *more* than CV suggested — a
-   0.010 CV deficit became a 0.057 leaderboard deficit. Whatever differs between
-   those configs hurts transfer more than it hurts validation.
+3. ~~**The 288px model is genuinely worse**, and by *more* than CV suggested — a
+   0.010 CV deficit became a 0.057 leaderboard deficit.~~ **`CONTRADICTED`,
+   see below.** The 288px *configuration* was worse; the 288px *geometry* was
+   not, and the two were confounded.
 
 The mechanism proposed earlier — that a model learning anatomy disagrees with
 noisy targets where they are wrong — is still plausible and would explain the
 192px result. It does not explain the 288px result, so it is at best partial.
 **Treat CV as a ranking device only. Absolute claims come from the board.**
+
+### The 288px deficit was a confound, not a result — `CONTRADICTED`, 2026-08-19
+
+The 288px run that scored 0.6903 CV / 0.668 LB differed from the 192px run in
+**five ways at once**: resolution, slice count, epochs, batch size and learning
+rate — plus a different label version. One of those was decisive and it was not
+the resolution.
+
+`RUN_BATCH = 4` was set because 288px does not fit batch 16 on a T4, but nothing
+compensated for it, so that run trained at an **effective batch of 4 against the
+192px run's 16**. Re-running it with 4-step gradient accumulation and *nothing
+else changed*:
+
+| run | geometry | effective batch | epochs | val macro AUC |
+|---|---|---:|---:|---:|
+| v1 fold 0 | 192px @ 0.60 mm/px | 16 | 24 | 0.7001 |
+| v2 fold 0, first attempt | 288px @ 0.40 mm/px | **4** | 30 | 0.6903 |
+| v2 fold 0, corrected | 288px @ 0.40 mm/px | **16** | 30 | **0.7282** |
+
+Verified like-for-like from both logs before concluding anything: each reports
+`fold 0: train 3,525  val 882  val groups 35`. Same studies, same scanner
+groups, same targets.
+
+So the resolution hypothesis from §10 — that 0.60 mm/px against a native median
+of 0.312 mm was discarding the detail thin structures live in — is **supported**,
+having appeared refuted for a day. Two lessons, both cheap to state and
+expensive to have learned:
+
+1. **A confounded experiment is worse than no experiment**, because it produces
+   a number that looks like evidence. This one nearly ended the highest-value
+   line of work in the project.
+2. **The conclusion was published before the confound was checked**, even though
+   the confound was written down in the run's own notes at the time.
+
+The 288px CV also had not converged — the last three epochs were 0.725, 0.727,
+0.7282, still climbing at 29 of 30 — so 0.7282 is a floor for that
+configuration, not a measurement of it.
 
 The mechanism is straightforward once seen. CV is scored against
 **report-derived labels**, which are noisy — the labeler reaches 0.769 macro AUC

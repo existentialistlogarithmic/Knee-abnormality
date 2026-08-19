@@ -16,7 +16,8 @@ Phase 1 (the report labeler) is built. Phase 2 (imaging) is in progress.
 | Phase 0 — verification | complete, 5/5 steps |
 | Phase 1 — report labeler | macro AUC **0.769** vs the 58 expert-labelled studies |
 | Phase 2 — cache | v1 192px (4 shards) and v2 288px (8 shards), both verified complete |
-| Phase 2 — imaging model | **0.725 on the leaderboard** |
+| Phase 2 — imaging model | **0.725 on the leaderboard**; 288px at CV 0.728 pending |
+| Phase 2 — kernel tree | generated from `src/pipeline.py`; 22 of 28 kernels |
 | Phase 3 — inference | working, 2.2 s/study → 0.8 h of the 9 h cap |
 
 **Leaderboard: 0.725.** Constant priors score 0.500 and scanner metadata alone
@@ -26,27 +27,36 @@ What the data actually is: **4,407 training studies, exactly 58 with expert
 labels**, 12 binary findings, one free-text report per study across ten
 languages (English is only 39% of them), and **819,635 DICOM slices**.
 
-Four measurements govern everything downstream:
+Six measurements govern everything downstream:
 
 - **No report text at inference.** `test.csv` has a single column, so the report
   labeler manufactures training targets and never ships in the submission.
 - **No site label exists anywhere** — the DICOM headers are de-identified too.
   Folds group on a *scanner fingerprint* instead (`src/folds.py`). Random
   K-fold inflates macro AUC by **0.087**.
-- **The CV-to-leaderboard gap has opposite signs for the two model families**,
-  which is the most useful thing measured so far:
+- **The CV-to-leaderboard gap has opposite signs for different models**, so it
+  cannot be used as a correction:
 
   | model | report-label CV | leaderboard | gap |
   |---|---:|---:|---:|
   | scanner metadata (no pixels) | 0.669 | 0.531 | **+0.138** |
   | imaging, 192px | 0.700 | **0.725** | **−0.025** |
-  | imaging, 288px | 0.690 | 0.668 | **+0.022** |
+  | imaging, 288px, effective batch 4 | 0.690 | 0.668 | **+0.022** |
+  | imaging, 288px, effective batch 16 | **0.728** | pending | — |
 
-  The gap varies in **sign and size** between models, so it cannot be used as a
-  correction. What holds across all three: **CV ranks models correctly**
+  What holds across all three scored rows: **CV ranks models correctly**
   (0.700 > 0.690 predicted 0.725 > 0.668) but does not predict the absolute
   score. Use CV to choose between configurations; use the board for any claim
   about where the solution actually stands.
+- **A confounded experiment is worse than no experiment.** The first 288px run
+  changed five things at once and scored below the 192px baseline, which was
+  read as evidence against higher resolution. Re-running it with only the batch
+  size corrected — 4×4 gradient accumulation to reach the same effective 16 —
+  moved the *same fold* from 0.7001 to **0.7282**. The conclusion inverted, and
+  what actually differed was one variable that had been changed in passing.
+- **Fold spread is 0.033.** The same configuration reached 0.7001 on fold 0 and
+  0.7334 on fold 1. That is wider than most differences this project has treated
+  as signal, so single-fold comparisons carry it as a caveat.
 - **The label ceiling is not hard.** A model trained on 0.769-quality labels
   scored 0.725 against expert truth, and was not converged.
 

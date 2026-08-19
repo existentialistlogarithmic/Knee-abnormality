@@ -824,3 +824,41 @@ Notes on the fields that people fudge:
   Final line: `best val macro AUC 0.7282 (epoch 29, and these are the weights
   saved)`. Between them the two guards turned a wasted run into a no-op instead
   of a regression, which is what they were built for.
+
+### E025 — four runs land; the gold instrument starts working, and disagrees with CV
+- **date**: 2026-08-19
+
+| run | epochs | report-label CV | gold-subset AUC | n |
+|---|---:|---:|---:|---:|
+| `knee-train` (baseline, fold 0) | 24 | 0.7001 | — | — |
+| **`v1pool`** — per-finding attention, fold 0 | 24 | **0.7088** | **0.7355** | 12 |
+| `dinov2-long` — ViT-S/14, fold 0 | 40 | 0.7041 | **0.5890** | 12 |
+| `fold2` (baseline) | 24 | 0.7410 | 0.7589 | 12 |
+| `fold3` (baseline) | 24 | 0.7260 | 0.6793 | 11 |
+
+- **DINOv2 has now converged, and it is not the answer here.** Continuing 16 → 40
+  epochs moved it 0.6878 → **0.7041** and the last eight epochs are flat
+  (0.700–0.704), so E020's "the clock stopped early" reading was right about the
+  cause and wrong about the size: the extra 24 epochs bought 0.016, not the gap
+  to the baseline. Against `v1pool` on **the same 12 gold studies** it scores
+  0.5890 against 0.7355.
+- **but that comparison is not conclusive, and the tooling says so**: paired
+  bootstrap gives **+0.1465, 95% CI [−0.054, +0.295] — NOT SEPARATED**. Twelve
+  studies cannot resolve a 0.15 gap. This is exactly what `FINDINGS.md` §13
+  predicted from simulation (a single fold's gold subset has a ~0.173 interval),
+  and it is the first time that prediction has been checked against real data.
+- **CV and gold disagree about these two models, sharply.** CV puts them at
+  0.7088 and 0.7041 — a 0.005 gap, effectively tied. Gold puts them 0.147 apart.
+  Given §11 records CV mis-ranking on the one comparison that was checked
+  against the board, gold is the one to believe; but at n=12 neither is
+  actionable yet. Folds 1 and 4 are running and will take the pool toward 58.
+- **per-finding attention is ahead on both metrics** — +0.0087 CV over the same
+  fold with **one constant changed**, and the higher gold number — and its curve
+  was still rising at epoch 23 of 24 (0.706, 0.708, 0.708, 0.709). Cheap to
+  extend, and unlike the 288px case the rise is over eight monotone epochs
+  rather than three.
+- **the baseline's pooled gold OOF, folds 2+3**: **0.7078**, 95% CI
+  [0.636, 0.779] over 23 studies. Published work reports gold-58 + 0.044 ≈ LB
+  (`COMPETITIVE_ANALYSIS.md` §2); that would predict 0.752 against an actual
+  0.725. Encouraging for the estimator, but 23 studies and a 0.143-wide interval
+  cannot confirm a 0.027 discrepancy. Revisit at n = 58.

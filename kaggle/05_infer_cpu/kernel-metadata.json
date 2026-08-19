@@ -1,0 +1,16 @@
+{
+  "id": "achelijndiamantidis/knee-infer-cpu",
+  "title": "knee-infer-cpu",
+  "code_file": "run.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "machine_shape": "",
+  "dataset_sources": [],
+  "competition_sources": ["rsna-knee-abnormality-detection"],
+  "kernel_sources": ["achelijndiamantidis/knee-train"],
+  "model_sources": []
+}

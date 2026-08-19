@@ -102,7 +102,8 @@ clever workaround.
 | 3.17 | **The host expects report-derived labels** | `VERIFIED` | data-description: "Only a small subset of training studies carry per-condition labels. We also provide the original text of the radiology report **from which you may wish to derive the labels for the remaining studies**." The weak-supervision framing is the intended solution path, not a workaround. |
 | 3.13 | Train and test studies are disjoint | `VERIFIED` | zero `StudyInstanceUID` overlap between `test.csv` and `train.csv` |
 | 3.14 | Data layout | `VERIFIED` | top-level `train_series/` and `test_series/` directories of `.dcm`, plus 5 root CSVs. (Not `train_images/`, as the brief assumed.) |
-| 3.18 | **Kaggle mount path** | `VERIFIED` | The competition data mounts at **`/kaggle/input/competitions/rsna-knee-abnormality-detection`**, nested under `competitions/` — *not* at `/kaggle/input/<slug>`. The first header-scan kernel run failed on this and scanned zero series. Both kernels now discover the root by searching for files that must exist. |
+| 3.18 | **Kaggle mount paths** | `VERIFIED` | Three shapes, each discovered by a failed run: competition data at **`/kaggle/input/competitions/<slug>`**, datasets at **`/kaggle/input/datasets/<owner>/<name>`**, and another kernel's output at **`/kaggle/input/notebooks/<owner>/<kernel-slug>/`**. None is at `/kaggle/input/<name>`. All kernels now share a depth-bounded search for files that must exist, skipping the ~1M-file image directories. |
+| 3.20 | **The cache is complete** | `VERIFIED` | The training kernel mounted all four cache shards and reported **4,407 cached studies, 4,407 usable, 58 gold present**, with fold 0 splitting 3,525 train / 882 val across **35 validation scanner groups**. |
 | 3.19 | **Cost of reaching the DICOM data** | `VERIFIED (measured on Kaggle)` | Directory traversal plus one header read per series costs **0.059 s per study** (3 studies, 15 series, 557 files). Extrapolated to the ~1,300-study hidden test that is **77 seconds, or 0.2% of the 9-hour cap**. So file access is effectively free and the entire ~24 s/study budget is available for pixel decoding and inference. Note this did **not** decode pixels — the real constraint remains the ~215,000 slices. |
 
 ---
@@ -203,6 +204,255 @@ that. Every number computed on it gets an interval printed next to it.
 
 ---
 
+## 12. The accelerator question, settled — `VERIFIED`
+
+The brief said "request T4, not P100 — current Kaggle PyTorch ships no Pascal
+kernels". That was `UNVERIFIED` for the whole project because the CLI does not
+expose the valid `machine_shape` strings. It is now confirmed, the expensive way:
+
+A training kernel pushed with `enable_gpu: true` and no explicit shape was
+granted a **Tesla P100-PCIE-16GB, compute capability 6.0**, and died on the
+first CUDA launch with:
+
+```
+torch.AcceleratorError: CUDA error: no kernel image is available for
+execution on the device
+```
+
+So a P100 does not run slowly here — it **fails outright**. The brief was right
+and the consequence is harder than it sounded.
+
+### The valid names, and where they were hiding — `VERIFIED`
+
+```
+NvidiaTeslaT4
+NvidiaTeslaP100
+Tpu1VmV38
+```
+
+These are documented in the **`kagglesdk` type docstring** for
+`machine_shape` (`kagglesdk/kernels/types/kernels_api_service.py`). The CLI's own
+source comments that the enum "is not currently included in kagglesdk", which is
+what sent this project chasing the value the hard way — that comment is wrong.
+
+Two dead ends recorded so they are not repeated:
+
+- **`--accelerator` is not validated.** Pushing `--accelerator INVALID_PROBE`
+  succeeds silently, so the error message never lists the allowed values.
+- **`--accelerator GpuT4x2` was silently ignored** and the run got a P100
+  again. A wrong shape name does not fail; it falls back.
+
+`kaggle kernels pull <kernel> -m` does report the server's stored value, which
+read `"Gpu"` after the default push — useful for confirming what a kernel is
+actually set to, but it does not enumerate the options.
+
+### Making the probe cheap
+
+`report_environment()` in `kaggle/04_train/run.py` now returns whether the
+device can run the build at all, and the kernel exits in seconds if not. Probing
+an accelerator string costs a few seconds rather than a session.
+
+---
+
+## 11. The CV-to-leaderboard gap — `VERIFIED`, and it is large
+
+The metadata-only model was submitted precisely to measure this. Same model,
+same predictions, two yardsticks:
+
+| measured against | score |
+|---|---:|
+| report-derived labels, scanner-grouped OOF | **0.6687** |
+| expert labels, public leaderboard | **0.5310** |
+| **gap** | **0.1377** |
+
+Of the model's apparent 0.169 of skill above chance, only about **0.031
+survives** contact with expert labels.
+
+### What this means, stated carefully
+
+The obvious reading — "report labels are bad" — is too coarse. The precise
+reading is this: **the metadata model has no anatomical information whatsoever.**
+It cannot see a ligament. Everything it learned was a correlation between
+scanner identity and *reporting convention* — a site whose radiologists write
+verbosely, or use particular phrasing, produces more positive report labels, and
+that site has a distinctive scanner signature. That correlation is entirely real
+for report-derived labels and nearly worthless for expert ones.
+
+So the lesson is not that report labels are useless. It is narrower and more
+useful:
+
+1. **Features correlated with site rather than anatomy will not transfer**, and
+   grouped CV against report labels does *not* catch it — grouping removed the
+   memorisation, but not the shared convention baked into the targets
+   themselves.
+2. **CV against report-derived labels is an optimistic proxy for the
+   leaderboard.** Anything trained on these targets must have its CV-to-LB gap
+   watched from the first run, not assumed.
+3. **An imaging model should transfer better**, because pathology visible in
+   pixels is the same pathology the experts graded. But it will inherit some of
+   this, and the size of its own gap is the thing to measure early.
+
+### The practical rule this buys
+
+Report-derived CV is for *ranking* candidate models, never for estimating the
+leaderboard. Absolute claims come from the leaderboard or from the 58 gold
+studies (with their wide intervals) — never from report-label CV.
+
+### …and the gap is NOT a fixed offset — `CORRECTED`, 2026-08-19
+
+An earlier version of this section claimed, from a single data point, that
+imaging models *invert* the gap and that report-label CV therefore understates
+imaging progress. **A second submission contradicted that.** Recorded here
+rather than quietly edited, because the wrong version was acted on.
+
+| model | report-label CV | leaderboard | gap |
+|---|---:|---:|---:|
+| scanner metadata (no pixels) | 0.6687 | 0.531 | **+0.138** |
+| imaging, resnet34 @192px | 0.7001 | **0.725** | **−0.025** |
+| imaging, resnet34 @288px | 0.6903 | 0.668 | **+0.022** |
+
+The two imaging models have gaps of opposite sign. So "imaging inverts the gap"
+was an over-generalisation from n=1.
+
+**What survived those two data points — and what a third destroyed:**
+
+1. ~~**CV ranks correctly.** CV said 0.7001 > 0.6903; the board said
+   0.725 > 0.668.~~ **`CONTRADICTED` by the fourth submission — see
+   "Report-label CV does not rank either" below.**
+2. **CV does not predict the absolute score.** The offset varies by model
+   (+0.138, −0.025, +0.022, +0.040) and cannot be applied as a correction.
+   This one still holds and has only got stronger.
+3. ~~**The 288px model is genuinely worse**, and by *more* than CV suggested — a
+   0.010 CV deficit became a 0.057 leaderboard deficit.~~ **`CONTRADICTED`,
+   see below.** The 288px *configuration* was worse; the 288px *geometry* was
+   not, and the two were confounded.
+
+The mechanism proposed earlier — that a model learning anatomy disagrees with
+noisy targets where they are wrong — is still plausible and would explain the
+192px result. It does not explain the 288px result, so it is at best partial.
+**Treat CV as a ranking device only. Absolute claims come from the board.**
+
+### The 288px deficit was a confound, not a result — `CONTRADICTED`, 2026-08-19
+
+The 288px run that scored 0.6903 CV / 0.668 LB differed from the 192px run in
+**five ways at once**: resolution, slice count, epochs, batch size and learning
+rate — plus a different label version. One of those was decisive and it was not
+the resolution.
+
+`RUN_BATCH = 4` was set because 288px does not fit batch 16 on a T4, but nothing
+compensated for it, so that run trained at an **effective batch of 4 against the
+192px run's 16**. Re-running it with 4-step gradient accumulation and *nothing
+else changed*:
+
+| run | geometry | effective batch | epochs | val macro AUC |
+|---|---|---:|---:|---:|
+| v1 fold 0 | 192px @ 0.60 mm/px | 16 | 24 | 0.7001 |
+| v2 fold 0, first attempt | 288px @ 0.40 mm/px | **4** | 30 | 0.6903 |
+| v2 fold 0, corrected | 288px @ 0.40 mm/px | **16** | 30 | **0.7282** |
+
+Verified like-for-like from both logs before concluding anything: each reports
+`fold 0: train 3,525  val 882  val groups 35`. Same studies, same scanner
+groups, same targets.
+
+So the resolution hypothesis from §10 — that 0.60 mm/px against a native median
+of 0.312 mm was discarding the detail thin structures live in — is **supported**,
+having appeared refuted for a day. Two lessons, both cheap to state and
+expensive to have learned:
+
+1. **A confounded experiment is worse than no experiment**, because it produces
+   a number that looks like evidence. This one nearly ended the highest-value
+   line of work in the project.
+2. **The conclusion was published before the confound was checked**, even though
+   the confound was written down in the run's own notes at the time.
+
+The 288px CV also had not converged — the last three epochs were 0.725, 0.727,
+0.7282, still climbing at 29 of 30 — so 0.7282 is a floor for that
+configuration, not a measurement of it.
+
+### Report-label CV does not rank either — `VERIFIED`, and it is the worst news so far
+
+The corrected 288px model was submitted. **CV 0.7282 → leaderboard 0.688.**
+
+| model | report-label CV | leaderboard | gap | CV rank | LB rank |
+|---|---:|---:|---:|:--:|:--:|
+| scanner metadata (no pixels) | 0.6687 | 0.531 | +0.138 | 4 | 4 |
+| imaging 192px, eff. batch 16 | 0.7001 | **0.725** | −0.025 | 2 | **1** |
+| imaging 288px, eff. batch 4 | 0.6903 | 0.668 | +0.022 | 3 | 3 |
+| imaging 288px, eff. batch 16 | **0.7282** | 0.688 | **+0.040** | **1** | 2 |
+
+CV said the corrected 288px model was the best by a clear margin — **+0.028
+over the 192px model, larger than any difference this project has acted on.**
+The board says it is **0.037 worse**. The ranking is not merely noisy; it is
+inverted on the single comparison that mattered.
+
+**Two things are true at once, and separating them matters:**
+
+- **The batch-size confound was real.** 288px went 0.668 → **0.688** on the
+  board when only the effective batch was corrected. That is a genuine +0.020
+  and the diagnosis was right.
+- **288px is still worse than 192px on the board**, by 0.037, in both runs. The
+  resolution hypothesis is **not** supported. It was not refuted by the
+  confounded run either — that run simply measured nothing — but the corrected
+  run is a clean measurement and it says 192px wins.
+
+**Why report-label CV can rank backwards.** CV is scored against
+report-derived labels, which are noisy (labeler macro AUC 0.769 vs expert
+truth). The board is scored against expert labels. A higher-capacity or
+higher-resolution model can improve its CV by **fitting the label noise more
+precisely** — and every point of CV bought that way is worth nothing or less
+than nothing on the board.
+
+There is suggestive support for that in the per-finding numbers. The 288px
+model's largest CV gain is **Synovitis, 0.781** against the 192px fold-1 model's
+0.663 — and Synovitis is precisely the finding §6 measured as **text-limited**,
+where report vocabulary carries almost no real information (sensitivity 0.59 at
+precision 0.57 against a 0.47 base rate). A model scoring 0.781 against
+Synovitis labels that are themselves near-noise is not learning synovitis. Its
+other big swings are also on the two findings with the weakest labels — Medial
+OA 0.519 and Lateral OA 0.599, both far *below* the 192px model. This is a
+comparison across different folds and so is suggestive, not conclusive.
+
+**What this costs the project.** There is now **no trustworthy offline
+model-selection signal**. The board allows 2 submissions per day. Every
+configuration choice from here is either paid for at that rate or made on a
+signal that has been shown to mis-rank.
+
+**The only scalable alternative** is out-of-fold evaluation against the 58
+expert-labelled studies. Training already uses expert labels as targets for
+gold studies (`targets[position] = train_csv.loc[study, FINDINGS]`, weight 8),
+and the fold split is applied afterwards, so each fold's validation set contains
+the gold studies that fall in it and scores them against expert truth. A full
+5-fold run therefore yields one expert-scored prediction per gold study from a
+model that never saw it — **n = 58, which is small but is the right target**.
+That is the argument for completing a 5-fold run of one configuration before
+testing any further hypothesis.
+
+The mechanism is straightforward once seen. CV is scored against
+**report-derived labels**, which are noisy — the labeler reaches 0.769 macro AUC
+against expert truth. The leaderboard is scored against **expert labels**. A
+model that learns the underlying anatomy will therefore *disagree* with its own
+noisy training targets exactly where those targets are wrong, and agree with the
+experts. Its CV is dragged down by label noise that the leaderboard does not
+contain.
+
+The metadata model could not do this: with no anatomical information, the only
+thing it could learn was the site-convention component of the report labels —
+precisely the part that does not transfer.
+
+**Consequences:**
+
+1. **The pixels carry real anatomical signal.** 0.531 → **0.725** is +0.194 over
+   the metadata baseline. The earlier worry that the CNN had merely re-found the
+   scanner through image appearance is answered: it has not.
+2. **Report-label CV now *understates* imaging progress.** A CV gain of +0.01 is
+   worth at least that on the board, not 0.138 less. The pessimism baked into
+   earlier entries should not be applied to imaging runs.
+3. **The label ceiling is not a hard ceiling.** A model trained on 0.769-quality
+   labels scored 0.725 against expert truth and is nowhere near converged. Noise
+   in the targets is largely unbiased, so the network averages it out.
+
+---
+
 ## 10. Series selection — Phase 0 step 4, `VERIFIED`
 
 ### The host's plane column is exactly right
@@ -282,11 +532,9 @@ things are mixed in there, and they are worth separating in Phase 2:
   community clinic see different patients, and that difference transfers to
   unseen scanners of the same class.
 
-**Caveat, and it matters:** these targets are report-derived, not expert labels.
-Some of the 0.664 is shared site convention — a site whose radiologists write
-verbosely produces both more positive report labels *and* a distinctive scanner
-signature. Against true expert labels the figure would likely be lower. It is a
-baseline to beat, not a result to celebrate.
+**That caveat is now measured, and it was severe.** The same model, submitted to
+the leaderboard, scored **0.531 against expert labels** while its grouped CV
+against report-derived labels was **0.669** — a gap of **0.138**. See §11.
 
 ### Grouping structure
 
@@ -446,6 +694,43 @@ discovering later.
     labels are biased.
 
 ---
+
+## 13. How much the gold set can actually settle — `VERIFIED` by simulation
+
+§11 leaves the project with report-label CV that mis-ranks, a leaderboard that
+allows two submissions a day, and 58 expert-labelled studies. Before building a
+development loop on those 58 studies it is worth knowing what they can resolve.
+Simulated at macro AUC ≈ 0.73 over 12 findings, 400 bootstrap resamples,
+5 repeats — `eda/pool_gold_oof.py` carries the same method:
+
+| comparison | n | 95% interval width |
+|---|---:|---:|
+| one model, absolute | 12 (a single fold's gold subset) | **0.173** |
+| one model, absolute | 46 (four folds) | **0.081** |
+| one model, absolute | 58 (five folds) | **0.079** |
+| **two models, paired on the same studies** | 58 | **0.044** |
+
+Three consequences, and the second one is uncomfortable:
+
+1. **A single fold's gold subset is worthless alone.** ±0.09 cannot distinguish
+   anything this project will ever choose between. The per-fold number is only
+   useful as an input to the pool.
+2. **The pooled absolute number could NOT have settled 192px vs 288px.** That
+   gap was 0.037 on the board and the interval is 0.079 wide. The gold set would
+   have said "not separated" — correctly, given what it can see. It is a filter
+   for bad ideas, not an arbiter of close ones.
+3. **Pairing roughly doubles the sensitivity**, to a 0.044 interval on the
+   *difference*, because two models scored on the same studies make correlated
+   errors and comparing independent intervals throws that correlation away. In
+   simulation it separates a 0.08 gap every time and a 0.04 gap about 40% of the
+   time.
+
+**The development loop this implies.** Use the paired gold comparison to reject
+changes that are clearly worse and to confirm ones that are clearly better;
+spend leaderboard submissions on the close calls, of which there are two a day.
+And prefer changes that have a prior reason to be safe — averaging folds of a
+configuration already known to score is not a hypothesis that can be wrong —
+over changes that need a measurement this project cannot afford to make.
 
 ## 7. Sources
 

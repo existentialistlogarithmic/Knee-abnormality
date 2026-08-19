@@ -1,0 +1,153 @@
+"""Phase 2 cache build — DICOM to normalised, laterality-corrected volumes.
+
+Turns ~820,000 loose DICOM slices into a compact array per study that a training
+kernel can read at speed. Runs on CPU, shards by study, and is the prerequisite
+for every training run that follows.
+
+The decisions, and why they are what they are
+---------------------------------------------
+**Series selection** (`FINDINGS.md` §10): one fluid-sensitive series per plane.
+An axial fluid-sensitive series exists for **100%** of studies, so it is the
+guaranteed fallback; sagittal and coronal are present for 94% and 96%. Planes
+come from the host's `Anatomical_Plane`, which agreed with the DICOM headers on
+24,371 of 24,371 series, so it is trusted outright.
+
+**Laterality mirroring.** Right knees are flipped so every volume presents the
+same anatomy — medial is always the same side of the image. Without this the
+model has to learn each finding twice, once per side, from half the data. Source
+is the `Laterality` tag (79% of series), falling back to `SeriesDescription`
+prefixes, then to the study's other series.
+
+**Physical resampling, not pixel resizing.** Pixel spacing varies from 0.156 to
+0.33 mm across this dataset, so a fixed pixel resize would make the same
+anatomy a different size on different scanners — handing the model scanner
+identity as a feature, which is precisely the leak `FINDINGS.md` §9 measured.
+Resampling to a fixed mm-per-pixel removes it.
+
+**uint8 storage.** After percentile normalisation the extra precision is not
+information; it is four times the disk and four times the read time.
+
+Output: one `.npy` per study of shape (planes, slices, size, size), plus an
+index parquet recording what was selected and what was missing.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import time
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pydicom
+
+# --------------------------------------------------------------------------- #
+# GENERATED CONFIG — written by eda/generate_kernels.py from src/pipeline.py.
+# Edit the manifest, not this file. Everything outside this block is shared by
+# every kernel rendered from this template.
+# --------------------------------------------------------------------------- #
+@@CONFIG@@
+# --------------------------------------------------------------------------- #
+
+PLANES = ("Sagittal", "Coronal", "Axial")
+SKIP_DIRECTORIES = {"train_series", "test_series"}
+
+@@INCLUDE volume@@
+@@INCLUDE discovery:find_marker@@
+
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--split", default=RUN_SPLIT, choices=["train", "test"])
+    parser.add_argument("--shard", type=int, default=RUN_SHARD)
+    parser.add_argument("--of", type=int, default=RUN_OF)
+    parser.add_argument("--out", default="/kaggle/working/cache")
+    parser.add_argument("--root", default=None)
+    parser.add_argument("--limit", type=int, default=RUN_LIMIT)
+    parser.add_argument("--time-budget", type=float, default=8.0 * 3600)
+    args, _unknown = parser.parse_known_args()
+
+    root = Path(args.root) if args.root else find_marker(f"{args.split}_series.csv")
+    if root is None:
+        raise SystemExit("competition data not found")
+    print(f"competition root: {root}")
+
+    series = pd.read_csv(root / f"{args.split}_series.csv")
+    headers_dir = find_marker("series_headers.parquet")
+    if headers_dir is not None:
+        headers = pd.read_parquet(headers_dir / "series_headers.parquet")
+        series = series.merge(headers[["SeriesInstanceUID", "n_slices"]],
+                              on="SeriesInstanceUID", how="left")
+        print(f"merged slice counts from {headers_dir}")
+    if "n_slices" not in series.columns:
+        series["n_slices"] = 1
+    series["n_slices"] = series["n_slices"].fillna(1)
+
+    studies = sorted(series.StudyInstanceUID.unique())
+    if args.of > 1:
+        studies = [s for i, s in enumerate(studies) if i % args.of == args.shard]
+    if args.limit:
+        studies = studies[: args.limit]
+    print(f"shard {args.shard}/{args.of}: {len(studies):,} studies")
+
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    by_study = dict(list(series.groupby("StudyInstanceUID")))
+    records = []
+    started = time.time()
+    truncated = False
+    for i, study in enumerate(studies, start=1):
+        try:
+            stack, record = build_study(root, args.split, study, by_study[study])
+            np.save(out_dir / f"{study}.npy", stack)
+        except Exception as exc:  # noqa: BLE001 - one bad study must not lose the shard
+            record = {"StudyInstanceUID": study, "split": args.split, "laterality": None,
+                      "mirrored": False, "planes_found": 0, "missing_planes": [],
+                      "error": f"{type(exc).__name__}: {exc}"}
+        record["missing_planes"] = "|".join(record["missing_planes"])
+        records.append(record)
+
+        if i % 100 == 0 or i == len(studies):
+            elapsed = time.time() - started
+            rate = i / elapsed if elapsed else 0
+            print(f"  {i:,}/{len(studies):,}  {elapsed / 60:.1f} min  {rate:.2f}/s  "
+                  f"eta {(len(studies) - i) / rate / 60 if rate else 0:.1f} min", flush=True)
+        if time.time() - started > args.time_budget:
+            print("time budget reached; writing what is built")
+            truncated = True
+            break
+
+    index = pd.DataFrame.from_records(records)
+    index.to_parquet(out_dir / f"cache_index_{args.split}_{args.shard}.parquet", index=False)
+
+    total_bytes = sum(f.stat().st_size for f in out_dir.glob("*.npy"))
+    elapsed = time.time() - started
+    manifest = {
+        "split": args.split, "shard": args.shard, "of": args.of,
+        "studies_built": len(records), "truncated": truncated,
+        "errors": int(index.error.notna().sum()) if "error" in index else 0,
+        "mirrored": int(index.mirrored.sum()) if "mirrored" in index else 0,
+        "mean_planes_found": round(float(index.planes_found.mean()), 3)
+        if "planes_found" in index else None,
+        "elapsed_seconds": round(elapsed, 1),
+        "seconds_per_study": round(elapsed / max(len(records), 1), 3),
+        "cache_bytes": total_bytes,
+        "bytes_per_study": int(total_bytes / max(len(records), 1)),
+        "shape": [len(PLANES), SLICES_PER_PLANE, TARGET_SIZE, TARGET_SIZE],
+        "mm_per_pixel": TARGET_MM_PER_PIXEL,
+    }
+    Path(out_dir / f"cache_manifest_{args.split}_{args.shard}.json").write_text(
+        json.dumps(manifest, indent=2))
+    print("\n" + json.dumps(manifest, indent=2))
+    if "planes_found" in index:
+        print("\nplanes found per study:")
+        print(index.planes_found.value_counts().sort_index().to_string())
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

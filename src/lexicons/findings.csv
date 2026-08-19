@@ -870,3 +870,74 @@ Lateral OA,tr,lateral~osteofit,1
 Lateral OA,tr,lateral~gonartroz,1
 Lateral OA,tr,lateral~eklem aralığı,1
 Lateral OA,tr,lateral~kondromalazi,1
+# --- second corpus-frequency round (see docs/EXPERIMENTS.md E013) ---
+Medial OA,el,έσω~χόνδρ,1
+Medial OA,el,έσω~οστεόφ,1
+Medial OA,el,έσω~εκφυλ,1
+Medial OA,el,έσω~αρθρίτ,1
+Lateral OA,el,έξω~χόνδρ,1
+Lateral OA,el,έξω~οστεόφ,1
+Lateral OA,el,έξω~εκφυλ,1
+Lateral OA,el,έξω~αρθρίτ,1
+Medial OA,hr,medijaln~hrskavic,1
+Medial OA,hr,medijaln~hondromalacij,1
+Medial OA,hr,medijaln~osteofit,1
+Medial OA,hr,medijaln~degenerativ,1
+Medial OA,hr,medijaln~kondil,1
+Lateral OA,hr,lateraln~hrskavic,1
+Lateral OA,hr,lateraln~hondromalacij,1
+Lateral OA,hr,lateraln~osteofit,1
+Lateral OA,hr,lateraln~degenerativ,1
+Lateral OA,hr,lateraln~kondil,1
+Medial OA,es,medial~condropatía,1
+Medial OA,es,medial~condropatia,1
+Medial OA,es,medial~condral,1
+Medial OA,es,medial~cartílago,1
+Medial OA,es,medial~cartilago,1
+Medial OA,es,medial~artrosis,1
+Medial OA,es,interno~condropatía,1
+Medial OA,es,interno~condropatia,1
+Medial OA,es,interno~condral,1
+Medial OA,es,interno~cartílago,1
+Medial OA,es,interno~cartilago,1
+Medial OA,es,interno~artrosis,1
+Medial OA,es,interna~condropatía,1
+Medial OA,es,interna~condropatia,1
+Medial OA,es,interna~condral,1
+Medial OA,es,interna~cartílago,1
+Medial OA,es,interna~cartilago,1
+Medial OA,es,interna~artrosis,1
+Lateral OA,es,lateral~condropatía,1
+Lateral OA,es,lateral~condropatia,1
+Lateral OA,es,lateral~condral,1
+Lateral OA,es,lateral~cartílago,1
+Lateral OA,es,lateral~cartilago,1
+Lateral OA,es,lateral~artrosis,1
+Lateral OA,es,externo~condropatía,1
+Lateral OA,es,externo~condropatia,1
+Lateral OA,es,externo~condral,1
+Lateral OA,es,externo~cartílago,1
+Lateral OA,es,externo~cartilago,1
+Lateral OA,es,externo~artrosis,1
+Lateral OA,es,externa~condropatía,1
+Lateral OA,es,externa~condropatia,1
+Lateral OA,es,externa~condral,1
+Lateral OA,es,externa~cartílago,1
+Lateral OA,es,externa~cartilago,1
+Lateral OA,es,externa~artrosis,1
+Baker's,es,quiste~poplíte,1
+Baker's,es,quiste~poplite,1
+Baker's,es,poplíte~quiste,1
+Baker's,tr,popliteal~kist,1
+Baker's,tr,kist~popliteal,1
+Baker's,hr,cista~poplite,0
+Baker's,el,κύστ~ιγνυακ,0
+Contusion,es,edema~médula,1
+Contusion,es,edema~medula,1
+Contusion,es,edema~ósea,1
+Contusion,es,médula ósea,1
+Contusion,tr,ödem~kemik,1
+Contusion,tr,kemik iliği,1
+Contusion,tr,ödem~iliği,1
+Contusion,el,οίδημα~μυελ,0
+Contusion,hr,edem~srži,0

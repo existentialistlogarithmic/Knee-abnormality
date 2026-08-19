@@ -7,34 +7,96 @@ Maintainer: **existentialistlogarithmic**
 
 ## Where this stands
 
-**Phase 0 steps 1–2 are done against the live competition.** `docs/FINDINGS.md`
-now carries verified numbers; step 3 (the DICOM header scan) is next and is on
-the critical path.
+**Phase 0 is complete.** All five verification steps ran against the live
+competition; `docs/FINDINGS.md` is the record and is almost entirely `VERIFIED`.
+Phase 1 (the report labeler) is built. Phase 2 (imaging) is in progress.
+
+| stage | state |
+|---|---|
+| Phase 0 — verification | complete, 5/5 steps |
+| Phase 1 — report labeler | macro AUC **0.769** vs the 58 expert-labelled studies |
+| Phase 2 — cache | v1 192px (4 shards) and v2 288px (8 shards), both verified complete |
+| Phase 2 — imaging model | **0.725 on the leaderboard** (192px); 288px scored 0.688 |
+| Phase 2 — kernel tree | generated from `src/pipeline.py`; 22 of 28 kernels |
+| Phase 3 — inference | working, 2.2 s/study → 0.8 h of the 9 h cap |
+
+**Leaderboard: 0.725.** Constant priors score 0.500 and scanner metadata alone
+scores 0.531, so the pixels are contributing 0.194 of real signal.
 
 What the data actually is: **4,407 training studies, exactly 58 with expert
 labels**, 12 binary findings, one free-text report per study across ten
-languages (English is only 39% of them). Two facts shape everything downstream:
+languages (English is only 39% of them), and **819,635 DICOM slices**.
+
+Six measurements govern everything downstream:
 
 - **No report text at inference.** `test.csv` has a single column, so the report
   labeler manufactures training targets and never ships in the submission.
-- **No site or scanner column in any CSV.** The fold-grouping key has to come
-  out of the DICOM headers, so until the scan runs, every CV number is
-  provisional.
+- **No site label exists anywhere** — the DICOM headers are de-identified too.
+  Folds group on a *scanner fingerprint* instead (`src/folds.py`). Random
+  K-fold inflates macro AUC by **0.087**.
+- **Report-label CV neither predicts the score nor reliably ranks models.**
+  This is the most important thing measured, and it is bad news:
 
-Target: **ROC-AUC ≥ 0.90** — see `docs/STRATEGY.md` for why that is read as AUC
-rather than accuracy, and why a 0.90 measured on the 58 gold studies would mean
-nothing (the interval there is wider than the gap we are chasing).
+  | model | report-label CV | leaderboard | gap | CV rank | LB rank |
+  |---|---:|---:|---:|:--:|:--:|
+  | scanner metadata (no pixels) | 0.669 | 0.531 | +0.138 | 4 | 4 |
+  | imaging, 192px, eff. batch 16 | 0.700 | **0.725** | −0.025 | 2 | **1** |
+  | imaging, 288px, eff. batch 4 | 0.690 | 0.668 | +0.022 | 3 | 3 |
+  | imaging, 288px, eff. batch 16 | **0.728** | 0.688 | **+0.040** | **1** | 2 |
+
+  CV called the last row the best model by **+0.028** — a wider margin than any
+  difference this project had acted on. The board says it is **0.037 worse**.
+  CV is scored against noisy report labels and the board against expert ones, so
+  a model can raise its CV by **fitting label noise more precisely**, and every
+  point bought that way is worth nothing on the board. See `FINDINGS.md` §11.
+
+  **Consequence: there is no trustworthy offline selection signal**, and the
+  board allows 2 submissions a day. The one scalable alternative is out-of-fold
+  scoring against the 58 expert-labelled studies — training already uses expert
+  labels for gold studies and splits afterwards, so a complete 5-fold run yields
+  one expert-scored prediction per gold study from a model that never saw it.
+- **A confounded experiment is worse than no experiment — and correcting it does
+  not always vindicate the idea.** The first 288px run changed five things at
+  once. Re-running it with only the effective batch corrected moved the board
+  from 0.668 to 0.688, so the diagnosis was right and worth +0.020. But 288px is
+  **still 0.037 behind 192px**, in both runs. The resolution hypothesis is not
+  supported; the confounded run simply never tested it.
+- **Fold spread is 0.033.** The same configuration reached 0.7001 on fold 0 and
+  0.7334 on fold 1. That is wider than most differences this project has treated
+  as signal, so single-fold comparisons carry it as a caveat.
+- **The label ceiling is not hard.** A model trained on 0.769-quality labels
+  scored 0.725 against expert truth, and was not converged.
+
+Target: **macro ROC-AUC ≥ 0.90**. Current standing: **0.725**. The leaderboard
+top is 0.952 and the top 200 teams are all above 0.917 (`docs/FINDINGS.md` §8),
+so 0.90 is below the field, not above it — there is a long way to go.
+
+**But there are two boards, and this project is much better placed on the other
+one.** The efficiency prize is scored `AUC/(Benchmark − maxAUC) + Runtime/32400`,
+minimised, which makes an extra hour cost **0.0502 AUC**. Inference here takes
+**0.8 h** where published systems take 3–4, and that alone puts the 0.725 model
+ahead of a public **0.883** model on efficiency. See
+`docs/COMPETITIVE_ANALYSIS.md` — which also itemises the main-board gap, most of
+which is **label quality**: the leading public report reader scores 0.881
+against the 58 expert-labelled studies where this project's lexicon scores
+0.769.
 
 ## Layout
 
 ```
 data/          competition CSVs + sample DICOMs        (gitignored)
 eda/           local CPU analysis scripts
-src/           report labeler, preprocessing, model code
-kaggle/        one folder per kernel, each with kernel-metadata.json
+src/           report labeler, preprocessing, model code, pipeline manifest
+kaggle/        one folder per kernel; 22 of 28 generated from src/pipeline.py
 docs/          FINDINGS.md, STRATEGY.md, EXPERIMENTS.md, ROADMAP.md
 artifacts/     derived data                            (gitignored)
 ```
+
+`kaggle/` is mostly generated output: `src/pipeline.py` declares the pipeline
+and `eda/generate_kernels.py` renders every cache, training and inference
+kernel from the templates in `kaggle/_templates/`. `python
+eda/generate_kernels.py --check` fails if a generated kernel has been edited by
+hand, and runs as a test. See `kaggle/README.md`.
 
 `data/` and `artifacts/` are gitignored, as are `*.csv`, `*.dcm`, `*.parquet`
 and friends wherever they appear — anything that can carry a StudyInstanceUID,

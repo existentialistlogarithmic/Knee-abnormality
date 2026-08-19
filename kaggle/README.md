@@ -1,7 +1,40 @@
 # Kaggle kernels
 
-One folder per kernel. Each folder holds a `kernel-metadata.json` and the code
-file it points at. Push with:
+**Most of this directory is generated.** `src/pipeline.py` declares the
+pipeline and `eda/generate_kernels.py` renders it:
+
+```bash
+python eda/generate_kernels.py            # what would change
+python eda/generate_kernels.py --diff     # the diffs
+python eda/generate_kernels.py --write    # apply
+python eda/generate_kernels.py --check    # exit 1 if the tree has drifted
+```
+
+`--check` runs in the test suite, so editing a generated `run.py` by hand fails
+CI rather than quietly making the manifest fiction.
+
+Kaggle script kernels are single files, so sharing code between them means
+splicing it at generation time. `kaggle/_templates/` holds three templates
+(`cache_build`, `train`, `infer`) and three shared modules under `_shared/`.
+A template is ordinary Python with two placeholders:
+
+```
+@@CONFIG@@                        the constants for this kernel, from the manifest
+@@INCLUDE volume@@                the whole of _shared/volume.py
+@@INCLUDE discovery:find_marker@@ just that one definition
+```
+
+Why it is worth the machinery: `build_study` used to be byte-identical in four
+kernels, `find_marker` in seven, and `build_model` had **drifted into two
+variants across five files** — the training kernel normalising its input and
+the inference kernel that scores those weights not. That does not raise; it
+just scores worse. There is now one of each.
+
+**Six folders are not generated** and are edited by hand: `00_dicom_header_scan`,
+`01_submission_baseline`, `02_metadata_submission`, `05_infer`, `05_infer_cpu`
+and `09_infer_ensemble`. They are one-offs rather than members of a lineage.
+
+Push with:
 
 ```bash
 kaggle kernels push -p kaggle/<folder>
@@ -45,22 +78,35 @@ Field names below are taken from the `kaggle` CLI 2.2.4 source
 | `dataset_sources`, `kernel_sources`, `model_sources` | how a kernel mounts previous outputs |
 | `docker_image`, `docker_image_pinning_type` | pin the image once training results need to be reproducible |
 
-### Requesting a T4 — how to get the exact string
+### Requesting a T4 — the exact strings
 
-Kaggle's PyTorch build ships no Pascal kernels, so P100 is unusable and the
-accelerator must be a T4. The CLI does **not** expose the list of valid
-`machine_shape` values — the source comments that the enum "is not currently
-included in kagglesdk" — so the correct string is `UNVERIFIED` and must not be
-guessed. Two ways to obtain it:
+```
+NvidiaTeslaT4     <- use this
+NvidiaTeslaP100   <- unusable, see below
+Tpu1VmV38
+```
 
-1. Set the accelerator in the Kaggle notebook UI, then
-   `kaggle kernels pull <username>/<slug> -p /tmp/probe -m`. The pull writes the
-   server's own `machine_shape` value into the metadata file. Copy it verbatim.
-2. Push a throwaway kernel with a deliberately invalid accelerator and read the
-   allowed values back out of the error.
+Set `machine_shape` in `kernel-metadata.json`. These are documented in the
+`kagglesdk` docstring for `machine_shape`
+(`kagglesdk/kernels/types/kernels_api_service.py`), **despite the CLI source
+claiming the enum "is not currently included in kagglesdk"**. That comment cost
+this project several probe runs.
 
-Whichever you use, record the result in `docs/FINDINGS.md` before any GPU kernel
-is pushed.
+**A P100 does not run slowly — it fails.** `enable_gpu: true` with no shape
+gives a P100 (compute capability 6.0), and the Kaggle PyTorch build ships no
+Pascal kernels, so the first CUDA launch dies with `no kernel image is available
+for execution on the device`.
+
+Two things that do **not** work, recorded so nobody repeats them:
+
+- `--accelerator INVALID_PROBE` is accepted silently. The CLI does not validate
+  the value, so you cannot discover the vocabulary from an error message.
+- `--accelerator GpuT4x2` is silently ignored and you get a P100 anyway. A wrong
+  shape name falls back rather than failing.
+
+Put a device check at the top of any GPU kernel and exit early if the compute
+capability is below 7 — see `report_environment()` in `kaggle/04_train/run.py`.
+It turns a wasted session into a few seconds.
 
 ### Non-negotiable for the submission kernel
 
@@ -79,3 +125,49 @@ push creates a *second* kernel rather than updating the first.
 Rule: after the first push of any kernel, set `id` to the slug in the URL the
 push prints, and leave it alone. Also note the Kaggle account here is
 `achelijndiamantidis`, which is not the GitHub username.
+
+## Kaggle API rate limits — pace the polling
+
+The API returns **HTTP 429** readily, and this project has tripped it three
+times: paging the competition file listing, polling submission status, and
+downloading kernel output.
+
+Practical rules learned the hard way:
+
+- **Poll status no faster than every 30 s**, and prefer a single check after a
+  realistic delay over a tight loop. Submission scoring re-runs the whole kernel
+  against the hidden test set, so it takes minutes, not seconds.
+- **Never download a whole kernel output when you only want the manifest.** Use
+  `kaggle kernels output --file-pattern '.*\.(json|parquet)$'`. A cache-build
+  kernel emits gigabytes of `.npy` that belong in a Dataset, not on a laptop.
+- **Long paginated reads need checkpointing**, not just retries — see
+  `eda/phase0_01_auth_and_files.py`, which writes its page token every 25 pages
+  so a 429 costs a resume rather than the whole listing.
+- Back off exponentially and honour `Retry-After` when present.
+
+## Mounting a kernel's output instead of downloading it
+
+The cache is ~10 GB across four shards. It never touches this machine: the
+training kernel lists the cache kernels in `kernel_sources`, and Kaggle mounts
+their outputs directly. That is the Kaggle-to-Kaggle chain the project depends
+on, and it also sidesteps the output-download rate limit entirely.
+
+```
+03_cache_build_shard{0..3}  ──kernel_sources──►  04_train  ──►  weights
+                                                                  │
+                                                       kernel_sources
+                                                                  ▼
+                                                            inference kernel
+```
+
+Note `kernel_sources` mounts a kernel's **latest** output, which is why the
+cache is four separate kernels rather than one kernel run four times.
+
+## Concurrency limit: 5 CPU sessions
+
+`Kernel push error: Maximum batch CPU session count of 5 reached.` Kaggle runs at
+most **5 batch CPU sessions** per account at once. Pushing a sixth is rejected
+outright — the kernel is not queued, so a fan-out wider than 5 needs its own
+queue. `eda/push_queue.sh` waits for a slot and pushes the rest.
+
+This is why the v1 cache used 4 shards and the v2 cache, at 8, has to drip-feed.

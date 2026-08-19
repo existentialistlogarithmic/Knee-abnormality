@@ -1,0 +1,20 @@
+{
+  "id": "achelijndiamantidis/knee-cache-v2-6",
+  "title": "knee-cache-v2-6",
+  "code_file": "run.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "machine_shape": "",
+  "dataset_sources": [
+    "achelijndiamantidis/knee-phase1-artifacts"
+  ],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [],
+  "model_sources": []
+}

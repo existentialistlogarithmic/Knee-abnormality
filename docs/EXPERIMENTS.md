@@ -318,3 +318,434 @@ Notes on the fields that people fudge:
   folds do not additionally need patient grouping.
 - **next**: Phase 0 gate. Then a metadata-only submission — it should land near
   0.6 rather than 0.5, and would tell us whether LB agrees with grouped CV.
+
+### E010 — metadata-only submission: CV 0.669 → LB 0.531, a gap of 0.138
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: `kaggle/02_metadata_submission` — scanner and geometry
+  features only, trained on report-derived labels with 5-fold `GroupKFold` over
+  178 scanner fingerprints. Supporting artifacts uploaded as a private Kaggle
+  dataset, which also exercised the mount path Phase 2 needs for weights.
+- **runtime**: 19 s wall clock
+- **CV**: grouped OOF macro AUC **0.6687** (vs report-derived labels)
+- **LB**: **0.531 public** (vs expert labels)
+- **prediction spread**: healthy, 0.08–0.35 per finding — no collapse to priors
+- **what it means**: this was the point of the submission, and the answer is
+  blunt. Of 0.169 apparent skill above chance, **~0.031 survives** contact with
+  expert labels.
+  The careful reading matters. This model has **no anatomical information** — it
+  cannot see a ligament. Everything it learned was a correlation between scanner
+  identity and *reporting convention*: verbose sites produce more positive report
+  labels and have distinctive scanners. That is real for report-derived targets
+  and nearly worthless for expert ones. Grouped CV removed the *memorisation*
+  but could not remove the convention baked into the targets themselves.
+  So the rule going forward: **report-label CV ranks candidate models; it never
+  estimates the leaderboard.** Absolute claims come from the leaderboard or from
+  the 58 gold studies with their intervals.
+  An imaging model should transfer better, since pathology in pixels is the same
+  pathology the experts graded — but it will inherit some of this, and its own
+  CV-to-LB gap must be measured on the very first run rather than assumed.
+- **also**: a third mount shape cost a run. Datasets land at
+  `/kaggle/input/datasets/<owner>/<name>`; all kernels now share a depth-bounded
+  search that refuses to walk the ~1M-file image directories.
+- **next**: Phase 2 cache-build kernel. The bar an imaging model must clear is
+  **0.669 grouped CV / 0.531 LB** — below that, the pixels are contributing
+  nothing.
+
+### E011 — cache built; the P100 trap; accelerator names found
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **what changed**: four cache shard kernels built the full training cache;
+  `kaggle/04_train` written and pushed.
+- **runtime**: four cache shards ran in parallel and all completed
+- **what it means**: three results, one of them a trap that would have cost days.
+
+  **1. The cache is complete and correct.** The training kernel mounted all four
+  shards and reported **4,407 cached / 4,407 usable / 58 gold present**, with
+  fold 0 splitting 3,525 train against 882 validation across **35 scanner
+  groups**. That verification came from the training log because the
+  output-download endpoint was rate-limited — worth noting as a technique.
+
+  **2. Kaggle's default GPU is a P100 and it cannot run this build.** Not slowly
+  — at all. `enable_gpu: true` with no shape gives compute capability 6.0, and
+  the first CUDA launch dies with `no kernel image is available for execution on
+  the device`. The brief's warning was right and understated.
+
+  **3. The accelerator names were in the SDK the whole time**: `NvidiaTeslaT4`,
+  `NvidiaTeslaP100`, `Tpu1VmV38`, documented in the `kagglesdk` docstring for
+  `machine_shape` — while the CLI source comments that the enum "is not
+  currently included in kagglesdk". That comment cost three probe runs.
+  Two dead ends recorded: `--accelerator` is **not validated** (an invalid value
+  pushes silently), and a wrong-but-plausible name (`GpuT4x2`) is **silently
+  ignored**, returning a P100 rather than erroring.
+
+- **the cheap thing that paid off**: putting a device check at the top of the
+  kernel that exits before touching CUDA. Each wrong shape name cost ~8 seconds
+  instead of a session. Against a ~30 GPU-hour weekly budget, three dead
+  sessions is real money.
+- **caught before it mattered**: the training kernel originally found a single
+  cache directory. With four mounted shards it would have trained on a quarter
+  of the data with a perfectly healthy-looking loss curve. It now collects
+  across all shards and warns on duplicates.
+- **next**: fold 0 result against the 0.669 bar.
+
+### E012 — first imaging model: fold 0 macro AUC 0.6928 vs a 0.669 bar
+- **date**: 2026-08-18
+- **commit**: (this commit)
+- **config**: resnet18, 2.5D over (3 planes × 20 slices) at 192px, attention
+  pooling, 12 heads, 6 epochs, batch 8, LR 3e-4, gold weight 8, abstain masked,
+  scanner-grouped fold 0 of 5
+- **runtime**: **9.2 min/epoch, 54.9 min total** on **2× Tesla T4** (compute 7.5
+  — `NvidiaTeslaT4` grants two cards). ~1.8 GPU-hours of the ~30/week budget.
+- **CV**: best val macro AUC **0.6928** (report-derived labels, fold 0)
+- **LB**: not submitted
+- **prediction spread**: 0.159 — healthy, no collapse to priors
+
+| epoch | loss | val macro AUC |
+|---:|---:|---:|
+| 0 | 0.6482 | 0.6164 |
+| 1 | 0.6258 | 0.6520 |
+| 2 | 0.6208 | 0.6648 |
+| 3 | 0.6087 | 0.6300 |
+| 4 | 0.6016 | 0.6669 |
+| 5 | 0.5931 | **0.6928** |
+
+- **what it means — read this carefully.** It clears the metadata bar, but by
+  **0.024**, and that is weak evidence rather than a result.
+
+  The metadata model reached 0.669 using **no pixels at all**, purely by
+  correlating scanner identity with reporting convention. An imaging model
+  sitting 0.024 above that has not yet shown it is reading *anatomy* — image
+  appearance is itself scanner-correlated (contrast, noise, resolution), so a
+  CNN can rediscover the same shortcut through the pixels. **The margin is too
+  small to distinguish "sees pathology" from "sees the scanner".**
+
+  Two things do point the right way: prediction spread is healthy at 0.159, so
+  it is not predicting priors; and it was **still improving when it stopped** —
+  AUC rose 0.667 → 0.693 on the last epoch and loss was still falling. This run
+  is undertrained, not converged.
+
+- **what would actually settle it**: a leaderboard submission. The metadata
+  model's CV-to-LB gap was 0.138; if this model's gap is materially smaller,
+  the pixels are contributing real anatomical signal. If it is similar, the CNN
+  has found the same shortcut. That comparison is worth more than another
+  epoch.
+- **next**: (a) more epochs, since it had not converged; (b) an inference kernel
+  so the gap can be measured. (b) is more informative.
+
+### E013 — second corpus round: macro AUC 0.7608 → 0.7690
+- **date**: 2026-08-19
+- **commit**: (this commit)
+- **what changed**: 70 lexicon rows, again driven entirely by the label-free
+  coverage audit rather than by gold feedback.
+- **CV**: macro AUC **0.7690** on the 58 gold studies (4th evaluation). 11 of 12
+  findings now above 0.70; none below 0.55.
+- **what it means**: the non-English OA anchors were near-dead for a third time,
+  and for the same reason — vocabulary guessed rather than measured.
+
+  | hole | abstain before | after | cause |
+  |---|---:|---:|---|
+  | Croatian Medial OA | 0.85 | **0.29** | `hrskavic` in 94% of Croatian reports, `medijaln` in 99%; the old anchor `medijalnom odjeljku` was rare |
+  | Croatian Lateral OA | 0.92 | **0.36** | same |
+  | Greek Medial OA | 0.91 | **0.66** | `χόνδρ` in 92%, `έσω` in 83%; the old anchor `έσω μηριαίου` in 5% |
+  | Spanish Contusion | 0.84 | **0.49** | written as `médula ósea` (42%) + `edema` (42%), not `contusión` (7%) |
+  | Spanish Baker's | 0.79 | **0.49** | named by site — `quiste` 52%, `poplíte` 44% — not by eponym (`baker` 10%) |
+  | Spanish Medial OA | 0.77 | **0.62** | Spanish uses `interno`/`externo` for medial/lateral |
+
+  Per-finding gold AUC moved where the coverage moved: **Medial OA 0.778 →
+  0.836**, **Lateral OA 0.689 → 0.732**, Baker's 0.826 → 0.834. That is the
+  coverage audit validating itself — it predicted which findings would improve
+  before the gold set was touched.
+
+- **one finding is not a lexicon hole**: Turkish `Fracture` abstains at 0.96, but
+  `kırık` appears in 1% of Turkish reports, `fraktür` 2%, `fissür` 3%. Fractures
+  are genuinely rare in this corpus. No vocabulary work will fix that, and
+  chasing it would only cost precision.
+- **next**: the labels are now the training targets for the v2 (288px) run.
+
+### E014 — resnet34 / 24 epochs / 2×T4+AMP: 0.7001, and the curve says capacity is not the problem
+- **date**: 2026-08-19
+- **commit**: (this commit)
+- **config**: resnet34, 2.5D over 3 planes × 20 slices at 192px, batch 16,
+  cosine + 2-epoch warmup, EMA 0.999, label smoothing 0.02, AMP, DataParallel
+- **runtime**: **3.3 min/epoch**, 79.7 min for 24 epochs. The v1 run was
+  9.2 min/epoch on one card in fp32, so AMP + both T4s delivered the predicted
+  ~2.8× — the throughput work paid for itself in one run.
+- **CV**: best val macro AUC **0.7001** (report-derived labels, grouped fold 0)
+- **prediction spread**: 0.196, rising monotonically — no collapse
+
+| epoch | 0 | 5 | 11 | 17 | 21 | 23 |
+|---|---:|---:|---:|---:|---:|---:|
+| val macro AUC | 0.543 | 0.627 | 0.663 | 0.693 | 0.700 | **0.7001** |
+
+- **what it means**: this is the important negative result of the night.
+  Against the v1 run (resnet18, 6 epochs, same 192px cache) at **0.6928**, a
+  **1.9× larger backbone trained 4× longer bought +0.007**. The curve is also
+  clearly flattening — the last six epochs moved it 0.6946 → 0.7001 while
+  training loss kept falling from 0.539 to 0.502, which is the signature of a
+  model running out of *input* information rather than capacity.
+
+  That is direct support for the resolution hypothesis: the v1 cache used
+  0.60 mm/px against a native median of 0.312 mm, downsampling 96% of series
+  roughly 2×. Adding parameters cannot recover detail the cache already threw
+  away. The 288px v2 cache and its training run are the test of that.
+- **inference measured on CPU**: 19.7 s/study, projecting **7.1 h of the 9 h
+  cap** for ~1,300 studies. That works but leaves little headroom — the real
+  submission kernel should be GPU. CPU was used here only because Kaggle caps
+  concurrent GPU sessions at 2 and the v2 training run held both.
+- **also learned**: with internet off, torchvision cannot fetch pretrained
+  weights and `build_model` logs "training from scratch". That is harmless in
+  the inference kernel — the checkpoint overwrites every parameter and the
+  strict-load check confirms 0 missing and 0 unexpected keys — but the message
+  is alarming and should be reworded.
+
+### E015 — v2 cache built at 288px: 4,407/4,407 studies, zero errors
+- **date**: 2026-08-19
+- **commit**: (this commit)
+- **what changed**: `kaggle/06_cache_v2_shard{0..7}` — 288px @ 0.40 mm/px,
+  24 slices, same 115 mm field of view as v1.
+- **runtime**: 14–23 min per shard, 8 shards, 5 concurrent (Kaggle's CPU cap)
+  with the rest drip-fed by `eda/push_queue.sh`.
+- **result**: **4,407 studies built across 8/8 shards, 0 errors**, 6.0 MB/study,
+  shape `(3, 24, 288, 288)` — 26 GB total.
+- **why it exists**: v1 used 0.60 mm/px against a native median of **0.312 mm**,
+  so **96% of series were downsampled roughly 2×**, and it kept 20 of a median
+  30 slices. Meniscal tears and cartilage lesions are thin structures; that is
+  the detail they live in. The resnet34 run supports this reading — 1.9× the
+  backbone and 4× the epochs bought +0.007 over resnet18 while the curve
+  flattened and training loss kept falling, which is a model starved of input
+  rather than capacity.
+- **verification technique worth reusing**: Kaggle publishes a kernel's log only
+  when it completes, so the "did every shard land" check could not be read from
+  the training log mid-run. Fetching each shard's few-KB
+  `cache_manifest_*.json` with `--file-pattern` verifies the same fact
+  independently without touching the 26 GB of volumes — and without the
+  output-download rate limit that has bitten this project repeatedly.
+
+### E016 — the kernel tree became generated, and two live bugs fell out of it
+- **date**: 2026-08-19
+- **commit**: (this commit)
+- **what changed**: `src/pipeline.py` declares the pipeline; `eda/generate_kernels.py`
+  renders every cache, training and inference kernel from three templates and
+  three shared modules in `kaggle/_templates/`. 22 of the 28 kernel folders are
+  now generated output.
+- **runtime**: no GPU time. Local generation is instant; `--check` runs in the
+  test suite.
+- **result**: measured, not asserted —
+
+  | | before | after |
+  |---|---:|---:|
+  | hand-edited lines under `kaggle/` | 10,972 across 29 files | 1,148 across 6 templates |
+  | plus the manifest | — | 381 |
+  | functions with more than one variant across generated kernels | `build_model` ×2 | **none** |
+
+- **why it exists**: the duplication was measurable and it had already caused a
+  bug. `build_study` was byte-identical in 4 kernels, `find_marker` in 7,
+  `read_series_volume` in 4 — and `build_model` had **drifted into two variants
+  across 5 files**, the newer one applying ImageNet normalisation and the older
+  one not. The training kernel and the inference kernel that scores its weights
+  were on opposite sides of that split. Nothing would have raised.
+- **two real bugs found while unifying**, both of which would have cost a
+  submission rather than crashing:
+  1. **The v2 inference kernel would have refused every existing checkpoint.**
+     Registering the ImageNet `mean`/`std` as ordinary buffers puts two keys
+     into every `state_dict`; the strict-load check at inference would then have
+     rejected all five 192px folds — including the ones training right now.
+     Fixed with `persistent=False`: they are constants, not learned state.
+  2. **The fold ensemble's geometry guard did not fire.** It read
+     `if recorded not in (None, SLICE_SUBSAMPLE_EXPECTED)`, so a checkpoint
+     recording `None` passed a kernel expecting 18 — exactly the mismatch it was
+     written to catch. Now an equality check over both `slice_subsample` and
+     `input_norm`, with the pre-existing defaults spelled out rather than
+     inferred from a missing key.
+- **what is deliberately NOT tidied**: `input_norm` is `False` for v1 and v2 and
+  `True` only for dinov2. That is a record of how those weights were trained,
+  not a preference. Setting it True everywhere would read better and would make
+  the manifest describe models that do not exist, which is the one thing that
+  would make the ensemble guard worthless.
+- **the check that keeps it honest**: `python eda/generate_kernels.py --check`
+  fails if any generated kernel has been edited by hand, and runs as a test. A
+  manifest nobody regenerates from is documentation, and documentation drifts.
+
+### E017 — the 288px result reverses once the confound is removed: 0.7001 → 0.7282
+- **date**: 2026-08-19
+- **commit**: (this commit)
+- **what changed**: nothing about the cache. The 288px run was relaunched with
+  batch 4 × 4-step gradient accumulation, reproducing the **effective batch 16**
+  that the 192px run used, instead of the effective batch 4 the first attempt
+  actually trained at.
+- **runtime**: 3.6 h on 2×T4 (192px was 1.3 h).
+- **result, same fold, same split, same labels** —
+
+  | run | geometry | effective batch | epochs | val macro AUC |
+  |---|---|---:|---:|---:|
+  | v1 fold 0 | 192px @ 0.60 mm/px | 16 | 24 | 0.7001 |
+  | v2 fold 0, first attempt | 288px @ 0.40 mm/px | **4** | 30 | 0.690 |
+  | **v2 fold 0, corrected** | 288px @ 0.40 mm/px | **16** | 30 | **0.7282** |
+
+  Verified like-for-like from the logs before drawing any conclusion: both runs
+  report `fold 0: train 3,525  val 882  val groups 35`. Same studies, same
+  scanner groups, same targets.
+- **what this overturns**: E015 read the first 288px result as evidence against
+  the resolution hypothesis, and the README recorded 288px as **worse** (LB
+  0.668 vs 0.725). That reading was wrong, and it was wrong for a reason already
+  written down at the time — the run **changed five things at once**. Batch size
+  was one of them, and it was the one that mattered. Correcting only the batch
+  turns a 0.011 deficit into a **0.028 surplus**.
+- **the honest limit on this**: it is one fold and it is CV, not the board.
+  Report-label CV has ranked models correctly three times (0.700 > 0.690
+  predicted 0.725 > 0.668) but has never predicted an absolute score — the gap
+  has been +0.138, −0.025 and +0.022. `knee-infer-v2` is running against the
+  corrected weights; that submission is what settles it.
+- **the curve had not stopped**: the last three epochs went 0.725 → 0.727 →
+  0.7282, still climbing at epoch 29 of 30. The 192px run flattened by epoch 18.
+  So 0.7282 is a floor for this configuration, not its ceiling.
+- **the error profiles are complementary**, which matters for ensembling. v2 is
+  far stronger on Synovitis (0.781) and Medial Meniscus (0.753) and far weaker on
+  Medial OA (0.519) and Lateral OA (0.599). The 192px fold-1 model is the mirror
+  image — 0.724 Medial OA, 0.663 Synovitis. Two models that fail on different
+  findings average better than two that fail on the same ones.
+
+### E018 — fold 1 at 192px: 0.7334
+- **date**: 2026-08-19
+- **result**: best val macro AUC **0.7334** at epoch 18 of 24, then a slow
+  decline to 0.7282 — the EMA weights are saved per epoch, so the checkpoint is
+  the last epoch's, not the best. Worth fixing: keeping the best-epoch weights
+  is free and this run gives up 0.005 by not doing it.
+- **what it says about fold variance**: fold 0 reached 0.7001 and fold 1 reached
+  0.7334 on the same configuration. **0.033 of spread between folds** is larger
+  than most of the differences this project has been treating as signal. Any
+  single-fold comparison from here needs that number attached to it.
+
+### E019 — the corrected 288px model scores 0.688, and report-label CV is no longer a ranking device
+- **date**: 2026-08-19
+- **submission**: `knee-infer-v2` v3, public score **0.688**.
+- **what it settles**: two things, and they point in opposite directions.
+  - The batch-size diagnosis in E017 was **right**: 288px went **0.668 → 0.688**
+    on the board with only the effective batch corrected. +0.020 of real gain.
+  - The resolution hypothesis is **not supported**. 288px is 0.037 behind 192px
+    on the board in both runs. The confounded run never tested the idea; the
+    corrected run tested it and it lost.
+- **what it breaks**: E017 leaned on "CV ranks models correctly", which had held
+  across three submissions. It does not hold. CV said the corrected 288px model
+  was the best available by **+0.028**; the board put it **0.037 behind**. The
+  ranking inverted on exactly the comparison that was being used to steer.
+- **the mechanism, stated as a hypothesis**: CV is scored against report-derived
+  labels (0.769 macro AUC vs expert truth) and the board against expert labels.
+  A model can raise CV by fitting the label noise more precisely. The 288px
+  model's biggest CV gain is **Synovitis 0.781** — the one finding measured as
+  text-limited, where report vocabulary carries almost no information (sens 0.59
+  at prec 0.57, base rate 0.47). Scoring 0.781 against near-noise labels is not
+  learning synovitis. Cross-fold comparison, so suggestive rather than proven.
+- **what I got wrong, plainly**: E017 was written as though the CV reversal
+  settled the resolution question, with the submission described as
+  confirmation. It was not confirmation, it was the test, and the test failed.
+  The 14 GPU-hours of 288px fold training that E017 implied were worth
+  considering would have been spent on the losing geometry.
+- **what this changes about the plan**: the 192px configuration is the one that
+  scores. The highest-confidence gain available is a **fold ensemble of that
+  configuration** — same config, different splits, no new hypothesis that can be
+  wrong — and completing 5 folds also produces the only offline selection signal
+  left: one expert-scored out-of-fold prediction per gold study, n = 58.
+
+### E020 — DINOv2 at 16 epochs: 0.6878, and the curve never flattened
+- **date**: 2026-08-19
+- **what changed**: backbone only. `vit_small_patch14_dinov2.lvd142m` on the
+  **same v1 cache**, same fold, batch 6 × 3-step accumulation for an effective
+  18 against the resnet34 run's 16. ImageNet normalisation on, which the
+  resnet34 runs did not have.
+- **result**: best val macro AUC **0.6878** at epoch 15 of 16, against
+  resnet34's 0.7001 at epoch 23 of 24 on the same fold.
+- **why that comparison is not a comparison**: the curve went 0.588 → 0.688 and
+  **the last three epochs still added 0.002 each**. It never plateaued. The
+  resnet34 run flattened by epoch 18 of 24 and spent its last six epochs moving
+  0.0055. So 0.6878 is not a measurement of this backbone; it is where the clock
+  stopped, and the clock was set to 16 because a ViT costs more per epoch.
+  `knee-train-dinov2-long` continues it to 40.
+- **what the per-finding profile suggests**, held loosely because it is
+  cross-fold: DINOv2 reaches **Medial Meniscus 0.740** and **MCL 0.731** where
+  the resnet34 fold-1 model reaches 0.656 and 0.669 — the focal findings, and
+  the direction published work predicts for a self-supervised backbone
+  (`COMPETITIVE_ANALYSIS.md` §3). It is much weaker on **Medial OA 0.561** and
+  **Lateral OA 0.579**. Different folds, so this ranks nothing; it is a reason
+  to finish the run rather than a result.
+- **a bug this surfaced before it cost anything**: `knee-train-dinov2` was
+  written when the ImageNet mean/std were *persistent* buffers, so its
+  checkpoint carries two keys the current model rebuilds for itself. The resume
+  path used a strict load and would have **refused the very run meant to
+  continue it**. Inference already dropped those keys; resume now does too.
+- **what it does not have**: a gold dump. It predates that output, so this
+  backbone currently cannot be compared to the baseline on anything but CV,
+  which `FINDINGS.md` §11 shows mis-ranks. The continuation run fixes that,
+  which is a second reason to run it.
+
+### E021 — the LLM labeler's first run failed on memory, and cost three minutes
+- **date**: 2026-08-19
+- **result**: **no result.** Every batch raised `OutOfMemoryError`, every study
+  abstained, and the reported macro AUC was 0.500 — the value you get from
+  ranking nothing. Not a measurement of the method.
+- **the cause**: `device_map="auto"` put all of Qwen2.5-7B's fp16 weights on
+  GPU 0 — **13.59 GiB of a 14.56 GiB card** — leaving under a gigabyte for
+  activations, while the second T4 that `NvidiaTeslaT4` grants sat completely
+  idle. Batch 32 at 3,000-token prompts then needed several GiB of KV cache.
+- **what worked**: scoring the 58 gold studies **first** cost three minutes to
+  learn the run was broken, against roughly an hour if the 4,349 had gone first.
+  That ordering was the single best decision in the kernel's design and it paid
+  off on its first use.
+- **what did not work — a defect in the design, not the run**: the kernel
+  treated "abstained on everything because the GPU ran out of memory" and
+  "read the reports and chose states that rank badly" as the same outcome, and
+  printed the same message for both. Those call for opposite responses — fix the
+  run versus abandon the method — and the log said abandon. Fixed: an abstain
+  rate above 50% now reports **RUN FAILED, not a verdict** and exits non-zero.
+- **three fixes, in order of importance**:
+  1. **Shard across both cards.** `max_memory` per device, 9 GiB each, so a 15 GiB
+     model occupies both T4s and leaves real headroom. The idle second GPU was
+     free capacity the whole time.
+  2. **Halve the batch and retry on OOM** instead of abstaining. An
+     out-of-memory error is a statement about batch size, not about the report,
+     and abstaining discards real supervision for an infrastructure reason.
+  3. **A worked example in the prompt**, showing all twelve findings in the exact
+     output shape. vLLM's grammar-constrained decoding is not available — it is
+     not on the Kaggle image and installing it would drag its own torch build
+     onto a Turing card mid-session — so an example is the cheapest substitute,
+     and the parser still abstains on anything it cannot read.
+- **also corrected**: the results file recorded `RUN_MODEL` as the model, which
+  named a 14B AWQ checkpoint the run never loaded. It now records what actually
+  ran.
+
+### E022 — local CPU dry run: the schema holds, the token budget was over-provisioned
+- **date**: 2026-08-19
+- **what it is**: the labeling kernel's whole path — chat template, generation,
+  parse, states, ranks, macro AUC — run locally on **CPU** with
+  `Qwen2.5-0.5B-Instruct` over 8 gold reports. Deliberately a plumbing test: a
+  0.5B model's answers say nothing about what a 7B will score, but the last
+  Kaggle run died on infrastructure and this catches that class of bug for a
+  local minute instead of a GPU session.
+- **the format holds completely**, which was the open question a worked example
+  was added to address:
+
+  | | count | share |
+  |---|---:|---:|
+  | unparseable or truncated outputs | 0 | 0% |
+  | key absent from the object | 0 | 0% |
+  | key present, value invalid | 0 | 0% |
+  | key present, value `not_mentioned` | 60 | 62% |
+
+  All twelve findings were emitted every time. So the 62% abstention is the
+  **model's judgement**, not a schema failure — which is the distinction that
+  decides whether to fix the prompt or change the model, and they are not the
+  same problem.
+- **the token budget was wrong in the safe direction**: prompts run 716–1,138
+  tokens against a 3,000-token truncation limit, and completions 109–128 against
+  a 220 cap. So the first run's out-of-memory came from **batch 32 on a single
+  card**, not from long sequences. Batch raised 8 → 16 and the completion cap
+  lowered 220 → 160, roughly halving the wall clock, with `run_batch`'s halving
+  as the safety net if 16 is still too many.
+- **the number to watch when the real run lands**: the lexicon labeler abstains
+  on **40.6%** of gold findings. If the 7B abstains more than that, it is not
+  obviously better regardless of what its AUC says, because abstention and AUC
+  have tracked each other closely across every version of this labeler.
+- **compliance note**: this reads report text into a *local* process. Nothing
+  was printed but aggregates. `STRATEGY.md` rule 4 covers why that distinction
+  is the whole difference.

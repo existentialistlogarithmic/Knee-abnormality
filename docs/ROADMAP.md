@@ -9,13 +9,14 @@ From 2026-08-18 that is **nine weeks** to final submission, eight to the entry
 deadline. The competition opened 2026-08-05 and has 1,866 teams.
 
 **Target: macro ROC-AUC ≥ 0.90** (`VERIFIED` metric: `(1/12) Σ AUC_i`).
-**Budget: ~24 s per study** — ~1,300 test studies inside the 9-hour cap. See `STRATEGY.md` → "The 0.90 target" for why
-it is read as AUC rather than accuracy, why it is a stretch against a ~0.809
-public baseline, and which gate catches it if the label ceiling makes it
-unreachable.
+**Budget: ~24 s per study** — ~1,300 test studies inside the 9-hour cap.
 
-Only Phase 0 is planned in detail. Planning Phase 2 now would be planning
-against unverified facts.
+See `STRATEGY.md` → "The 0.90 target" for why it is read as AUC rather than
+accuracy. Note the target is **below the field**, not above it: the leaderboard
+top is 0.951 and the top 200 teams all exceed 0.917 (`FINDINGS.md` §8).
+
+Phase 0 is complete, so Phase 1 and Phase 2 below are planned from measurements
+rather than assumptions.
 
 ---
 
@@ -29,11 +30,8 @@ against unverified facts.
 | 0.4 | Series selection rule | **DONE** (`FINDINGS.md` §10). Host plane column agrees with headers on 24,371/24,371 series. **Axial fluid-sensitive exists for 100% of studies**; all three fluid-sensitive planes for 90.6%. Rule: one fluid-sensitive series per plane, axial as the guaranteed fallback. |
 | 0.5 | **Leakage audit** | **DONE. Random K-fold inflates macro AUC by 0.087** (`FINDINGS.md` §9). Grouping key is a scanner fingerprint with frequency rounded to 2 dp; 178 groups. |
 
-**PHASE 0 COMPLETE — 2026-08-18.** All five steps done. Gate reached: review
-`docs/FINDINGS.md` before Phase 2 modelling begins.
-
-Sequencing note: 0.3 is now the bottleneck for both 0.4 and 0.5, so it launches
-first. It needs no pixels and no GPU.
+**PHASE 0 COMPLETE — 2026-08-18.** All five steps done, every headline claim
+verified. `docs/FINDINGS.md` is the record.
 
 ---
 
@@ -60,9 +58,17 @@ reports, so Spanish (16%) and Turkish (12%) are first-class, not afterthoughts:
    `src/report_labeler.py`, macro AUC **0.745** on gold. Laterality still to do.
 3. ~~Soft labels with a confidence/abstain channel.~~ **DONE** — five channels:
    asserted / hedged / low_severity / negated / absent.
-3a. **NEXT: close the three coverage gaps.** Synovitis (0.561 AUC, 89% abstain),
-   Lateral OA (0.691, 77%), Medial OA (0.695, 76%). AUC tracks abstain rate
-   almost monotonically, so these are the cheapest gains on the board.
+3a. ~~Close the three coverage gaps by extending the lexicon.~~ **SUPERSEDED.**
+   AUC does track abstain rate almost monotonically — Synovitis abstains on 72%
+   of reports and scores 0.580, Fracture 62% and 0.759 — but three rounds of
+   corpus-driven vocabulary work moved the macro from 0.745 to 0.769 and the
+   remaining gaps are paraphrase, implication and negation scope rather than
+   missing words. Public systems reading the same reports with an open-weights
+   language model into a **closed vocabulary** reach **0.881**
+   (`COMPETITIVE_ANALYSIS.md`), and that 0.112 is the largest single number
+   available to this project. `kaggle/16_llm_labeler` is that approach; it
+   scores the 58 gold studies first so the comparison against 0.769 costs a
+   minute rather than an hour.
 4. Evaluation on the 58 gold studies: per-finding AUC, agreement rate, and a
    confusion analysis of *where* report and image labels diverge — **always with
    intervals**, because 58 studies cannot separate 0.86 from 0.90.
@@ -73,10 +79,111 @@ reports, so Spanish (16%) and Turkish (12%) are first-class, not afterthoughts:
 
 ## Phase 2 — imaging baseline
 
-CPU cache-build kernel → 2.5D backbone + attention pooling → 12 heads trained on
-Phase 1 soft labels with gold studies heavily weighted. Site-grouped CV.
-Resumable, checkpointed, wall-clock guarded. Report OOF macro AUC, per-finding
-AUC, and prediction spread.
+Everything below is now determined by Phase 0 measurements rather than guessed.
+
+### Inputs, settled
+
+- **Series selection:** one fluid-sensitive series per plane, preferring
+  sagittal + coronal + axial. Axial fluid-sensitive exists for **100%** of
+  studies and is the guaranteed fallback; all three planes are present for 90.6%
+  (`FINDINGS.md` §10). The host's `Anatomical_Plane` is trustworthy — it agreed
+  with the DICOM headers on 24,371 of 24,371 series.
+- **Laterality:** `Laterality` is populated on 79% of series; `SeriesDescription`
+  carries it for some of the rest (e.g. `LT_...`). Mirror right knees so the
+  model sees one anatomy.
+- **Targets:** `artifacts/phase1/soft_labels.parquet` — 12 soft scores plus a
+  five-way channel per study. Gold studies weighted heavily; the abstain channel
+  must reach the loss as "no supervision here", not as a zero.
+- **Folds:** `src/folds.py`, scanner fingerprint with frequency rounded to 2 dp.
+  178 groups. **Non-negotiable**: random K-fold inflates macro AUC by 0.087.
+
+### The budget, measured
+
+~1,300 test studies inside the 9-hour cap is **~24 s/study**. Reaching the data
+costs 0.059 s/study, so essentially all of it is available for decode and
+inference. At a median 99 fluid-sensitive slices per study, one series per plane
+is roughly 90 slices — comfortably affordable.
+
+### Baselines that must be beaten
+
+| baseline | grouped CV | note |
+|---|---:|---|
+| constant priors | 0.500 | confirmed on the leaderboard |
+| **scanner metadata only** | **0.669** | no pixels at all — see below |
+| report labeler vs expert (58 gold) | 0.761 | the label ceiling, roughly |
+
+**An imaging model that does not clear ~0.67 has not demonstrated the pixels
+contribute anything.** That is the bar, and it is higher than it looks because
+the metadata model is free.
+
+### Findings that need special handling
+
+- **Synovitis is text-limited** — report vocabulary carries almost no
+  information about it (sensitivity 0.59 at precision 0.57 against a 0.47 base
+  rate). Its report-derived labels should be down-weighted; if the model is to
+  learn it, it must come from the images and the 58 gold studies.
+- **Lateral OA** has the weakest labeler AUC after Synovitis and the widest
+  interval. Expect it to be noisy throughout.
+
+### Architecture
+
+2.5D: a pretrained backbone over slice stacks, attention pooling to study level,
+12 output heads. Resumable and checkpointed with a wall-clock guard, because
+Kaggle sessions die. T4, never P100.
+
+**Two revisions, both from measurement rather than taste:**
+
+- **Per-finding attention pooling.** A single attention map serving twelve
+  findings forces one compromise about which slices matter, and the focal
+  findings lose it — the four weakest on fold 1 are Medial Meniscus 0.656,
+  PF OA 0.659, Synovitis 0.663, MCL 0.669. `knee-train-v1pool` is a
+  one-variable A/B of this against the 0.725 configuration, enforced as
+  one-variable by a test.
+- **Self-supervised backbone, fine-tuned.** Published measurements put
+  adaptation at roughly five times the value of resolution (+0.09 against
+  +0.017), moving exactly the focal findings — Medial Meniscus +0.171,
+  MCL +0.118, ACL +0.113 *(Torres)*. `knee-train-dinov2` holds v1 geometry
+  fixed so its result attributes to the backbone alone.
+
+### Order of work
+
+1. ~~CPU cache-build kernel~~ **DONE** — `kaggle/03_cache_build_shard{0..3}`,
+   four shards, (3, 20, 192, 192) uint8 per study, ~2.2 MB each. Mounted by the
+   training kernel via `kernel_sources` so the ~10 GB never leaves Kaggle.
+2. **Train one fold, confirm it beats 0.669 grouped, check prediction spread.**
+   In progress — `kaggle/04_train`.
+3. Only then the full cross-validated run.
+
+## Phase 2.5 — the two boards are different problems
+
+The efficiency track is scored `AUC/(Benchmark − maxAUC) + RuntimeSeconds/32400`,
+minimised, which at today's top makes an extra hour cost **0.0502 AUC**
+(`COMPETITIVE_ANALYSIS.md` §4, derived from the competition's own page). This
+project runs inference in **0.8 h** against published systems' 3–4 h, and that
+already puts its 0.725 model ahead of a public 0.883 model on efficiency.
+
+So runtime is not slack against the 9-hour cap — it is the one axis where this
+project currently leads the field, and the two configurations should diverge:
+
+| | main board | efficiency board |
+|---|---|---|
+| folds | all five | one or two |
+| resolution | whatever wins | the cheaper one |
+| anything free at inference | yes | yes |
+
+**Free-at-inference changes are worth double** and should be exhausted first:
+rank averaging, better labels, a better backbone, per-finding pooling. Folds and
+resolution buy AUC with runtime, so they are where the configurations part
+company — not earlier.
+
+**How much an extra fold costs is now measured rather than assumed.** Each study
+is decoded once and passed through every member, so a fold adds one forward pass
+and no decoding. The inference kernel reports the split — total forward seconds,
+per study, per member — and states outright how much AUC an extra member has to
+buy to pay for itself at 0.0502 AUC/hour. Until the next run reports it this is
+`UNVERIFIED`: the only related measurement is that CPU-only inference cost
+19.7 s/study against 2.2 s/study on a T4, which bounds the model's share but
+does not separate it from decode.
 
 ---
 

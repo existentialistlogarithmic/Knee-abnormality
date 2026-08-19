@@ -93,6 +93,18 @@ I am still not going to promise a leaderboard number. What can be promised is
 that the thing which most plausibly caps the score gets measured first and
 reported plainly, so effort is spent against a known ceiling rather than hope.
 
+### The ceiling, now measured on 1,300 studies instead of 58
+
+A metadata-only model scored **0.669** in scanner-grouped CV against
+report-derived labels and **0.531** on the leaderboard against expert labels
+(`FINDINGS.md` §11). That 0.138 gap is the clearest measurement available of how
+far report-derived targets sit from the truth being scored.
+
+It does not mean the labels are worthless — that model had no anatomical
+information at all, so everything it learned was site reporting convention. But
+it does establish a hard working rule: **report-label CV ranks models; it never
+estimates the leaderboard.**
+
 ### The ceiling worth measuring first
 
 If report-derived labels agree with image-derived truth only ~82% of the time
@@ -149,6 +161,21 @@ tell us it is good. This is the single easiest way to fool ourselves here.
    shortcut ever seems to require it, the shortcut is wrong. Language
    identification already runs offline (`py3langid`), so the ten-language split
    cost nothing in this regard.
+
+   **This binds the assistant working on the repository too, and that is easy to
+   miss.** An AI assistant helping build this project *is* a hosted LLM API.
+   Printing a report to inspect it, pasting one into a commit message or an
+   issue, or asking a coding assistant "why did the labeler get this report
+   wrong" all send patient-derived text to exactly the kind of endpoint the rule
+   names. Every analysis of the corpus in this repository is therefore written
+   to emit **aggregates only** — counts, lengths, language shares, per-finding
+   rates — and no script prints a report string. `eda/` and `tests/` are
+   written to that standard, and `tests/test_report_schema.py` asserts the
+   labeling kernel writes states and metrics rather than text.
+
+   It is also the one rule here that cannot be repaired by a later commit. A bad
+   fold can be retrained and a wrong number can be corrected; text that has
+   already been transmitted has already been transmitted.
 5. **Kaggle-to-Kaggle.** The bulk data is never downloaded locally. Each kernel
    mounts the previous kernel's output as a Dataset. Local machine handles CSVs,
    metadata, and report text analysis only.

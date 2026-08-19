@@ -749,3 +749,54 @@ Notes on the fields that people fudge:
 - **compliance note**: this reads report text into a *local* process. Nothing
   was printed but aggregates. `STRATEGY.md` rule 4 covers why that distinction
   is the whole difference.
+
+### E023 — the LLM reader is a wash alone and worth +0.070 combined
+- **date**: 2026-08-19
+- **run**: `knee-llm-labeler`, Qwen2.5-7B-Instruct sharded across both T4s,
+  3.5 min for the 58 gold studies (one automatic batch halving, 16 → 8).
+- **standalone result**: macro AUC **0.7526** against the lexicon's 0.769, with
+  a **48.7%** abstain rate against 40.6%. Worse on both headline numbers, and
+  the kernel stopped there by its own gate.
+- **that gate asked the wrong question.** "Does this beat the lexicon" is not
+  the decision; "does adding this to the lexicon beat the lexicon" is. Scored on
+  the same 58 studies with an identical convention, and with a combination rule
+  that has **no free parameters** — exactly one labeler speaks, take it; both
+  speak, average their ranks; neither, abstain:
+
+  | labeler | macro AUC | 95% CI | abstain |
+  |---|---:|---|---:|
+  | lexicon | 0.7446 | [0.701, 0.787] | 39.7% |
+  | LLM | 0.7421 | [0.689, 0.791] | 48.7% |
+  | **union** | **0.8145** | [0.772, 0.853] | **30.2%** |
+
+  Paired bootstrap on the same studies, which is about twice as sharp as
+  comparing independent intervals (`FINDINGS.md` §13):
+
+  | comparison | delta | 95% CI | verdict |
+  |---|---:|---|---|
+  | union − lexicon | **+0.0698** | [+0.041, +0.097] | higher |
+  | union − LLM | **+0.0724** | [+0.033, +0.116] | higher |
+  | LLM − lexicon | −0.0025 | [−0.060, +0.049] | **not separated** |
+
+  Note the absolute numbers differ from the 0.769 recorded elsewhere because
+  this scores abstentions at the bottom of the ranking rather than at a prior.
+  All three rows share that convention, which is what makes the comparison
+  valid; none of them is comparable to the earlier 0.769.
+- **why they combine so well**: they fail on different findings. The LLM is far
+  better on Medial Meniscus (+0.163), Medial OA (+0.102) and Lateral OA
+  (+0.099); far worse on Fracture (−0.222), PF OA (−0.124), Contusion (−0.114)
+  and Baker's (−0.095). Coverage explains most of it — the union leaves only
+  30.2% of study×finding slots unsupervised against 39.7% and 48.7% — and
+  coverage has tracked AUC across every version of this labeler.
+- **a defect found while checking the two implementations against each other**:
+  the first version ranked with `argsort().argsort()`, which breaks ties by
+  array position. The lexicon emits only **2–4 distinct values per finding**, so
+  ties are the common case, and that arbitrary order would have been baked into
+  4,407 studies' training targets as noise. Averaging tied ranks *raised* the
+  union to 0.8145 from 0.7994 and the gain to +0.070 from +0.049. The local
+  analysis now calls the kernel's implementation rather than keeping a second
+  copy, since a second copy is how they disagreed.
+- **next**: re-run so the corpus is read, then rebuild `soft_labels.parquet`
+  from the union and retrain. On this project's history — the imaging model
+  scored 0.725 against a 0.769 teacher — a better teacher is the change most
+  likely to move the board.

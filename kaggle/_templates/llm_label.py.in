@@ -137,6 +137,57 @@ def rank_value(state: str) -> float:
     return STATES.index(state) / (len(STATES) - 1) if state in STATES else 1 / 6
 
 
+def to_rank(values: np.ndarray) -> np.ndarray:
+    """Each labeler's non-abstaining values to [0,1] positions, per finding.
+
+    The two ladders are not commensurable as they stand — one is a stipulated
+    probability, the other a rung index — so they are ranked before they are
+    averaged. NaN means the labeler abstained on that slot.
+    """
+    out = np.full_like(values, np.nan)
+    for i in range(values.shape[1]):
+        column = values[:, i]
+        seen = ~np.isnan(column)
+        count = int(seen.sum())
+        if count == 0:
+            continue
+        if count == 1:
+            out[seen, i] = 0.5
+            continue
+        # Average ranks within ties. argsort().argsort() would break ties by
+        # array position, inventing an order between equal scores — and the
+        # lexicon emits only five distinct values, so ties are the common case
+        # rather than a corner. That arbitrary order is pure noise, and it is
+        # noise that would be baked into 4,407 studies' training targets.
+        column = column[seen].astype(float)
+        order = np.argsort(column, kind="mergesort")
+        ranks = np.empty(count, float)
+        ranks[order] = np.arange(count, dtype=float)
+        unique, inverse, counts = np.unique(column, return_inverse=True,
+                                            return_counts=True)
+        if len(unique) < count:
+            sums = np.zeros(len(unique))
+            np.add.at(sums, inverse, ranks)
+            ranks = (sums / counts)[inverse]
+        out[seen, i] = ranks / (count - 1)
+    return out
+
+
+def fuse(lexicon: np.ndarray, machine: np.ndarray) -> np.ndarray:
+    """Union two labelers by coverage. NO FREE PARAMETERS, deliberately.
+
+    Exactly one speaks -> take it. Both speak -> average their ranks. Neither
+    -> abstain. A rule that picked the better labeler per finding would be
+    fitting twelve choices to 58 studies and would report a number that means
+    nothing.
+    """
+    a, b = to_rank(lexicon), to_rank(machine)
+    both = ~np.isnan(a) & ~np.isnan(b)
+    combined = np.where(np.isnan(a), b, a)
+    combined[both] = (a[both] + b[both]) / 2
+    return combined
+
+
 def macro_auc(expert: np.ndarray, score: np.ndarray) -> tuple:
     from sklearn.metrics import roc_auc_score
 
@@ -275,6 +326,41 @@ def main() -> int:
     ranks = np.array([[rank_value(s[name]) for name in FINDINGS] for s in gold_states])
     macro, per_finding = macro_auc(expert, ranks)
 
+    # The question is not "does this beat the lexicon", it is "does adding this
+    # to the lexicon beat the lexicon". The first run of this kernel asked the
+    # first question, answered no at 0.7526 against 0.769, and stopped — while
+    # the union of the two scored +0.049 above either, with a paired interval
+    # excluding zero. That was very nearly a good idea discarded for asking the
+    # wrong thing.
+    lexicon_dir = find_marker("soft_labels.parquet")
+    combined_macro = float("nan")
+    if lexicon_dir is not None:
+        soft = pd.read_parquet(lexicon_dir / "soft_labels.parquet").set_index(
+            "StudyInstanceUID")
+        ids = gold.StudyInstanceUID.astype(str)
+        shared = [s for s in ids if s in soft.index]
+        if len(shared) == len(ids):
+            lexicon_scores = soft.loc[ids, FINDINGS].to_numpy(dtype=float)
+            channels = soft.loc[ids, [f"{f}__channel" for f in FINDINGS]].to_numpy()
+            lexicon_scores[channels == "absent"] = np.nan     # its abstain channel
+            machine_scores = np.where(
+                np.array([[s[name] == "not_mentioned" for name in FINDINGS]
+                          for s in gold_states]), np.nan, ranks)
+            union = fuse(lexicon_scores, machine_scores)
+            # An abstaining slot still needs a position: silence sits below
+            # anything either labeler asserted.
+            lex_macro, _ = macro_auc(expert, np.nan_to_num(lexicon_scores, nan=-1.0))
+            combined_macro, combined_per = macro_auc(
+                expert, np.nan_to_num(union, nan=-1.0))
+            print(f"\nlexicon alone on the same footing: {lex_macro:.4f}")
+            print(f"union of the two:                  {combined_macro:.4f}")
+            print(f"union abstain rate:                {np.isnan(union).mean():.1%}")
+        else:
+            print(f"\nlexicon labels cover {len(shared)}/{len(ids)} gold studies; "
+                  "skipping the union check")
+    else:
+        print("\nno soft_labels.parquet mounted; cannot check the union")
+
     abstain = float(np.mean([[s[name] == "not_mentioned" for name in FINDINGS]
                              for s in gold_states]))
     print(f"\n{'=' * 62}")
@@ -308,11 +394,20 @@ def main() -> int:
               "reading the reports and finding nothing. Fix the run and repeat; "
               "do not record this as a measurement of the method.")
         return 1
-    if macro < 0.769:
-        print("Genuinely NOT better than the lexicon labeler on the 58 — the "
-              "model read the reports and the states it chose rank worse. "
-              "Stopping before the other 4,349; scoring gold first is what makes "
-              "this decision cost a minute.")
+    # Gate on the union, falling back to the standalone number only when the
+    # lexicon labels are not mounted to compare against.
+    if combined_macro == combined_macro:
+        if combined_macro <= lex_macro:
+            print(f"The union ({combined_macro:.4f}) does not beat the lexicon "
+                  f"alone ({lex_macro:.4f}). This labeler adds nothing. Stopping "
+                  "before the other 4,349.")
+            return 0
+        print(f"The union adds {combined_macro - lex_macro:+.4f} over the lexicon "
+              f"alone, so these states are worth having even though the model "
+              f"scores {macro:.4f} by itself.")
+    elif macro < 0.769:
+        print("No lexicon labels to compare against, and worse than 0.769 alone. "
+              "Stopping before the other 4,349.")
         return 0
 
     limit = RUN_MAX_REPORTS or len(rest)

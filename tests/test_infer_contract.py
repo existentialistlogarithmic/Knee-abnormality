@@ -159,8 +159,14 @@ def test_training_saves_unwrapped_weights():
     """DataParallel prefixes every key with 'module.'; inference builds a plain model."""
     source = _source(TRAIN)
     save = source[source.index("torch.save("):]
-    assert '"model": ema_state' in save, "checkpoint must save unwrapped EMA weights"
-    assert "model.state_dict()" not in save.split("\n")[0], "would save DataParallel keys"
+    # The export is the best-scoring EMA snapshot; both it and the live weights
+    # for resume are taken from `core`, the unwrapped module.
+    assert '"model": export' in save, "checkpoint must save the exported EMA weights"
+    assert "core.state_dict()" in save, "weights must come from the unwrapped module"
+    assert "model.state_dict()" not in save, "would save DataParallel keys"
+    ema = source[source.index("ema_state = "):]
+    assert ema.startswith("ema_state = {k: v.detach().cpu().clone() for k, v in core.state_dict()"), \
+        "the EMA snapshot must be taken from the unwrapped module"
 
 
 def test_training_does_not_flip_left_right():

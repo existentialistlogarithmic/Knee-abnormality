@@ -566,3 +566,53 @@ Notes on the fields that people fudge:
 - **the check that keeps it honest**: `python eda/generate_kernels.py --check`
   fails if any generated kernel has been edited by hand, and runs as a test. A
   manifest nobody regenerates from is documentation, and documentation drifts.
+
+### E017 — the 288px result reverses once the confound is removed: 0.7001 → 0.7282
+- **date**: 2026-08-19
+- **commit**: (this commit)
+- **what changed**: nothing about the cache. The 288px run was relaunched with
+  batch 4 × 4-step gradient accumulation, reproducing the **effective batch 16**
+  that the 192px run used, instead of the effective batch 4 the first attempt
+  actually trained at.
+- **runtime**: 3.6 h on 2×T4 (192px was 1.3 h).
+- **result, same fold, same split, same labels** —
+
+  | run | geometry | effective batch | epochs | val macro AUC |
+  |---|---|---:|---:|---:|
+  | v1 fold 0 | 192px @ 0.60 mm/px | 16 | 24 | 0.7001 |
+  | v2 fold 0, first attempt | 288px @ 0.40 mm/px | **4** | 30 | 0.690 |
+  | **v2 fold 0, corrected** | 288px @ 0.40 mm/px | **16** | 30 | **0.7282** |
+
+  Verified like-for-like from the logs before drawing any conclusion: both runs
+  report `fold 0: train 3,525  val 882  val groups 35`. Same studies, same
+  scanner groups, same targets.
+- **what this overturns**: E015 read the first 288px result as evidence against
+  the resolution hypothesis, and the README recorded 288px as **worse** (LB
+  0.668 vs 0.725). That reading was wrong, and it was wrong for a reason already
+  written down at the time — the run **changed five things at once**. Batch size
+  was one of them, and it was the one that mattered. Correcting only the batch
+  turns a 0.011 deficit into a **0.028 surplus**.
+- **the honest limit on this**: it is one fold and it is CV, not the board.
+  Report-label CV has ranked models correctly three times (0.700 > 0.690
+  predicted 0.725 > 0.668) but has never predicted an absolute score — the gap
+  has been +0.138, −0.025 and +0.022. `knee-infer-v2` is running against the
+  corrected weights; that submission is what settles it.
+- **the curve had not stopped**: the last three epochs went 0.725 → 0.727 →
+  0.7282, still climbing at epoch 29 of 30. The 192px run flattened by epoch 18.
+  So 0.7282 is a floor for this configuration, not its ceiling.
+- **the error profiles are complementary**, which matters for ensembling. v2 is
+  far stronger on Synovitis (0.781) and Medial Meniscus (0.753) and far weaker on
+  Medial OA (0.519) and Lateral OA (0.599). The 192px fold-1 model is the mirror
+  image — 0.724 Medial OA, 0.663 Synovitis. Two models that fail on different
+  findings average better than two that fail on the same ones.
+
+### E018 — fold 1 at 192px: 0.7334
+- **date**: 2026-08-19
+- **result**: best val macro AUC **0.7334** at epoch 18 of 24, then a slow
+  decline to 0.7282 — the EMA weights are saved per epoch, so the checkpoint is
+  the last epoch's, not the best. Worth fixing: keeping the best-epoch weights
+  is free and this run gives up 0.005 by not doing it.
+- **what it says about fold variance**: fold 0 reached 0.7001 and fold 1 reached
+  0.7334 on the same configuration. **0.033 of spread between folds** is larger
+  than most of the differences this project has been treating as signal. Any
+  single-fold comparison from here needs that number attached to it.

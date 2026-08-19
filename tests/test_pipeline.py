@@ -261,3 +261,35 @@ def test_inference_accepts_a_checkpoint_carrying_the_constant_buffers():
     assert 'k not in ("mean", "std")' in source, \
         "a checkpoint with the constant buffers would be refused"
     assert "missing, unexpected" in source, "the strict-load check must still run"
+
+
+def test_training_exports_the_best_epoch_not_the_last():
+    """Fold 1 peaked at 0.7334 on epoch 18 and saved epoch 23's 0.7282. Keeping
+    the best weights is free, and across an ensemble the loss compounds."""
+    source = (KAGGLE / "04_train" / "run.py").read_text()
+    save = source[source.index("torch.save("):]
+    assert '"model": export' in save, "the checkpoint must export the best weights"
+    assert '"macro_auc": best_macro' in save, "the recorded score must be the exported one"
+    assert 'best_state if best_state is not None' in source, \
+        "an all-NaN fold would write an unloadable checkpoint"
+
+
+def test_resume_continues_the_trajectory_not_the_export():
+    """`model` is now the best EMA export, which is not where training left off.
+    Resuming from it would restart a run from an average of its own past."""
+    source = (KAGGLE / "04_train" / "run.py").read_text()
+    assert 'core.load_state_dict(state.get("live") or state["model"])' in source
+    assert '"live": {k: v.detach().cpu().clone()' in source, \
+        "the live weights must be saved for resume"
+
+
+def test_inference_separates_an_absent_record_from_a_recorded_none():
+    """knee-train-v2 trained on 18 of 24 slices but predates the record.
+    Reading absent as "no subsampling" refused a correct checkpoint — and would
+    have passed a genuinely mismatched one in the other direction."""
+    source = (KAGGLE / "08_infer_v2" / "run.py").read_text()
+    assert "if key not in state:" in source, \
+        "absent and recorded-as-None must be distinguished"
+    assert "UNVERIFIED" in source, "an uncheckable property must be announced"
+    assert "if state[key] != want:" in source, \
+        "a recorded value must still be checked exactly"

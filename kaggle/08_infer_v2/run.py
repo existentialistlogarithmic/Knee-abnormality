@@ -384,17 +384,24 @@ def main() -> int:
     models = []
     for path in checkpoints:
         state = torch.load(path, map_location=device, weights_only=False)
-        # A checkpoint written before a key existed did not have that
-        # behaviour: input normalisation was added after the 192px folds were
-        # trained, so absent means False for them. Recorded here rather than
-        # assumed at read time, so the defaults are visible.
-        LEGACY = {"slice_subsample": None, "input_norm": False}
-        recorded = {key: state.get(key, LEGACY[key]) for key in EXPECTED}
+        # An ABSENT key is not the same as a key recorded as None, and
+        # conflating the two is how this check first went wrong: knee-train-v2
+        # trained on 18 of 24 slices but predates the record, so reading absent
+        # as "no subsampling" refused a checkpoint that was in fact correct —
+        # and would have let a genuinely mismatched one through in the other
+        # direction. Present means verified and must match exactly. Absent means
+        # UNVERIFIED: it is announced, not silently assumed away.
         for key, want in EXPECTED.items():
-            if recorded[key] != want:
+            if key not in state:
+                print(f"  UNVERIFIED: {path.name} does not record {key}. It was "
+                      f"written before this kernel recorded it, so there is no "
+                      f"way to check it from the weights. Proceeding on the "
+                      f"manifest's declaration of {want!r}.")
+                continue
+            if state[key] != want:
                 raise SystemExit(
                     f"{path.parent.parent.name}/{path.name} was trained with "
-                    f"{key}={recorded[key]!r} but this kernel declares {want!r}. "
+                    f"{key}={state[key]!r} but this kernel declares {want!r}. "
                     "The inputs differ, so averaging these models would be "
                     "invalid — refusing to predict.")
 

@@ -482,7 +482,10 @@ def main() -> int:
     start_epoch = 0
     if resume_from is not None:
         state = torch.load(resume_from, map_location=device, weights_only=False)
-        core.load_state_dict(state["model"])
+        # "model" is now the best-scoring EMA export, which is NOT where
+        # training left off. Older checkpoints have no "live" key and their
+        # "model" was the live weights, so that is the correct fallback.
+        core.load_state_dict(state.get("live") or state["model"])
         if state.get("ema"):
             ema = {k: v.to(device).float() for k, v in state["ema"].items()}
         optimiser.load_state_dict(state["optimiser"])
@@ -504,6 +507,7 @@ def main() -> int:
         return args.lr * max(cosine, 0.02)
 
     history = []
+    best_macro, best_epoch, best_state = float("-inf"), -1, None
     for epoch in range(start_epoch, args.epochs):
         model.train()
         total = 0.0
@@ -574,6 +578,14 @@ def main() -> int:
                         "spread": round(spread, 4),
                         "per_finding": {k: round(v, 4) for k, v in aucs.items()}})
 
+        # Keep the best-scoring weights, not the most recent ones. Fold 1 of the
+        # 192px run peaked at 0.7334 on epoch 18 and drifted down to 0.7282 by
+        # epoch 23 — and epoch 23 is what got saved, so 0.005 was given away for
+        # nothing. Over an ensemble that compounds.
+        if macro == macro and macro > best_macro:      # NaN-safe
+            best_macro, best_epoch = macro, epoch
+            best_state = ema_state
+
         # Save the unwrapped module. A DataParallel state_dict carries a
         # "module." prefix on every key, and the inference kernel builds a plain
         # model — it would fail to load, or worse, load partially.
@@ -581,8 +593,15 @@ def main() -> int:
         # Record the input geometry alongside the weights. Inference reads it
         # rather than assuming, which is what stops a config change here from
         # silently feeding the model something it never saw.
-        torch.save({"model": ema_state, "optimiser": optimiser.state_dict(),
-                    "ema": ema_state, "epoch": epoch, "macro_auc": macro,
+        # If every epoch scored NaN — too few positives in a fold to compute an
+        # AUC — there is no best, and a None here would write a checkpoint that
+        # inference cannot load.
+        export = best_state if best_state is not None else ema_state
+        torch.save({"model": export, "optimiser": optimiser.state_dict(),
+                    "ema": ema_state, "live": {k: v.detach().cpu().clone()
+                                               for k, v in core.state_dict().items()},
+                    "epoch": epoch, "macro_auc": best_macro,
+                    "best_epoch": best_epoch, "last_macro_auc": macro,
                     "backbone": args.backbone,
                     "slice_subsample": SLICE_SUBSAMPLE,
                     "input_norm": INPUT_NORM,
@@ -593,9 +612,9 @@ def main() -> int:
             print("time budget reached; checkpoint saved, re-run to resume")
             break
 
-    best = max((h["macro_auc"] for h in history if h["macro_auc"] == h["macro_auc"]),
-               default=float("nan"))
-    print(f"\nbest val macro AUC (report-derived labels): {best:.4f}")
+    best = best_macro if best_macro > float("-inf") else float("nan")
+    print(f"\nbest val macro AUC (report-derived labels): {best:.4f} "
+          f"(epoch {best_epoch}, and these are the weights saved)")
     print("Bar to clear: 0.669 — metadata alone, no pixels.")
     if best == best and best < 0.669:
         print(">>> Below the metadata baseline. The images are not contributing yet.")

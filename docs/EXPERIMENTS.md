@@ -432,3 +432,33 @@ Notes on the fields that people fudge:
   epoch.
 - **next**: (a) more epochs, since it had not converged; (b) an inference kernel
   so the gap can be measured. (b) is more informative.
+
+### E013 — second corpus round: macro AUC 0.7608 → 0.7690
+- **date**: 2026-08-19
+- **commit**: (this commit)
+- **what changed**: 70 lexicon rows, again driven entirely by the label-free
+  coverage audit rather than by gold feedback.
+- **CV**: macro AUC **0.7690** on the 58 gold studies (4th evaluation). 11 of 12
+  findings now above 0.70; none below 0.55.
+- **what it means**: the non-English OA anchors were near-dead for a third time,
+  and for the same reason — vocabulary guessed rather than measured.
+
+  | hole | abstain before | after | cause |
+  |---|---:|---:|---|
+  | Croatian Medial OA | 0.85 | **0.29** | `hrskavic` in 94% of Croatian reports, `medijaln` in 99%; the old anchor `medijalnom odjeljku` was rare |
+  | Croatian Lateral OA | 0.92 | **0.36** | same |
+  | Greek Medial OA | 0.91 | **0.66** | `χόνδρ` in 92%, `έσω` in 83%; the old anchor `έσω μηριαίου` in 5% |
+  | Spanish Contusion | 0.84 | **0.49** | written as `médula ósea` (42%) + `edema` (42%), not `contusión` (7%) |
+  | Spanish Baker's | 0.79 | **0.49** | named by site — `quiste` 52%, `poplíte` 44% — not by eponym (`baker` 10%) |
+  | Spanish Medial OA | 0.77 | **0.62** | Spanish uses `interno`/`externo` for medial/lateral |
+
+  Per-finding gold AUC moved where the coverage moved: **Medial OA 0.778 →
+  0.836**, **Lateral OA 0.689 → 0.732**, Baker's 0.826 → 0.834. That is the
+  coverage audit validating itself — it predicted which findings would improve
+  before the gold set was touched.
+
+- **one finding is not a lexicon hole**: Turkish `Fracture` abstains at 0.96, but
+  `kırık` appears in 1% of Turkish reports, `fraktür` 2%, `fissür` 3%. Fractures
+  are genuinely rare in this corpus. No vocabulary work will fix that, and
+  chasing it would only cost precision.
+- **next**: the labels are now the training targets for the v2 (288px) run.

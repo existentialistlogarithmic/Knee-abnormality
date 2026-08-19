@@ -298,16 +298,36 @@ Report-derived CV is for *ranking* candidate models, never for estimating the
 leaderboard. Absolute claims come from the leaderboard or from the 58 gold
 studies (with their wide intervals) — never from report-label CV.
 
-### …and the imaging model INVERTS it — `VERIFIED`, 2026-08-19
+### …and the gap is NOT a fixed offset — `CORRECTED`, 2026-08-19
+
+An earlier version of this section claimed, from a single data point, that
+imaging models *invert* the gap and that report-label CV therefore understates
+imaging progress. **A second submission contradicted that.** Recorded here
+rather than quietly edited, because the wrong version was acted on.
 
 | model | report-label CV | leaderboard | gap |
 |---|---:|---:|---:|
 | scanner metadata (no pixels) | 0.6687 | 0.531 | **+0.138** |
-| imaging, resnet34 2.5D @192px | 0.7001 | **0.725** | **−0.025** |
+| imaging, resnet34 @192px | 0.7001 | **0.725** | **−0.025** |
+| imaging, resnet34 @288px | 0.6903 | 0.668 | **+0.022** |
 
-**The imaging model scores *higher* on the leaderboard than in cross-validation.**
-That is the opposite sign to the metadata model, and it settles the question
-this project has been circling since the beginning.
+The two imaging models have gaps of opposite sign. So "imaging inverts the gap"
+was an over-generalisation from n=1.
+
+**What actually survives both data points:**
+
+1. **CV ranks correctly.** CV said 0.7001 > 0.6903; the board said
+   0.725 > 0.668. The ordering held, and that is what CV is for.
+2. **CV does not predict the absolute score.** The offset varies by model
+   (+0.138, −0.025, +0.022) and cannot be applied as a correction.
+3. **The 288px model is genuinely worse**, and by *more* than CV suggested — a
+   0.010 CV deficit became a 0.057 leaderboard deficit. Whatever differs between
+   those configs hurts transfer more than it hurts validation.
+
+The mechanism proposed earlier — that a model learning anatomy disagrees with
+noisy targets where they are wrong — is still plausible and would explain the
+192px result. It does not explain the 288px result, so it is at best partial.
+**Treat CV as a ranking device only. Absolute claims come from the board.**
 
 The mechanism is straightforward once seen. CV is scored against
 **report-derived labels**, which are noisy — the labeler reaches 0.769 macro AUC

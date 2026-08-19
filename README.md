@@ -39,15 +39,14 @@ Four measurements govern everything downstream:
   | model | report-label CV | leaderboard | gap |
   |---|---:|---:|---:|
   | scanner metadata (no pixels) | 0.669 | 0.531 | **+0.138** |
-  | imaging (resnet34 2.5D) | 0.700 | **0.725** | **−0.025** |
+  | imaging, 192px | 0.700 | **0.725** | **−0.025** |
+  | imaging, 288px | 0.690 | 0.668 | **+0.022** |
 
-  CV is scored against noisy report-derived labels; the leaderboard against
-  expert labels. A model that learns anatomy disagrees with its own targets
-  exactly where they are wrong, so label noise depresses its CV but not its
-  score. A model with no anatomical information cannot do that — all it can
-  learn is the site-convention part, which does not transfer.
-  **Consequence: report-label CV understates imaging progress and overstates
-  everything else.**
+  The gap varies in **sign and size** between models, so it cannot be used as a
+  correction. What holds across all three: **CV ranks models correctly**
+  (0.700 > 0.690 predicted 0.725 > 0.668) but does not predict the absolute
+  score. Use CV to choose between configurations; use the board for any claim
+  about where the solution actually stands.
 - **The label ceiling is not hard.** A model trained on 0.769-quality labels
   scored 0.725 against expert truth, and was not converged.
 

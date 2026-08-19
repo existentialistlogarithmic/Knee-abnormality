@@ -44,21 +44,25 @@ import pandas as pd
 # Edit the manifest, not this file. Everything outside this block is shared by
 # every kernel rendered from this template.
 # --------------------------------------------------------------------------- #
-# The configuration that scored 0.725. Batch 16 is affordable
-# because of AMP across both T4s; the LR is scaled to it.
-# input_norm is False because that is what these weights were
-# trained with — see the module docstring.
+# Continues knee-train-v2 from its epoch-29 checkpoint. The
+# cosine schedule is absolute in epoch, so resuming at 30 of 60
+# puts the LR back at ~3.2e-4 against the ~1.2e-5 floor the
+# first run finished on — a 26x jump. That is a WARM RESTART,
+# not a smooth continuation, and it will get worse before it
+# gets better. The run inherits the 0.7282 checkpoint as its
+# best, so a restart that never recovers exports the old weights
+# rather than its own worse ones.
 #
 RUN_FOLD            = 0
-TARGET_MM_PER_PIXEL = 0.6
-TARGET_SIZE         = 192
-SLICES_PER_PLANE    = 20
-RUN_EPOCHS          = 24
-RUN_BATCH           = 16
-ACCUM_STEPS         = 1
+TARGET_MM_PER_PIXEL = 0.4
+TARGET_SIZE         = 288
+SLICES_PER_PLANE    = 24
+RUN_EPOCHS          = 60
+RUN_BATCH           = 4
+ACCUM_STEPS         = 4
 RUN_LR              = 0.0006
 RUN_BACKBONE        = "resnet34"
-SLICE_SUBSAMPLE     = None
+SLICE_SUBSAMPLE     = 18
 INPUT_NORM          = False
 RUN_TIME_BUDGET     = 7.5 * 3600
 GOLD_WEIGHT         = 8.0

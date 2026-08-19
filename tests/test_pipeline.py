@@ -293,3 +293,21 @@ def test_inference_separates_an_absent_record_from_a_recorded_none():
     assert "UNVERIFIED" in source, "an uncheckable property must be announced"
     assert "if state[key] != want:" in source, \
         "a recorded value must still be checked exactly"
+
+
+def test_a_continuation_run_inherits_the_best_it_was_handed():
+    """A warm restart raises the LR and gets worse before it gets better. A
+    tracker starting from nothing would export those worse weights, and the log
+    would only show the new run's own best, so nothing would look wrong."""
+    source = (KAGGLE / "14_train_v2_long" / "run.py").read_text()
+    assert 'best_macro = state["macro_auc"]' in source
+    assert "inherited best macro AUC" in source, "the inheritance must be visible in the log"
+
+
+def test_a_resuming_trainer_mounts_what_it_resumes_from():
+    by_slug = {k.slug: k for k in pipeline.all_kernels()}
+    for lineage in pipeline.LINEAGES:
+        for trainer in lineage.trainers:
+            if trainer.resume_from:
+                assert trainer.resume_from in by_slug[trainer.slug].depends, \
+                    f"{trainer.slug} resumes from an output it does not mount"

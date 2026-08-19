@@ -1,0 +1,30 @@
+{
+  "id": "achelijndiamantidis/knee-train-v2-long",
+  "title": "knee-train-v2-long",
+  "code_file": "run.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "achelijndiamantidis/knee-phase1-artifacts"
+  ],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [
+    "achelijndiamantidis/knee-cache-v2-0",
+    "achelijndiamantidis/knee-cache-v2-1",
+    "achelijndiamantidis/knee-cache-v2-2",
+    "achelijndiamantidis/knee-cache-v2-3",
+    "achelijndiamantidis/knee-cache-v2-4",
+    "achelijndiamantidis/knee-cache-v2-5",
+    "achelijndiamantidis/knee-cache-v2-6",
+    "achelijndiamantidis/knee-cache-v2-7",
+    "achelijndiamantidis/knee-train-v2"
+  ],
+  "model_sources": []
+}

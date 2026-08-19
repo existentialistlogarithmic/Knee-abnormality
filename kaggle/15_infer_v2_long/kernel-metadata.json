@@ -1,0 +1,20 @@
+{
+  "id": "achelijndiamantidis/knee-infer-v2-long",
+  "title": "knee-infer-v2-long",
+  "code_file": "run.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [
+    "achelijndiamantidis/knee-train-v2-long"
+  ],
+  "model_sources": []
+}

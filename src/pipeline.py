@@ -131,6 +131,14 @@ class Trainer:
     fold: int
     slug: str
     directory: str
+    resume_from: str | None = None
+    """Another trainer whose output this one mounts, to continue its run.
+
+    Kaggle caps a session at 9 hours, and the training kernel already resumes
+    from a mounted `checkpoint_fold{n}.pt`. Naming that source here is what
+    turns "the curve had not flattened yet" into a second session rather than a
+    restart.
+    """
 
 
 @dataclass
@@ -196,7 +204,8 @@ class Lineage:
                 template="train",
                 gpu=True,
                 internet=True,      # pretrained weights; only submissions go offline
-                depends=cache_slugs,
+                depends=cache_slugs + ([trainer.resume_from]
+                                       if trainer.resume_from else []),
                 datasets=[ARTIFACTS_DATASET],
                 constants={"RUN_FOLD": trainer.fold,
                            **self.geometry.constants(),
@@ -287,6 +296,31 @@ LINEAGES = [
         trainers=(Trainer(0, "knee-train-v2", "07_train_v2"),),
         infer_slug="knee-infer-v2",
         infer_directory="08_infer_v2",
+    ),
+    Lineage(
+        # Same cache, same config, more epochs. v2 fold 0 was still climbing at
+        # epoch 29 of 30 — the last three were 0.725, 0.727, 0.7282 — so 0.7282
+        # is a floor for that configuration rather than its ceiling. This mounts
+        # the finished run and continues it instead of paying for the first 30
+        # epochs again.
+        name="v2long",
+        cache=CACHE_V2,
+        train=TrainConfig(
+            backbone="resnet34", epochs=60, batch=4, lr=6e-4, accum=4,
+            slice_subsample=18,
+            note="Continues knee-train-v2 from its epoch-29 checkpoint. The\n"
+                 "cosine schedule is absolute in epoch, so resuming at 30 of 60\n"
+                 "puts the LR back at ~3.2e-4 against the ~1.2e-5 floor the\n"
+                 "first run finished on — a 26x jump. That is a WARM RESTART,\n"
+                 "not a smooth continuation, and it will get worse before it\n"
+                 "gets better. The run inherits the 0.7282 checkpoint as its\n"
+                 "best, so a restart that never recovers exports the old weights\n"
+                 "rather than its own worse ones.",
+        ),
+        trainers=(Trainer(0, "knee-train-v2-long", "14_train_v2_long",
+                          resume_from="knee-train-v2"),),
+        infer_slug="knee-infer-v2-long",
+        infer_directory="15_infer_v2_long",
     ),
     Lineage(
         # Deliberately on CACHE_V1: this is a backbone experiment, and holding

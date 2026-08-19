@@ -508,6 +508,16 @@ def main() -> int:
 
     history = []
     best_macro, best_epoch, best_state = float("-inf"), -1, None
+    if resume_from is not None and state.get("macro_auc") == state.get("macro_auc"):
+        # Inherit the best result already achieved. Without this a continuation
+        # run starts its own tracker from nothing, and a warm restart that never
+        # gets back above where it resumed would export weights WORSE than the
+        # checkpoint it was handed — silently, since the log would only show the
+        # new run's own best.
+        best_macro = state["macro_auc"]
+        best_epoch = state.get("best_epoch", state["epoch"])
+        best_state = {k: v.detach().cpu().clone() for k, v in state["model"].items()}
+        print(f"inherited best macro AUC {best_macro:.4f} from the mounted checkpoint")
     for epoch in range(start_epoch, args.epochs):
         model.train()
         total = 0.0

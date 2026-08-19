@@ -182,3 +182,12 @@ def test_checkpoint_round_trips_from_training_into_inference():
         out = torch.sigmoid(rebuilt(volume))
     assert out.shape == (1, 12)
     assert torch.isfinite(out).all()
+
+
+def test_inference_excludes_setup_from_the_per_study_projection():
+    """Setup is paid once; folding it into a per-study average over a 3-study
+    public test set and multiplying by 1,300 overstates cost ~20x."""
+    source = _source(INFER)
+    assert "setup_seconds" in source and "loop_started" in source
+    assert "per_study = loop_seconds" in source, "per-study cost must exclude setup"
+    assert "setup_seconds + per_study * 1300" in source, "projection must add setup once"

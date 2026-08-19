@@ -309,6 +309,15 @@ def main() -> int:
     workers = max(2, min(8, (os.cpu_count() or 4)))
     print(f"decoding on {workers} threads, predicting in batches of {BATCH_STUDIES}")
 
+    # Time the study loop separately from kernel startup. Model construction,
+    # imports and the first CUDA/BLAS call cost ~50 s and are paid ONCE, but the
+    # public test set is 3 studies, so folding them into a per-study average and
+    # multiplying by 1,300 overstates the real cost by an order of magnitude.
+    # That mistake nearly ruled out CPU inference on a 20x-too-pessimistic number.
+    setup_seconds = time.time() - started
+    loop_started = time.time()
+    print(f"setup took {setup_seconds:.1f}s (paid once, not per study)")
+
     pending: list = []
 
     def flush(pending_batch):
@@ -336,8 +345,8 @@ def main() -> int:
                     pending = []
 
             if done % 100 == 0 or done == len(studies):
-                elapsed = time.time() - started
-                rate = done / elapsed
+                elapsed = time.time() - loop_started
+                rate = done / max(elapsed, 1e-6)
                 print(f"  {done:,}/{len(studies):,}  {elapsed / 60:.1f} min  "
                       f"{1 / rate:.2f} s/study  eta "
                       f"{(len(studies) - done) / rate / 60:.1f} min", flush=True)
@@ -357,17 +366,24 @@ def main() -> int:
     submission.to_csv(OUTPUT, index=False)
 
     elapsed = time.time() - started
+    loop_seconds = time.time() - loop_started
+    per_study = loop_seconds / max(len(studies), 1)
+    projected = (setup_seconds + per_study * 1300) / 3600
     spread = {f: round(float(submission[f].std()), 4) for f in FINDINGS}
     print(f"\nwrote {OUTPUT}  rows={len(submission):,}")
     print(f"failed studies (kept prior): {failures}")
-    print(f"wall clock {elapsed / 60:.1f} min = {elapsed / len(studies):.2f} s/study")
-    print(f"projected on 1,300 studies: {elapsed / len(studies) * 1300 / 3600:.2f} h "
-          f"of the 9 h cap")
+    print(f"wall clock {elapsed / 60:.1f} min  (setup {setup_seconds:.0f}s + "
+          f"loop {loop_seconds / 60:.1f} min)")
+    print(f"per-study cost EXCLUDING setup: {per_study:.2f} s")
+    print(f"projected on 1,300 studies: {projected:.2f} h of the 9 h cap "
+          f"(setup once + {per_study:.2f} s x 1300)")
     print(f"prediction spread: {spread}")
     Path("/kaggle/working/infer_manifest.json").write_text(json.dumps({
         "n_studies": len(studies), "failures": failures,
-        "seconds_per_study": round(elapsed / len(studies), 3),
+        "seconds_per_study_excluding_setup": round(per_study, 3),
+        "setup_seconds": round(setup_seconds, 1),
         "wall_clock_seconds": round(elapsed, 1),
+        "projected_hours_1300_studies": round(projected, 3),
         "checkpoint_epoch": state.get("epoch"),
         "checkpoint_val_macro_auc": state.get("macro_auc"),
         "prediction_spread": spread}, indent=2))

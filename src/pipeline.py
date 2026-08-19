@@ -1,0 +1,381 @@
+"""Declarative description of the Kaggle pipeline — one source of truth.
+
+Kaggle script kernels are single files, which is why this project accumulated
+29 `run.py` files that were only 12 distinct programs. Measured rather than
+guessed: `build_study` is byte-identical in 4 of them, `find_marker` in 7,
+`read_series_volume` in 4. A bug in any of those had to be fixed everywhere it
+had been pasted, and in practice it wasn't — `build_model` had **drifted into
+two variants across 5 files**, the newer one applying ImageNet normalisation
+and the older one not. The training kernel and the inference kernel that scores
+its weights were on opposite sides of that split.
+
+So the point of this file is not tidiness. Declaring the pipeline makes three
+classes of bug unrepresentable rather than merely tested for.
+
+**1. Geometry mismatch.** A cache is built at some mm/px, size and slice count,
+and the model that trains on it and the kernel that runs inference must use
+exactly those three numbers. Here a `Lineage` does not *have* a geometry — it
+has a `Cache`, and the geometry belongs to the cache. Every kernel in the
+lineage renders its constants from that one object, so a trainer cannot
+disagree with the cache it reads. There is nothing to disagree with.
+
+**2. Code drift between kernels.** The bodies live in `kaggle/_templates/` and
+are spliced in at generation time (`@@INCLUDE@@`). `build_study` exists once.
+Fixing it fixes fourteen kernels, because there is only one of it.
+
+**3. Silently invalid ensembling.** Two properties of a trained model are
+invisible in its weights and fatal if ensemble members disagree: how many
+slices it saw (`slice_subsample`) and whether its input was ImageNet-normalised
+(`input_norm`). Both are declared here, written into every checkpoint, and
+re-checked by the inference kernel, which refuses to average models that were
+fed differently rather than losing AUC quietly.
+
+`input_norm` is False for the lineages that have already run. That is not a
+preference — it is a record. The 0.725 leaderboard model was trained on raw
+0..1 inputs, and rewriting history here would make the manifest a lie and the
+ensemble guard useless.
+
+The generator is `eda/generate_kernels.py`. `--check` fails when the tree and
+the manifest disagree, which is what keeps this file honest.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+ACCOUNT = "achelijndiamantidis"
+COMPETITION = "rsna-knee-abnormality-detection"
+ARTIFACTS_DATASET = f"{ACCOUNT}/knee-phase1-artifacts"
+T4 = "NvidiaTeslaT4"
+
+
+@dataclass(frozen=True)
+class Geometry:
+    """How pixels reach the model.
+
+    `mm_per_pixel` is the one that must never drift silently: pixel spacing in
+    this dataset ranges 0.156–0.50 mm, so resampling to a fixed millimetre
+    scale is what stops the model reading scanner identity off the image size
+    (`FINDINGS.md` §9 measured that leak at 0.087 macro AUC).
+    """
+
+    mm_per_pixel: float
+    size: int
+    slices: int
+    infer_batch: int = 4     # studies per forward pass; 288px does not fit 4
+    note: str = ""
+
+    def constants(self) -> dict[str, object]:
+        return {"TARGET_MM_PER_PIXEL": self.mm_per_pixel,
+                "TARGET_SIZE": self.size,
+                "SLICES_PER_PLANE": self.slices}
+
+
+@dataclass(frozen=True)
+class Cache:
+    """A built cache and the kernels that build it.
+
+    The geometry lives here rather than on the lineage, so every consumer
+    reaches it through the cache it actually reads.
+    """
+
+    geometry: Geometry
+    shards: int
+    slug: str            # "knee-cache-build-{shard}"
+    directory: str       # "03_cache_build_shard{shard}"
+
+    def kernels(self) -> list[Kernel]:
+        return [
+            Kernel(
+                slug=self.slug.format(shard=shard),
+                directory=self.directory.format(shard=shard),
+                template="cache_build",
+                datasets=[ARTIFACTS_DATASET],
+                constants={"RUN_SPLIT": "train", "RUN_SHARD": shard,
+                           "RUN_OF": self.shards, "RUN_LIMIT": 0,
+                           **self.geometry.constants()},
+                note=self.geometry.note,
+            )
+            for shard in range(self.shards)
+        ]
+
+
+@dataclass(frozen=True)
+class TrainConfig:
+    backbone: str
+    epochs: int
+    batch: int
+    lr: float
+    accum: int = 1
+    slice_subsample: int | None = None
+    input_norm: bool = False
+    note: str = ""
+
+    def constants(self) -> dict[str, object]:
+        return {"RUN_EPOCHS": self.epochs, "RUN_BATCH": self.batch,
+                "ACCUM_STEPS": self.accum, "RUN_LR": self.lr,
+                "RUN_BACKBONE": self.backbone,
+                "SLICE_SUBSAMPLE": self.slice_subsample,
+                "INPUT_NORM": self.input_norm,
+                "RUN_TIME_BUDGET": Raw("7.5 * 3600"),
+                "GOLD_WEIGHT": 8.0, "ABSTAIN_MASKS_LOSS": True,
+                "WARMUP_EPOCHS": 2, "EMA_DECAY": 0.999, "LABEL_SMOOTH": 0.02}
+
+
+class Raw(str):
+    """A constant to emit as source rather than as a repr'd literal."""
+
+
+@dataclass(frozen=True)
+class Trainer:
+    fold: int
+    slug: str
+    directory: str
+
+
+@dataclass
+class Kernel:
+    """One pushed kernel: a directory, a slug, and what it mounts."""
+
+    slug: str
+    directory: str
+    template: str
+    gpu: bool = False
+    internet: bool = False
+    depends: list[str] = field(default_factory=list)     # slugs
+    datasets: list[str] = field(default_factory=list)
+    constants: dict[str, object] = field(default_factory=dict)
+    note: str = ""
+
+    def metadata(self) -> dict:
+        return {
+            "id": f"{ACCOUNT}/{self.slug}",
+            "title": self.slug,
+            "code_file": "run.py",
+            "language": "python",
+            "kernel_type": "script",
+            "is_private": True,
+            "enable_gpu": self.gpu,
+            "enable_tpu": False,
+            "enable_internet": self.internet,
+            "machine_shape": T4 if self.gpu else "",
+            "dataset_sources": list(self.datasets),
+            "competition_sources": [COMPETITION],
+            "kernel_sources": [f"{ACCOUNT}/{d}" for d in self.depends],
+            "model_sources": [],
+        }
+
+
+@dataclass(frozen=True)
+class Lineage:
+    """A cache and everything trained on it.
+
+    Naming is spelled out rather than derived because the live slugs are
+    historical — Kaggle identifies a kernel by its slug, so renaming one
+    creates a second kernel instead of updating the first (`kaggle/README.md`).
+    """
+
+    name: str
+    cache: Cache
+    train: TrainConfig
+    trainers: tuple[Trainer, ...]
+    infer_slug: str | None = None
+    infer_directory: str | None = None
+
+    @property
+    def geometry(self) -> Geometry:
+        return self.cache.geometry          # the only place a geometry comes from
+
+    def kernels(self) -> list[Kernel]:
+        out = []
+        cache_slugs = [k.slug for k in self.cache.kernels()]
+        for trainer in self.trainers:
+            out.append(Kernel(
+                slug=trainer.slug,
+                directory=trainer.directory,
+                template="train",
+                gpu=True,
+                internet=True,      # pretrained weights; only submissions go offline
+                depends=cache_slugs,
+                datasets=[ARTIFACTS_DATASET],
+                constants={"RUN_FOLD": trainer.fold,
+                           **self.geometry.constants(),
+                           **self.train.constants()},
+                note=self.train.note,
+            ))
+        if self.infer_slug:
+            out.append(Kernel(
+                slug=self.infer_slug,
+                directory=self.infer_directory,
+                template="infer",
+                gpu=True,
+                internet=False,     # this is the submission kernel
+                depends=[t.slug for t in self.trainers],
+                constants={**self.geometry.constants(),
+                           "BATCH_STUDIES": self.geometry.infer_batch,
+                           "SLICE_SUBSAMPLE_EXPECTED": self.train.slice_subsample,
+                           "INPUT_NORM_EXPECTED": self.train.input_norm},
+                note=self.geometry.note,
+            ))
+        return out
+
+
+# --------------------------------------------------------------------------- #
+# The pipeline as it actually stands. Every number below has either been run or
+# is queued to run; nothing here is aspirational.
+# --------------------------------------------------------------------------- #
+
+V1 = Geometry(
+    mm_per_pixel=0.6, size=192, slices=20,
+    note="0.6 mm/px over 192 px covers ~115 mm, which contains the knee joint\n"
+         "with margin. Chosen against the inference budget: 3 planes x 20 slices\n"
+         "at 192px is ~2.2 MB per study, so the training cache stays under 10 GB.\n"
+         "This is the geometry that scored 0.725 on the leaderboard.",
+)
+
+V2 = Geometry(
+    mm_per_pixel=0.40, size=288, slices=24, infer_batch=2,
+    note="v2 geometry, chosen after measuring what v1 discarded: native pixel\n"
+         "spacing has a median of 0.312 mm and 96% of series are finer than 0.60,\n"
+         "so v1 downsampled almost every study ~2x, and kept 20 of a median 30\n"
+         "slices. 0.40 mm/px over 288 px keeps the same ~115 mm field of view at\n"
+         "1.5x the in-plane detail. Cost: ~6 MB per study, ~26 GB, so 8 shards.\n"
+         "MEASURED RESULT: 0.668 on the leaderboard, below v1's 0.725. The\n"
+         "resolution thesis is unconfirmed.",
+)
+
+CACHE_V1 = Cache(geometry=V1, shards=4,
+                 slug="knee-cache-build-{shard}",
+                 directory="03_cache_build_shard{shard}")
+CACHE_V2 = Cache(geometry=V2, shards=8,
+                 slug="knee-cache-v2-{shard}",
+                 directory="06_cache_v2_shard{shard}")
+
+LINEAGES = [
+    Lineage(
+        name="v1",
+        cache=CACHE_V1,
+        train=TrainConfig(
+            backbone="resnet34", epochs=24, batch=16, lr=6e-4,
+            note="The configuration that scored 0.725. Batch 16 is affordable\n"
+                 "because of AMP across both T4s; the LR is scaled to it.\n"
+                 "input_norm is False because that is what these weights were\n"
+                 "trained with — see the module docstring.",
+        ),
+        trainers=(
+            Trainer(0, "knee-train", "04_train"),
+            Trainer(1, "knee-train-fold1", "10_train_fold1"),
+            Trainer(2, "knee-train-fold2", "10_train_fold2"),
+            Trainer(3, "knee-train-fold3", "10_train_fold3"),
+            Trainer(4, "knee-train-fold4", "10_train_fold4"),
+        ),
+        infer_slug="knee-infer-folds",
+        infer_directory="11_infer_folds",
+    ),
+    Lineage(
+        name="v2",
+        cache=CACHE_V2,
+        train=TrainConfig(
+            backbone="resnet34", epochs=30, batch=4, lr=6e-4, accum=4,
+            slice_subsample=18,
+            note="288px is 2.25x the pixels of v1 and each study is 3 planes x 24\n"
+                 "slices, so batch 16 does not fit a T4 even with AMP. Batch 4 with\n"
+                 "4-step accumulation reproduces the effective batch that worked,\n"
+                 "and subsampling 18 of 24 slices buys back throughput while acting\n"
+                 "as augmentation.",
+        ),
+        trainers=(Trainer(0, "knee-train-v2", "07_train_v2"),),
+        infer_slug="knee-infer-v2",
+        infer_directory="08_infer_v2",
+    ),
+    Lineage(
+        # Deliberately on CACHE_V1: this is a backbone experiment, and holding
+        # the input fixed is the only way its result attributes to the backbone.
+        # That is the discipline the 288px run failed — it moved resolution,
+        # epochs, batch, LR and slice count at once, so its number meant nothing.
+        name="dinov2",
+        cache=CACHE_V1,
+        train=TrainConfig(
+            backbone="vit_small_patch14_dinov2.lvd142m",
+            epochs=16, batch=6, lr=1e-4, accum=3, input_norm=True,
+            note="ViT-S/14 at 196px is heavier per image than resnet34, so batch 6\n"
+                 "with 3-step accumulation lands near the effective 16 that worked.\n"
+                 "ViTs want a lower LR than convnets and DINOv2 features are strong\n"
+                 "already, so this is fine-tuning rather than training.\n"
+                 "input_norm is True here and False for v1/v2, which is exactly why\n"
+                 "the inference kernel refuses to average across lineages.",
+        ),
+        trainers=(Trainer(0, "knee-train-dinov2", "12_train_dinov2"),),
+        infer_slug="knee-infer-dinov2",
+        infer_directory="13_infer_dinov2",
+    ),
+]
+
+
+def caches() -> list[Cache]:
+    seen, out = set(), []
+    for lineage in LINEAGES:
+        if id(lineage.cache) not in seen:
+            seen.add(id(lineage.cache))
+            out.append(lineage.cache)
+    return out
+
+
+def all_kernels() -> list[Kernel]:
+    out: list[Kernel] = []
+    for cache in caches():
+        out.extend(cache.kernels())
+    for lineage in LINEAGES:
+        out.extend(lineage.kernels())
+    return out
+
+
+def check() -> list[str]:
+    """Problems a declaration can have, as human-readable strings."""
+    problems = []
+    kernels = all_kernels()
+    known = {k.slug for k in kernels}
+
+    for kernel in kernels:
+        for dependency in kernel.depends:
+            if dependency not in known:
+                problems.append(f"{kernel.slug} mounts unknown kernel {dependency}")
+        if kernel.template == "infer" and kernel.internet:
+            problems.append(f"{kernel.slug} is a submission kernel with internet on")
+
+    for attribute in ("slug", "directory"):
+        seen = {}
+        for kernel in kernels:
+            value = getattr(kernel, attribute)
+            if value in seen:
+                problems.append(f"two kernels share {attribute} {value}")
+            seen[value] = kernel
+
+    # An inference kernel averages its mounted trainers, so they must agree on
+    # everything that changes what the model was fed.
+    by_slug = {k.slug: k for k in kernels}
+    for kernel in kernels:
+        if kernel.template != "infer":
+            continue
+        for key, expected in (("SLICE_SUBSAMPLE", "SLICE_SUBSAMPLE_EXPECTED"),
+                              ("INPUT_NORM", "INPUT_NORM_EXPECTED"),
+                              ("TARGET_SIZE", "TARGET_SIZE"),
+                              ("TARGET_MM_PER_PIXEL", "TARGET_MM_PER_PIXEL"),
+                              ("SLICES_PER_PLANE", "SLICES_PER_PLANE")):
+            want = kernel.constants[expected]
+            for slug in kernel.depends:
+                got = by_slug[slug].constants[key]
+                if got != want:
+                    problems.append(
+                        f"{kernel.slug} expects {key}={want!r} but mounts {slug} "
+                        f"trained with {got!r}")
+    return problems
+
+
+if __name__ == "__main__":
+    kernels = all_kernels()
+    print(f"{len(LINEAGES)} lineages, {len(caches())} caches, {len(kernels)} kernels")
+    for kernel in kernels:
+        print(f"  {kernel.directory:24s} {kernel.slug:22s} {kernel.template}")
+    for problem in check():
+        print(f"PROBLEM: {problem}")

@@ -59,11 +59,17 @@ so 0.90 is below the field, not above it — there is a long way to go.
 ```
 data/          competition CSVs + sample DICOMs        (gitignored)
 eda/           local CPU analysis scripts
-src/           report labeler, preprocessing, model code
-kaggle/        one folder per kernel, each with kernel-metadata.json
+src/           report labeler, preprocessing, model code, pipeline manifest
+kaggle/        one folder per kernel; 22 of 28 generated from src/pipeline.py
 docs/          FINDINGS.md, STRATEGY.md, EXPERIMENTS.md, ROADMAP.md
 artifacts/     derived data                            (gitignored)
 ```
+
+`kaggle/` is mostly generated output: `src/pipeline.py` declares the pipeline
+and `eda/generate_kernels.py` renders every cache, training and inference
+kernel from the templates in `kaggle/_templates/`. `python
+eda/generate_kernels.py --check` fails if a generated kernel has been edited by
+hand, and runs as a test. See `kaggle/README.md`.
 
 `data/` and `artifacts/` are gitignored, as are `*.csv`, `*.dcm`, `*.parquet`
 and friends wherever they appear — anything that can carry a StudyInstanceUID,

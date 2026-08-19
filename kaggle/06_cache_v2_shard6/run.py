@@ -44,65 +44,34 @@ import pandas as pd
 import pydicom
 
 # --------------------------------------------------------------------------- #
-# KERNEL RUN CONFIG — Kaggle script kernels take no command-line arguments, so
-# these are the knobs for a pushed run. Edit here, push, and the log records
-# what was used. Locally the same values are argparse defaults.
+# GENERATED CONFIG — written by eda/generate_kernels.py from src/pipeline.py.
+# Edit the manifest, not this file. Everything outside this block is shared by
+# every kernel rendered from this template.
 # --------------------------------------------------------------------------- #
-RUN_SPLIT = "train"
-RUN_SHARD = 6
-RUN_OF = 8
-RUN_LIMIT = 0       # 0 = every study in the shard. Non-zero means a pilot.
+# v2 geometry, chosen after measuring what v1 discarded: native pixel
+# spacing has a median of 0.312 mm and 96% of series are finer than 0.60,
+# so v1 downsampled almost every study ~2x, and kept 20 of a median 30
+# slices. 0.40 mm/px over 288 px keeps the same ~115 mm field of view at
+# 1.5x the in-plane detail. Cost: ~6 MB per study, ~26 GB, so 8 shards.
+# MEASURED RESULT: 0.668 on the leaderboard, below v1's 0.725. The
+# resolution thesis is unconfirmed.
+#
+RUN_SPLIT           = "train"
+RUN_SHARD           = 6
+RUN_OF              = 8
+RUN_LIMIT           = 0
+TARGET_MM_PER_PIXEL = 0.4
+TARGET_SIZE         = 288
+SLICES_PER_PLANE    = 24
 # --------------------------------------------------------------------------- #
 
 PLANES = ("Sagittal", "Coronal", "Axial")
 SKIP_DIRECTORIES = {"train_series", "test_series"}
 
-# v2 geometry, chosen after measuring what v1 discarded.
-#
-# v1 used 0.60 mm/px, but the native pixel spacing in this dataset has a median
-# of 0.312 mm and **96% of series are finer than 0.60** — so v1 downsampled
-# almost every study roughly 2x. Meniscal tears and cartilage lesions are thin,
-# small structures; that is precisely the detail they live in. v1 also kept 20 of
-# a median 30 slices, discarding another third.
-#
-# 0.40 mm/px over 288 px keeps the same ~115 mm field of view while preserving
-# 1.5x the in-plane detail, and 24 slices recovers part of the through-plane
-# loss. Cost: ~6 MB per study, ~26 GB total, so this shards 8 ways.
-TARGET_MM_PER_PIXEL = 0.40
-TARGET_SIZE = 288
-SLICES_PER_PLANE = 24
 
-
-def find_marker(marker: str, max_depth: int = 4):
-    frontier = [(Path("/kaggle/input"), 0)]
-    while frontier:
-        directory, depth = frontier.pop(0)
-        if depth > max_depth:
-            continue
-        try:
-            entries = sorted(directory.iterdir())
-        except (FileNotFoundError, PermissionError):
-            continue
-        for entry in entries:
-            if entry.is_file() and entry.name == marker:
-                return directory
-        for entry in entries:
-            if entry.is_dir() and entry.name not in SKIP_DIRECTORIES:
-                frontier.append((entry, depth + 1))
-    return None
-
-
-def resize(image: np.ndarray, size: int) -> np.ndarray:
-    try:
-        import cv2
-
-        return cv2.resize(image, (size, size), interpolation=cv2.INTER_AREA)
-    except ImportError:
-        from PIL import Image
-
-        return np.asarray(Image.fromarray(image).resize((size, size), Image.BILINEAR))
-
-
+# --------------------------------------------------------------------------- #
+# from kaggle/_templates/_shared/volume.py
+# --------------------------------------------------------------------------- #
 def normalise(volume: np.ndarray) -> np.ndarray:
     """Percentile clip then scale to uint8.
 
@@ -121,6 +90,17 @@ def normalise(volume: np.ndarray) -> np.ndarray:
     filled = np.nan_to_num(volume, nan=low, posinf=high, neginf=low)
     scaled = (np.clip(filled, low, high) - low) / (high - low)
     return (scaled * 255.0).astype(np.uint8)
+
+
+def resize(image: np.ndarray, size: int) -> np.ndarray:
+    try:
+        import cv2
+
+        return cv2.resize(image, (size, size), interpolation=cv2.INTER_AREA)
+    except ImportError:
+        from PIL import Image
+
+        return np.asarray(Image.fromarray(image).resize((size, size), Image.BILINEAR))
 
 
 def pick_slices(count: int, wanted: int) -> list[int]:
@@ -236,6 +216,28 @@ def build_study(root: Path, split: str, study: str, series_rows: pd.DataFrame) -
         record["mirrored"] = True
 
     return stack, record
+
+
+# --------------------------------------------------------------------------- #
+# from kaggle/_templates/_shared/discovery.py
+# --------------------------------------------------------------------------- #
+def find_marker(marker: str, max_depth: int = 4):
+    frontier = [(Path("/kaggle/input"), 0)]
+    while frontier:
+        directory, depth = frontier.pop(0)
+        if depth > max_depth:
+            continue
+        try:
+            entries = sorted(directory.iterdir())
+        except (FileNotFoundError, PermissionError):
+            continue
+        for entry in entries:
+            if entry.is_file() and entry.name == marker:
+                return directory
+        for entry in entries:
+            if entry.is_dir() and entry.name not in SKIP_DIRECTORIES:
+                frontier.append((entry, depth + 1))
+    return None
 
 
 def main() -> int:

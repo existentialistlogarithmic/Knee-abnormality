@@ -40,19 +40,32 @@ import numpy as np
 import pandas as pd
 
 # --------------------------------------------------------------------------- #
-# KERNEL RUN CONFIG — Kaggle script kernels take no arguments.
+# GENERATED CONFIG — written by eda/generate_kernels.py from src/pipeline.py.
+# Edit the manifest, not this file. Everything outside this block is shared by
+# every kernel rendered from this template.
 # --------------------------------------------------------------------------- #
-RUN_FOLD = 2
-RUN_EPOCHS = 24
-RUN_BATCH = 16             # AMP + both T4s make this affordable
-RUN_LR = 6e-4              # scaled with the larger effective batch
-RUN_BACKBONE = "resnet34"
-RUN_TIME_BUDGET = 7.5 * 3600
-GOLD_WEIGHT = 8.0          # how much more an expert label counts than a report one
-ABSTAIN_MASKS_LOSS = True  # silence is not supervision
-WARMUP_EPOCHS = 2          # cosine schedule warms up, then decays to ~0
-EMA_DECAY = 0.999          # evaluated weights are an average, not the last step
-LABEL_SMOOTH = 0.02        # targets are noisy by construction; do not chase 0/1
+# The configuration that scored 0.725. Batch 16 is affordable
+# because of AMP across both T4s; the LR is scaled to it.
+# input_norm is False because that is what these weights were
+# trained with — see the module docstring.
+#
+RUN_FOLD            = 2
+TARGET_MM_PER_PIXEL = 0.6
+TARGET_SIZE         = 192
+SLICES_PER_PLANE    = 20
+RUN_EPOCHS          = 24
+RUN_BATCH           = 16
+ACCUM_STEPS         = 1
+RUN_LR              = 0.0006
+RUN_BACKBONE        = "resnet34"
+SLICE_SUBSAMPLE     = None
+INPUT_NORM          = False
+RUN_TIME_BUDGET     = 7.5 * 3600
+GOLD_WEIGHT         = 8.0
+ABSTAIN_MASKS_LOSS  = True
+WARMUP_EPOCHS       = 2
+EMA_DECAY           = 0.999
+LABEL_SMOOTH        = 0.02
 # --------------------------------------------------------------------------- #
 
 FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
@@ -60,7 +73,15 @@ FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
             "Contusion", "Fracture"]
 SKIP_DIRECTORIES = {"train_series", "test_series"}
 
+# Augmentation magnitudes follow the geometry rather than being retyped per
+# lineage: a 12px shift at 192px and an 18px shift at 288px are the same shift.
+SHIFT_PIXELS = TARGET_SIZE // 16
+BLOB_MIN, BLOB_MAX = TARGET_SIZE // 12, TARGET_SIZE // 4
 
+
+# --------------------------------------------------------------------------- #
+# from kaggle/_templates/_shared/discovery.py
+# --------------------------------------------------------------------------- #
 def find_all_markers(pattern: str, max_depth: int = 4) -> list[Path]:
     """Every mounted directory containing a file matching `pattern`.
 
@@ -136,6 +157,113 @@ def report_environment() -> bool:
     return usable
 
 
+# --------------------------------------------------------------------------- #
+# from kaggle/_templates/_shared/model.py
+# --------------------------------------------------------------------------- #
+# ImageNet statistics. Every pretrained backbone here — torchvision and DINOv2
+# alike — was trained on inputs normalised this way. The earliest runs fed raw
+# 0..1 values straight in, which shifts the input distribution away from what
+# the pretrained filters expect and quietly costs transfer quality. It never
+# errors; it just makes the pretrained weights worth less than they should be.
+#
+# It is therefore a property of a trained model, not a preference: INPUT_NORM
+# comes from the manifest at training time and from the checkpoint at inference
+# time, and mixing the two in an ensemble is refused rather than averaged.
+IMAGENET_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_STD = (0.229, 0.224, 0.225)
+
+# DINOv2 uses 14-pixel patches, so its input side must be a multiple of 14.
+# A 192px cache becomes 196 here — a 2% resize — which keeps one cache usable
+# by every architecture instead of forcing a rebuild per backbone.
+PATCH_MULTIPLE = 14
+
+
+def build_model(backbone: str, n_planes: int, n_out: int, normalise_input: bool):
+    """2.5D: a 2D backbone over slices, attention-pooled to a study.
+
+    Attention pooling rather than mean pooling because a finding is usually
+    visible on a handful of slices; averaging over twenty dilutes it.
+
+    Accepts either a torchvision name or a timm name. DINOv2 is the reason:
+    the public baseline for this competition reportedly reaches ~0.809 with
+    DINOv2 features while this project's ImageNet resnet34 reached 0.725, and
+    self-supervised features transfer to medical imaging far better than
+    ImageNet classification features do.
+    """
+    import torch
+    import torch.nn as nn
+
+    net = None
+    features = None
+    if "." in backbone or backbone.startswith(("vit_", "convnext", "tf_efficientnet")):
+        import timm
+
+        try:
+            net = timm.create_model(backbone, pretrained=True, num_classes=0,
+                                    dynamic_img_size=True)
+        except Exception:  # noqa: BLE001 - offline, or no dynamic_img_size support
+            try:
+                net = timm.create_model(backbone, pretrained=True, num_classes=0)
+            except Exception:  # noqa: BLE001 - internet off (inference kernels)
+                print("no pretrained download (internet off) — random init; "
+                      "at inference the checkpoint replaces all of it")
+                net = timm.create_model(backbone, pretrained=False, num_classes=0,
+                                        dynamic_img_size=True)
+        features = net.num_features
+    else:
+        import torchvision
+
+        try:
+            net = getattr(torchvision.models, backbone)(weights="DEFAULT")
+        except Exception:  # noqa: BLE001
+            print("no pretrained download (internet off) — random init; "
+                  "at inference the checkpoint replaces all of it")
+            net = getattr(torchvision.models, backbone)(weights=None)
+        features = net.fc.in_features
+        net.fc = nn.Identity()
+
+    is_patch_model = backbone.startswith("vit_")
+
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.backbone = net
+            self.patch_multiple = PATCH_MULTIPLE if is_patch_model else 0
+            self.normalise = normalise_input
+            # persistent=False deliberately: these are constants, not learned
+            # state. Persisting them would add two keys to every state_dict and
+            # the strict-load check at inference would then reject every
+            # checkpoint written before they existed — including the folds
+            # currently training.
+            self.register_buffer("mean", torch.tensor(IMAGENET_MEAN).view(1, 3, 1, 1),
+                                 persistent=False)
+            self.register_buffer("std", torch.tensor(IMAGENET_STD).view(1, 3, 1, 1),
+                                 persistent=False)
+            self.attention = nn.Sequential(nn.Linear(features, 128), nn.Tanh(), nn.Linear(128, 1))
+            self.head = nn.Linear(features, n_out)
+
+        def forward(self, x):                      # x: (B, P, S, H, W)
+            b, p, s, h, w = x.shape
+            flat = x.reshape(b * p * s, 1, h, w).repeat(1, 3, 1, 1)
+
+            # Patch-based backbones need a side length divisible by the patch
+            # size. Resizing here rather than in the cache keeps one cache
+            # usable by every architecture.
+            if self.patch_multiple and (h % self.patch_multiple or w % self.patch_multiple):
+                side = int(round(h / self.patch_multiple)) * self.patch_multiple
+                flat = torch.nn.functional.interpolate(
+                    flat, size=(side, side), mode="bilinear", align_corners=False)
+
+            if self.normalise:
+                flat = (flat - self.mean) / self.std
+            embedded = self.backbone(flat).reshape(b, p * s, -1)
+            scores = self.attention(embedded).softmax(dim=1)
+            pooled = (embedded * scores).sum(dim=1)
+            return self.head(pooled)
+
+    return Model()
+
+
 class StudyDataset:
     """Cached volumes plus soft targets and a supervision mask."""
 
@@ -157,6 +285,16 @@ class StudyDataset:
         volume = np.load(self.cache_paths[study])  # (3, S, H, W) uint8
         array = volume.astype(np.float32) / 255.0
 
+        # Slice subsampling: random while training, evenly spaced when scoring,
+        # so the model always sees the same slice count either way. None means
+        # every cached slice, and the whole block is a no-op.
+        if SLICE_SUBSAMPLE and array.shape[1] > SLICE_SUBSAMPLE:
+            if self.augment:
+                idx = np.sort(np.random.choice(array.shape[1], SLICE_SUBSAMPLE, replace=False))
+            else:
+                idx = np.linspace(0, array.shape[1] - 1, SLICE_SUBSAMPLE).round().astype(int)
+            array = array[:, idx]
+
         if self.augment:
             # NOTE: no left-right flip. Right knees were already mirrored during
             # the cache build so every volume shows the same anatomy; flipping
@@ -164,11 +302,11 @@ class StudyDataset:
             # and four of the twelve targets are explicitly medial or lateral.
             if np.random.rand() < 0.5:                      # reverse slice order
                 array = array[:, ::-1].copy()
-            shift = np.random.randint(-12, 13, size=2)
+            shift = np.random.randint(-SHIFT_PIXELS, SHIFT_PIXELS + 1, size=2)
             array = np.roll(array, shift, axis=(2, 3))
             array = array * np.random.uniform(0.85, 1.15) + np.random.uniform(-0.05, 0.05)
             if np.random.rand() < 0.3:                       # coarse dropout
-                size = np.random.randint(16, 48)
+                size = np.random.randint(BLOB_MIN, BLOB_MAX)
                 y = np.random.randint(0, max(1, array.shape[2] - size))
                 x = np.random.randint(0, max(1, array.shape[3] - size))
                 array[:, :, y:y + size, x:x + size] = 0.0
@@ -182,46 +320,17 @@ class StudyDataset:
                 torch.tensor(self.weights[index], dtype=torch.float32))
 
 
-def build_model(backbone: str, n_planes: int, n_out: int):
-    """2.5D: a 2D backbone over slices, attention-pooled to a study.
+# ImageNet statistics. Every pretrained backbone here — torchvision and DINOv2
+# alike — was trained on inputs normalised this way. The earlier runs fed raw
+# 0..1 values straight in, which shifts the input distribution away from what
+# the pretrained filters expect and quietly costs transfer quality. It never
+# errors; it just makes the pretrained weights worth less than they should be.
+IMAGENET_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_STD = (0.229, 0.224, 0.225)
 
-    Attention pooling rather than mean pooling because a finding is usually
-    visible on a handful of slices; averaging over twenty dilutes it.
-    """
-    import torch.nn as nn
-    import torchvision
-
-    weights = "DEFAULT"
-    try:
-        net = getattr(torchvision.models, backbone)(weights=weights)
-    except Exception:  # noqa: BLE001 - no internet, or weights unavailable
-        # Expected in any internet-off kernel. Harmless at inference: every
-        # parameter is overwritten by the checkpoint moments later, and the
-        # strict-load check would reject a partial load. Only a problem if a
-        # TRAINING kernel prints it, which would mean no pretrained init.
-        print("no pretrained download (internet off) — random init; "
-              "at inference the checkpoint replaces all of it")
-        net = getattr(torchvision.models, backbone)(weights=None)
-
-    features = net.fc.in_features
-    net.fc = nn.Identity()
-
-    class Model(nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.backbone = net
-            self.attention = nn.Sequential(nn.Linear(features, 128), nn.Tanh(), nn.Linear(128, 1))
-            self.head = nn.Linear(features, n_out)
-
-        def forward(self, x):                      # x: (B, P, S, H, W)
-            b, p, s, h, w = x.shape
-            flat = x.reshape(b * p * s, 1, h, w).repeat(1, 3, 1, 1)
-            embedded = self.backbone(flat).reshape(b, p * s, -1)
-            scores = self.attention(embedded).softmax(dim=1)
-            pooled = (embedded * scores).sum(dim=1)
-            return self.head(pooled)
-
-    return Model()
+# DINOv2 uses 14-pixel patches, so its input side must be a multiple of 14.
+# The cache is 192; 196 is the nearest multiple and a 2% resize.
+PATCH_MULTIPLE = 14
 
 
 def main() -> int:
@@ -326,7 +435,7 @@ def main() -> int:
           f"val groups {pd.Series(group_values[val_idx]).nunique()}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = build_model(args.backbone, 3, len(FINDINGS)).to(device)
+    model = build_model(args.backbone, 3, len(FINDINGS), INPUT_NORM).to(device)
 
     # Both cards were sitting idle: NvidiaTeslaT4 grants two, and the first run
     # used one. With AMP as well this is roughly a 4x throughput change, which is
@@ -405,18 +514,19 @@ def main() -> int:
             mask, weight = mask.to(device), weight.to(device)
             target = target * (1 - 2 * LABEL_SMOOTH) + LABEL_SMOOTH
 
-            optimiser.zero_grad(set_to_none=True)
             with torch.amp.autocast("cuda", enabled=use_amp):
                 logits = model(volumes)
                 loss = criterion(logits.float(), target) * mask * weight.unsqueeze(1)
                 denominator = (mask * weight.unsqueeze(1)).sum().clamp(min=1.0)
                 loss = loss.sum() / denominator
 
-            scaler.scale(loss).backward()
-            scaler.unscale_(optimiser)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
-            scaler.step(optimiser)
-            scaler.update()
+            scaler.scale(loss / ACCUM_STEPS).backward()
+            if (step + 1) % ACCUM_STEPS == 0 or (step + 1) == len(train_loader):
+                scaler.unscale_(optimiser)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
+                scaler.step(optimiser)
+                scaler.update()
+                optimiser.zero_grad(set_to_none=True)
 
             with torch.no_grad():
                 for key, value in core.state_dict().items():
@@ -473,7 +583,8 @@ def main() -> int:
         torch.save({"model": ema_state, "optimiser": optimiser.state_dict(),
                     "ema": ema_state, "epoch": epoch, "macro_auc": macro,
                     "backbone": args.backbone,
-                    "slice_subsample": None,
+                    "slice_subsample": SLICE_SUBSAMPLE,
+                    "input_norm": INPUT_NORM,
                     }, checkpoint_path)
         (out_dir / f"history_fold{args.fold}.json").write_text(json.dumps(history, indent=2))
 

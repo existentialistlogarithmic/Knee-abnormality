@@ -521,3 +521,48 @@ Notes on the fields that people fudge:
   `cache_manifest_*.json` with `--file-pattern` verifies the same fact
   independently without touching the 26 GB of volumes — and without the
   output-download rate limit that has bitten this project repeatedly.
+
+### E016 — the kernel tree became generated, and two live bugs fell out of it
+- **date**: 2026-08-19
+- **commit**: (this commit)
+- **what changed**: `src/pipeline.py` declares the pipeline; `eda/generate_kernels.py`
+  renders every cache, training and inference kernel from three templates and
+  three shared modules in `kaggle/_templates/`. 22 of the 28 kernel folders are
+  now generated output.
+- **runtime**: no GPU time. Local generation is instant; `--check` runs in the
+  test suite.
+- **result**: measured, not asserted —
+
+  | | before | after |
+  |---|---:|---:|
+  | hand-edited lines under `kaggle/` | 10,972 across 29 files | 1,148 across 6 templates |
+  | plus the manifest | — | 381 |
+  | functions with more than one variant across generated kernels | `build_model` ×2 | **none** |
+
+- **why it exists**: the duplication was measurable and it had already caused a
+  bug. `build_study` was byte-identical in 4 kernels, `find_marker` in 7,
+  `read_series_volume` in 4 — and `build_model` had **drifted into two variants
+  across 5 files**, the newer one applying ImageNet normalisation and the older
+  one not. The training kernel and the inference kernel that scores its weights
+  were on opposite sides of that split. Nothing would have raised.
+- **two real bugs found while unifying**, both of which would have cost a
+  submission rather than crashing:
+  1. **The v2 inference kernel would have refused every existing checkpoint.**
+     Registering the ImageNet `mean`/`std` as ordinary buffers puts two keys
+     into every `state_dict`; the strict-load check at inference would then have
+     rejected all five 192px folds — including the ones training right now.
+     Fixed with `persistent=False`: they are constants, not learned state.
+  2. **The fold ensemble's geometry guard did not fire.** It read
+     `if recorded not in (None, SLICE_SUBSAMPLE_EXPECTED)`, so a checkpoint
+     recording `None` passed a kernel expecting 18 — exactly the mismatch it was
+     written to catch. Now an equality check over both `slice_subsample` and
+     `input_norm`, with the pre-existing defaults spelled out rather than
+     inferred from a missing key.
+- **what is deliberately NOT tidied**: `input_norm` is `False` for v1 and v2 and
+  `True` only for dinov2. That is a record of how those weights were trained,
+  not a preference. Setting it True everywhere would read better and would make
+  the manifest describe models that do not exist, which is the one thing that
+  would make the ensemble guard worthless.
+- **the check that keeps it honest**: `python eda/generate_kernels.py --check`
+  fails if any generated kernel has been edited by hand, and runs as a test. A
+  manifest nobody regenerates from is documentation, and documentation drifts.

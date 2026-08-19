@@ -44,57 +44,31 @@ import pandas as pd
 import pydicom
 
 # --------------------------------------------------------------------------- #
-# KERNEL RUN CONFIG — Kaggle script kernels take no command-line arguments, so
-# these are the knobs for a pushed run. Edit here, push, and the log records
-# what was used. Locally the same values are argparse defaults.
+# GENERATED CONFIG — written by eda/generate_kernels.py from src/pipeline.py.
+# Edit the manifest, not this file. Everything outside this block is shared by
+# every kernel rendered from this template.
 # --------------------------------------------------------------------------- #
-RUN_SPLIT = "train"
-RUN_SHARD = 2
-RUN_OF = 4
-RUN_LIMIT = 0       # 0 = every study in the shard. Non-zero means a pilot.
+# 0.6 mm/px over 192 px covers ~115 mm, which contains the knee joint
+# with margin. Chosen against the inference budget: 3 planes x 20 slices
+# at 192px is ~2.2 MB per study, so the training cache stays under 10 GB.
+# This is the geometry that scored 0.725 on the leaderboard.
+#
+RUN_SPLIT           = "train"
+RUN_SHARD           = 2
+RUN_OF              = 4
+RUN_LIMIT           = 0
+TARGET_MM_PER_PIXEL = 0.6
+TARGET_SIZE         = 192
+SLICES_PER_PLANE    = 20
 # --------------------------------------------------------------------------- #
 
 PLANES = ("Sagittal", "Coronal", "Axial")
 SKIP_DIRECTORIES = {"train_series", "test_series"}
 
-# 0.6 mm/px over 192 px covers ~115 mm, which contains the knee joint with
-# margin. Chosen against the inference budget: 3 planes x 20 slices at 192px is
-# ~2.2 MB per study, so the full training cache is under 10 GB.
-TARGET_MM_PER_PIXEL = 0.6
-TARGET_SIZE = 192
-SLICES_PER_PLANE = 20
 
-
-def find_marker(marker: str, max_depth: int = 4):
-    frontier = [(Path("/kaggle/input"), 0)]
-    while frontier:
-        directory, depth = frontier.pop(0)
-        if depth > max_depth:
-            continue
-        try:
-            entries = sorted(directory.iterdir())
-        except (FileNotFoundError, PermissionError):
-            continue
-        for entry in entries:
-            if entry.is_file() and entry.name == marker:
-                return directory
-        for entry in entries:
-            if entry.is_dir() and entry.name not in SKIP_DIRECTORIES:
-                frontier.append((entry, depth + 1))
-    return None
-
-
-def resize(image: np.ndarray, size: int) -> np.ndarray:
-    try:
-        import cv2
-
-        return cv2.resize(image, (size, size), interpolation=cv2.INTER_AREA)
-    except ImportError:
-        from PIL import Image
-
-        return np.asarray(Image.fromarray(image).resize((size, size), Image.BILINEAR))
-
-
+# --------------------------------------------------------------------------- #
+# from kaggle/_templates/_shared/volume.py
+# --------------------------------------------------------------------------- #
 def normalise(volume: np.ndarray) -> np.ndarray:
     """Percentile clip then scale to uint8.
 
@@ -113,6 +87,17 @@ def normalise(volume: np.ndarray) -> np.ndarray:
     filled = np.nan_to_num(volume, nan=low, posinf=high, neginf=low)
     scaled = (np.clip(filled, low, high) - low) / (high - low)
     return (scaled * 255.0).astype(np.uint8)
+
+
+def resize(image: np.ndarray, size: int) -> np.ndarray:
+    try:
+        import cv2
+
+        return cv2.resize(image, (size, size), interpolation=cv2.INTER_AREA)
+    except ImportError:
+        from PIL import Image
+
+        return np.asarray(Image.fromarray(image).resize((size, size), Image.BILINEAR))
 
 
 def pick_slices(count: int, wanted: int) -> list[int]:
@@ -228,6 +213,28 @@ def build_study(root: Path, split: str, study: str, series_rows: pd.DataFrame) -
         record["mirrored"] = True
 
     return stack, record
+
+
+# --------------------------------------------------------------------------- #
+# from kaggle/_templates/_shared/discovery.py
+# --------------------------------------------------------------------------- #
+def find_marker(marker: str, max_depth: int = 4):
+    frontier = [(Path("/kaggle/input"), 0)]
+    while frontier:
+        directory, depth = frontier.pop(0)
+        if depth > max_depth:
+            continue
+        try:
+            entries = sorted(directory.iterdir())
+        except (FileNotFoundError, PermissionError):
+            continue
+        for entry in entries:
+            if entry.is_file() and entry.name == marker:
+                return directory
+        for entry in entries:
+            if entry.is_dir() and entry.name not in SKIP_DIRECTORIES:
+                frontier.append((entry, depth + 1))
+    return None
 
 
 def main() -> int:

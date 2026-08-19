@@ -15,9 +15,11 @@ import numpy as np
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-INFER = REPO_ROOT / "kaggle" / "05_infer" / "run.py"
+# The submission kernel is the fold ensemble; `05_infer` was the single-model
+# version it superseded and is no longer part of the generated pipeline.
+INFER = REPO_ROOT / "kaggle" / "11_infer_folds" / "run.py"
 TRAIN = REPO_ROOT / "kaggle" / "04_train" / "run.py"
-CACHE = REPO_ROOT / "kaggle" / "03_cache_build" / "run.py"
+CACHE = REPO_ROOT / "kaggle" / "03_cache_build_shard0" / "run.py"
 
 
 def _source(path: Path) -> str:
@@ -27,16 +29,33 @@ def _source(path: Path) -> str:
 # --------------------------------------------------------------------------- #
 # the geometry the weights were trained on
 # --------------------------------------------------------------------------- #
+def constants(path: Path) -> dict[str, str]:
+    """Module-level constant assignments in a kernel file.
+
+    Generated kernels align their constants block, so `NAME = 1` and
+    `NAME   = 1` both have to parse. Reading them properly rather than with a
+    regex is what stops a cosmetic change from silently disabling a test.
+    """
+    import ast
+
+    found = {}
+    for node in ast.parse(path.read_text()).body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 \
+                and isinstance(node.targets[0], ast.Name):
+            try:
+                found[node.targets[0].id] = ast.literal_eval(node.value)
+            except ValueError:
+                pass
+    return found
+
+
 def test_inference_uses_the_same_cache_geometry_as_the_build():
     """If these drift, the model sees a different field of view than it learned."""
-    cache, infer = _source(CACHE), _source(INFER)
+    cache, infer = constants(CACHE), constants(INFER)
     for constant in ("TARGET_MM_PER_PIXEL", "TARGET_SIZE", "SLICES_PER_PLANE"):
-        pattern = rf"^{constant} = ([0-9.]+)"
-        in_cache = re.search(pattern, cache, re.M)
-        in_infer = re.search(pattern, infer, re.M)
-        assert in_cache and in_infer, f"{constant} missing from one side"
-        assert in_cache.group(1) == in_infer.group(1), (
-            f"{constant} differs: cache={in_cache.group(1)} infer={in_infer.group(1)}")
+        assert constant in cache and constant in infer, f"{constant} missing from one side"
+        assert cache[constant] == infer[constant], (
+            f"{constant} differs: cache={cache[constant]} infer={infer[constant]}")
 
 
 def test_plane_order_is_identical_everywhere():
@@ -80,7 +99,7 @@ def test_model_consumes_a_cache_shaped_volume():
     pytest.importorskip("torchvision")
     namespace = runpy.run_path(str(TRAIN), run_name="__not_main__")
 
-    model = namespace["build_model"]("resnet18", 3, 12)
+    model = namespace["build_model"]("resnet18", 3, 12, False)
     model.eval()
     # exactly what one .npy holds: (planes, slices, size, size), batched
     volume = torch.from_numpy(
@@ -164,7 +183,7 @@ def test_checkpoint_round_trips_from_training_into_inference():
     train_ns = runpy.run_path(str(TRAIN), run_name="__not_main__")
     infer_ns = runpy.run_path(str(INFER), run_name="__not_main__")
 
-    trained = train_ns["build_model"]("resnet18", 3, 12)
+    trained = train_ns["build_model"]("resnet18", 3, 12, False)
     # exactly the shape the training kernel writes
     checkpoint = {"model": {k: v.clone() for k, v in trained.state_dict().items()},
                   "backbone": "resnet18", "epoch": 3, "macro_auc": 0.7}
@@ -172,7 +191,7 @@ def test_checkpoint_round_trips_from_training_into_inference():
     assert not any(k.startswith("module.") for k in checkpoint["model"]), \
         "checkpoint carries DataParallel prefixes"
 
-    rebuilt = infer_ns["build_model"](checkpoint["backbone"], 3, 12)
+    rebuilt = infer_ns["build_model"](checkpoint["backbone"], 3, 12, False)
     missing, unexpected = rebuilt.load_state_dict(checkpoint["model"], strict=False)
     assert not missing and not unexpected, f"missing={missing[:3]} unexpected={unexpected[:3]}"
 
@@ -194,28 +213,25 @@ def test_inference_excludes_setup_from_the_per_study_projection():
 
 
 INFER_V2 = REPO_ROOT / "kaggle" / "08_infer_v2" / "run.py"
-CACHE_V2 = REPO_ROOT / "kaggle" / "06_cache_v2" / "run.py"
+CACHE_V2 = REPO_ROOT / "kaggle" / "06_cache_v2_shard0" / "run.py"
 TRAIN_V2 = REPO_ROOT / "kaggle" / "07_train_v2" / "run.py"
 
 
 def test_v2_inference_matches_the_v2_cache_geometry():
-    cache, infer = _source(CACHE_V2), _source(INFER_V2)
+    cache, infer = constants(CACHE_V2), constants(INFER_V2)
     for constant in ("TARGET_MM_PER_PIXEL", "TARGET_SIZE", "SLICES_PER_PLANE"):
-        pattern = rf"^{constant} = ([0-9.]+)"
-        a = re.search(pattern, cache, re.M)
-        b = re.search(pattern, infer, re.M)
-        assert a and b and a.group(1) == b.group(1), f"{constant} differs between v2 cache and v2 inference"
+        assert cache[constant] == infer[constant], \
+            f"{constant} differs between v2 cache and v2 inference"
 
 
 def test_v2_inference_subsamples_slices_like_training_did():
-    """v2 trained and validated on 14 of 24 slices; feeding 24 at inference is a
-    silent mismatch — the attention pool sees a different sequence length than
-    it was scored with and nothing raises."""
-    train, infer = _source(TRAIN_V2), _source(INFER_V2)
-    a = re.search(r"^SLICE_SUBSAMPLE = (\d+)", train, re.M)
-    b = re.search(r"^SLICE_SUBSAMPLE = (\d+)", infer, re.M)
-    assert a and b and a.group(1) == b.group(1), "SLICE_SUBSAMPLE differs"
-    assert "np.linspace(0, stack.shape[1] - 1, SLICE_SUBSAMPLE)" in infer, \
+    """v2 trained on a random 18 of 24 slices and validated on an evenly spaced
+    18; feeding 24 at inference is a silent mismatch — the attention pool sees a
+    different sequence length than it was scored with and nothing raises."""
+    train, infer = constants(TRAIN_V2), constants(INFER_V2)
+    assert train["SLICE_SUBSAMPLE"] == infer["SLICE_SUBSAMPLE_EXPECTED"], \
+        "SLICE_SUBSAMPLE differs between v2 training and v2 inference"
+    assert "np.linspace(0, stack.shape[1] - 1,\n" in _source(INFER_V2), \
         "inference must take an evenly spaced subset, as validation did"
 
 
@@ -235,13 +251,12 @@ def test_ensemble_pairs_models_to_checkpoints_by_name():
 def test_ensemble_geometries_match_their_caches():
     """Each ensemble member's geometry must match the cache it trained on."""
     source = _source(ENSEMBLE)
-    v1, v2 = _source(CACHE), _source(CACHE_V2)
-    for cache_src, size_key in ((v1, "192"), (v2, "288")):
-        size = re.search(r"^TARGET_SIZE = (\d+)", cache_src, re.M).group(1)
-        mm = re.search(r"^TARGET_MM_PER_PIXEL = ([0-9.]+)", cache_src, re.M).group(1)
-        assert size == size_key
-        assert f'"size": {size}' in source, f"no ensemble member at {size}px"
-        assert f'"mm_per_pixel": {float(mm):.2f}' in source, f"mm/px {mm} missing"
+    for cache_path, size_key in ((CACHE, 192), (CACHE_V2, 288)):
+        cache = constants(cache_path)
+        assert cache["TARGET_SIZE"] == size_key
+        assert f'"size": {size_key}' in source, f"no ensemble member at {size_key}px"
+        assert f'"mm_per_pixel": {cache["TARGET_MM_PER_PIXEL"]:.2f}' in source, \
+            f'mm/px {cache["TARGET_MM_PER_PIXEL"]} missing'
 
 
 def test_training_records_input_geometry_in_the_checkpoint():
@@ -253,6 +268,7 @@ def test_training_records_input_geometry_in_the_checkpoint():
         save = save[save.index("torch.save("):]
         assert '"backbone"' in save, f"{source_path.parent.name}: backbone not recorded"
         assert '"slice_subsample"' in save, f"{source_path.parent.name}: slice count not recorded"
+        assert '"input_norm"' in save, f"{source_path.parent.name}: normalisation not recorded"
 
 
 def test_ensemble_prefers_the_checkpoint_geometry_over_its_own_spec():
@@ -278,7 +294,8 @@ def test_fold_ensemble_refuses_mismatched_geometries():
     """Averaging models fed different slice counts compares different inputs."""
     source = _source(FOLDS)
     assert "SLICE_SUBSAMPLE_EXPECTED" in source
-    assert "averaging them would be invalid" in source
+    assert "INPUT_NORM_EXPECTED" in source
+    assert "averaging these models would be" in source
 
 
 def test_fold_ensemble_decodes_once_for_all_models():

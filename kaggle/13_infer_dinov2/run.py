@@ -52,7 +52,7 @@ TARGET_SIZE              = 192
 SLICES_PER_PLANE         = 20
 BATCH_STUDIES            = 4
 SLICE_SUBSAMPLE_EXPECTED = None
-INPUT_NORM_EXPECTED      = False
+INPUT_NORM_EXPECTED      = True
 # --------------------------------------------------------------------------- #
 
 FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",

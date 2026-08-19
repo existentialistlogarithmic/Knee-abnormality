@@ -14,7 +14,11 @@ import numpy as np
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-KERNEL = REPO_ROOT / "kaggle" / "03_cache_build" / "run.py"
+# A GENERATED kernel, deliberately. These tests caught a DirEntry sort crash
+# and a NaN-to-uint8 cast that would have written arbitrary bytes into the
+# cache; running them against a hand-written copy would have proved nothing
+# about the kernels that actually get pushed.
+KERNEL = REPO_ROOT / "kaggle" / "03_cache_build_shard0" / "run.py"
 
 
 @pytest.fixture(scope="module")

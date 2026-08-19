@@ -1,0 +1,259 @@
+"""Fold-ensemble inference — every 192px fold, averaged. Internet off.
+
+All members share one geometry, so each study's volume is decoded and built
+ONCE and reused across every model. That is the difference between an ensemble
+costing 1x decode and Nx decode, and decode is the dominant cost.
+
+Averaging folds is the highest-confidence gain available here: same config,
+different data splits, no new hypothesis that can be wrong. The 288px variant
+scored 0.668 against this config's 0.725, so this is the configuration worth
+ensembling.
+
+Builds each test study's volume in memory and predicts immediately, rather than
+writing a test cache first. At ~1,300 studies that would be ~3 GB of intermediate
+files for no benefit, and the measured budget is ~24 s/study against a 9-hour
+cap while reaching the data costs 0.059 s/study.
+
+**No report text exists at test time** (`FINDINGS.md` §2.6) — the host states it
+outright. So the labeler that produced the training targets is absent here by
+design; this kernel sees pixels and DICOM headers only.
+
+The volume-building and model code below is copied verbatim from
+`kaggle/03_cache_build/run.py` and `kaggle/04_train/run.py`. A Kaggle script
+kernel is one file, and re-typing either would be how train/inference skew gets
+introduced — the failure mode where the model is fed subtly different input than
+it was trained on and nobody notices because nothing errors.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import time
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pydicom
+
+# --------------------------------------------------------------------------- #
+# GENERATED CONFIG — written by eda/generate_kernels.py from src/pipeline.py.
+# Edit the manifest, not this file. Everything outside this block is shared by
+# every kernel rendered from this template.
+# --------------------------------------------------------------------------- #
+@@CONFIG@@
+# --------------------------------------------------------------------------- #
+
+FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
+            "Lateral OA", "PF OA", "Effusion", "Synovitis", "Baker's",
+            "Contusion", "Fracture"]
+PLANES = ("Sagittal", "Coronal", "Axial")
+SKIP_DIRECTORIES = {"train_series", "test_series"}
+OUTPUT = Path("/kaggle/working/submission.csv")
+FALLBACK_PRIOR = 0.3     # used only if a study cannot be read at all
+
+
+@@INCLUDE discovery:find_marker@@
+@@INCLUDE volume@@
+@@INCLUDE model@@
+
+
+
+def main() -> int:
+    import torch
+
+    started = time.time()
+    root = find_marker("test.csv")
+    weights_dir = find_marker("checkpoint_fold0.pt")
+    if root is None:
+        raise SystemExit("competition data not found")
+    if weights_dir is None:
+        raise SystemExit("trained weights not mounted (checkpoint_fold0.pt)")
+    print(f"competition root: {root}\nweights: {weights_dir}")
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    if device == "cuda":
+        major, _ = torch.cuda.get_device_capability(0)
+        print(f"GPU: {torch.cuda.get_device_name(0)} (compute {major}.x)")
+        if major < 7:
+            print("pre-Volta GPU; falling back to CPU to avoid a CUDA failure")
+            device = "cpu"
+
+    # Every mounted training kernel contributes one fold. Discovered rather than
+    # listed, so adding a fold means mounting it and nothing else.
+    checkpoints = sorted(Path("/kaggle/input").glob("notebooks/*/*/checkpoint_fold*.pt"))
+    if not checkpoints:
+        raise SystemExit("no checkpoints mounted")
+    print(f"checkpoints mounted: {len(checkpoints)}")
+
+    # Averaging is only meaningful between models that were fed the same way.
+    # Two properties are invisible in the weights and fatal if they differ:
+    # how many slices the model saw, and whether its input was ImageNet-
+    # normalised. Both are recorded at training time and checked here against
+    # the manifest, so a mismatch stops the kernel instead of quietly costing
+    # AUC on the leaderboard.
+    EXPECTED = {"slice_subsample": SLICE_SUBSAMPLE_EXPECTED,
+                "input_norm": INPUT_NORM_EXPECTED}
+
+    models = []
+    for path in checkpoints:
+        state = torch.load(path, map_location=device, weights_only=False)
+        # A checkpoint written before a key existed did not have that
+        # behaviour: input normalisation was added after the 192px folds were
+        # trained, so absent means False for them. Recorded here rather than
+        # assumed at read time, so the defaults are visible.
+        LEGACY = {"slice_subsample": None, "input_norm": False}
+        recorded = {key: state.get(key, LEGACY[key]) for key in EXPECTED}
+        for key, want in EXPECTED.items():
+            if recorded[key] != want:
+                raise SystemExit(
+                    f"{path.parent.parent.name}/{path.name} was trained with "
+                    f"{key}={recorded[key]!r} but this kernel declares {want!r}. "
+                    "The inputs differ, so averaging these models would be "
+                    "invalid — refusing to predict.")
+
+        backbone = state.get("backbone", "resnet18")
+        model = build_model(backbone, 3, len(FINDINGS), INPUT_NORM_EXPECTED).to(device)
+
+        # The ImageNet mean/std were briefly saved as persistent buffers, so
+        # checkpoints written in that window carry two extra keys. They are
+        # constants that the model reconstructs for itself, so dropping them is
+        # lossless — but leaving them in would trip the strict-load check below
+        # and refuse a perfectly good set of weights.
+        weights = {k: v for k, v in state["model"].items() if k not in ("mean", "std")}
+        missing, unexpected = model.load_state_dict(weights, strict=False)
+        if missing or unexpected:
+            raise SystemExit(f"weight mismatch in {path.name} — missing={len(missing)} "
+                             f"unexpected={len(unexpected)}; refusing to predict")
+        model.eval()
+        models.append(model)
+        print(f"  {path.parent.parent.name}/{path.name}: {backbone}, "
+              f"epoch {state.get('epoch')}, val macro AUC "
+              f"{state.get('macro_auc', float('nan')):.4f}")
+    print(f"ensembling {len(models)} models")
+    model.eval()
+
+    test = pd.read_csv(root / "test.csv")
+    series = pd.read_csv(root / "test_series.csv")
+    if "n_slices" not in series.columns:
+        series["n_slices"] = 1
+    studies = test.StudyInstanceUID.astype(str).tolist()
+    print(f"test studies: {len(studies):,}   series: {len(series):,}")
+
+    by_study = dict(list(series.groupby("StudyInstanceUID")))
+    predictions = np.full((len(studies), len(FINDINGS)), FALLBACK_PRIOR, dtype=np.float32)
+    failures = 0
+
+    # Decoding DICOMs is I/O- and CPU-bound and was the whole cost: 19.7 s/study
+    # measured single-threaded, which projects to 7.1 h of a 9 h cap on ~1,300
+    # studies. Far too little headroom for the run that actually counts. Build
+    # volumes on a thread pool and predict in batches so decode overlaps compute.
+    def build_one(index_and_study):
+        index, study = index_and_study
+        try:
+            rows = by_study.get(study)
+            if rows is None or rows.empty:
+                return index, None, "no series rows"
+            stack, _record = build_study(root, "test", study, rows)
+
+            # A model trained on a subset of slices was also VALIDATED on an
+            # evenly spaced subset of that size. Handing it the full stack here
+            # changes the sequence length the attention pool sees and raises
+            # nothing at all — it just scores worse. None means the model saw
+            # every cached slice, and this is then a no-op.
+            if SLICE_SUBSAMPLE_EXPECTED and stack.shape[1] > SLICE_SUBSAMPLE_EXPECTED:
+                idx = np.linspace(0, stack.shape[1] - 1,
+                                  SLICE_SUBSAMPLE_EXPECTED).round().astype(int)
+                stack = stack[:, idx]
+            return index, stack, None
+        except Exception as exc:  # noqa: BLE001
+            return index, None, f"{type(exc).__name__}: {exc}"
+
+    workers = max(2, min(8, (os.cpu_count() or 4)))
+    print(f"decoding on {workers} threads, predicting in batches of {BATCH_STUDIES}")
+
+    # Time the study loop separately from kernel startup. Model construction,
+    # imports and the first CUDA/BLAS call cost ~50 s and are paid ONCE, but the
+    # public test set is 3 studies, so folding them into a per-study average and
+    # multiplying by 1,300 overstates the real cost by an order of magnitude.
+    # That mistake nearly ruled out CPU inference on a 20x-too-pessimistic number.
+    setup_seconds = time.time() - started
+    loop_started = time.time()
+    print(f"setup took {setup_seconds:.1f}s (paid once, not per study)")
+
+    pending: list = []
+
+    def flush(pending_batch):
+        if not pending_batch:
+            return
+        indices = [p[0] for p in pending_batch]
+        batch = torch.from_numpy(
+            np.stack([p[1] for p in pending_batch]).astype(np.float32) / 255.0).to(device)
+        with torch.no_grad():
+            # One decode, N models. Equal weights: the folds differ only by
+            # split, so weighting them would be fitting validation noise.
+            out = np.mean([torch.sigmoid(m(batch)).cpu().numpy() for m in models], axis=0)
+        for slot, index in enumerate(indices):
+            predictions[index] = out[slot]
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for done, (index, stack, error) in enumerate(
+                pool.map(build_one, enumerate(studies)), start=1):
+            if error is not None or stack is None:
+                failures += 1
+                if failures <= 5:
+                    print(f"  study {index} failed: {error}")
+            else:
+                pending.append((index, stack))
+                if len(pending) >= BATCH_STUDIES:
+                    flush(pending)
+                    pending = []
+
+            if done % 100 == 0 or done == len(studies):
+                elapsed = time.time() - loop_started
+                rate = done / max(elapsed, 1e-6)
+                print(f"  {done:,}/{len(studies):,}  {elapsed / 60:.1f} min  "
+                      f"{1 / rate:.2f} s/study  eta "
+                      f"{(len(studies) - done) / rate / 60:.1f} min", flush=True)
+        flush(pending)
+
+    submission = pd.DataFrame({"StudyInstanceUID": studies})
+    for j, finding in enumerate(FINDINGS):
+        submission[finding] = np.clip(predictions[:, j], 1e-6, 1 - 1e-6)
+
+    sample = pd.read_csv(root / "sample_submission.csv")
+    assert list(submission.columns) == list(sample.columns), (
+        f"columns differ from sample_submission: {list(sample.columns)}")
+    assert len(submission) == len(test), "row count must match test.csv"
+    assert submission[FINDINGS].notna().all().all(), "no NaNs allowed"
+    assert ((submission[FINDINGS] > 0) & (submission[FINDINGS] < 1)).all().all(), "probabilities"
+    assert submission.StudyInstanceUID.is_unique, "duplicate study ids"
+    submission.to_csv(OUTPUT, index=False)
+
+    elapsed = time.time() - started
+    loop_seconds = time.time() - loop_started
+    per_study = loop_seconds / max(len(studies), 1)
+    projected = (setup_seconds + per_study * 1300) / 3600
+    spread = {f: round(float(submission[f].std()), 4) for f in FINDINGS}
+    print(f"\nwrote {OUTPUT}  rows={len(submission):,}")
+    print(f"failed studies (kept prior): {failures}")
+    print(f"wall clock {elapsed / 60:.1f} min  (setup {setup_seconds:.0f}s + "
+          f"loop {loop_seconds / 60:.1f} min)")
+    print(f"per-study cost EXCLUDING setup: {per_study:.2f} s")
+    print(f"projected on 1,300 studies: {projected:.2f} h of the 9 h cap "
+          f"(setup once + {per_study:.2f} s x 1300)")
+    print(f"prediction spread: {spread}")
+    Path("/kaggle/working/infer_manifest.json").write_text(json.dumps({
+        "n_studies": len(studies), "failures": failures,
+        "seconds_per_study_excluding_setup": round(per_study, 3),
+        "setup_seconds": round(setup_seconds, 1),
+        "wall_clock_seconds": round(elapsed, 1),
+        "projected_hours_1300_studies": round(projected, 3),
+        "n_models": len(models),
+        "prediction_spread": spread}, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

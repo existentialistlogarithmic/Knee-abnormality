@@ -1,4 +1,13 @@
-"""Phase 3 inference — images only, internet off, writes submission.csv.
+"""Fold-ensemble inference — every 192px fold, averaged. Internet off.
+
+All members share one geometry, so each study's volume is decoded and built
+ONCE and reused across every model. That is the difference between an ensemble
+costing 1x decode and Nx decode, and decode is the dominant cost.
+
+Averaging folds is the highest-confidence gain available here: same config,
+different data splits, no new hypothesis that can be wrong. The 288px variant
+scored 0.668 against this config's 0.725, so this is the configuration worth
+ensembling.
 
 Builds each test study's volume in memory and predicts immediately, rather than
 writing a test cache first. At ~1,300 studies that would be ~3 GB of intermediate
@@ -28,25 +37,39 @@ import numpy as np
 import pandas as pd
 import pydicom
 
+# --------------------------------------------------------------------------- #
+# GENERATED CONFIG — written by eda/generate_kernels.py from src/pipeline.py.
+# Edit the manifest, not this file. Everything outside this block is shared by
+# every kernel rendered from this template.
+# --------------------------------------------------------------------------- #
+# v2 geometry, chosen after measuring what v1 discarded: native pixel
+# spacing has a median of 0.312 mm and 96% of series are finer than 0.60,
+# so v1 downsampled almost every study ~2x, and kept 20 of a median 30
+# slices. 0.40 mm/px over 288 px keeps the same ~115 mm field of view at
+# 1.5x the in-plane detail. Cost: ~6 MB per study, ~26 GB, so 8 shards.
+# MEASURED RESULT: 0.668 on the leaderboard, below v1's 0.725. The
+# resolution thesis is unconfirmed.
+#
+TARGET_MM_PER_PIXEL      = 0.4
+TARGET_SIZE              = 288
+SLICES_PER_PLANE         = 24
+BATCH_STUDIES            = 2
+SLICE_SUBSAMPLE_EXPECTED = 18
+INPUT_NORM_EXPECTED      = False
+# --------------------------------------------------------------------------- #
+
 FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
-            "Lateral OA", "PF OA", "Effusion", "Synovitis", "Baker\'s",
+            "Lateral OA", "PF OA", "Effusion", "Synovitis", "Baker's",
             "Contusion", "Fracture"]
 PLANES = ("Sagittal", "Coronal", "Axial")
 SKIP_DIRECTORIES = {"train_series", "test_series"}
 OUTPUT = Path("/kaggle/working/submission.csv")
-
-# These must match the cache the weights were trained on, exactly.
-TARGET_MM_PER_PIXEL = 0.40
-TARGET_SIZE = 288
-SLICES_PER_PLANE = 24
 FALLBACK_PRIOR = 0.3     # used only if a study cannot be read at all
-BATCH_STUDIES = 2        # studies pushed through the network at once
-# v2 trained on a random 14 of 24 slices per plane and validated on an evenly
-# spaced 14. Inference must present the same count the model was scored with —
-# feeding it 24 would be a silent train/inference mismatch that raises nothing.
-SLICE_SUBSAMPLE = 18
 
 
+# --------------------------------------------------------------------------- #
+# from kaggle/_templates/_shared/discovery.py
+# --------------------------------------------------------------------------- #
 def find_marker(marker: str, max_depth: int = 4):
     frontier = [(Path("/kaggle/input"), 0)]
     while frontier:
@@ -66,16 +89,9 @@ def find_marker(marker: str, max_depth: int = 4):
     return None
 
 
-def resize(image: np.ndarray, size: int) -> np.ndarray:
-    try:
-        import cv2
-
-        return cv2.resize(image, (size, size), interpolation=cv2.INTER_AREA)
-    except ImportError:
-        from PIL import Image
-
-        return np.asarray(Image.fromarray(image).resize((size, size), Image.BILINEAR))
-
+# --------------------------------------------------------------------------- #
+# from kaggle/_templates/_shared/volume.py
+# --------------------------------------------------------------------------- #
 def normalise(volume: np.ndarray) -> np.ndarray:
     """Percentile clip then scale to uint8.
 
@@ -95,6 +111,18 @@ def normalise(volume: np.ndarray) -> np.ndarray:
     scaled = (np.clip(filled, low, high) - low) / (high - low)
     return (scaled * 255.0).astype(np.uint8)
 
+
+def resize(image: np.ndarray, size: int) -> np.ndarray:
+    try:
+        import cv2
+
+        return cv2.resize(image, (size, size), interpolation=cv2.INTER_AREA)
+    except ImportError:
+        from PIL import Image
+
+        return np.asarray(Image.fromarray(image).resize((size, size), Image.BILINEAR))
+
+
 def pick_slices(count: int, wanted: int) -> list[int]:
     """Evenly spaced through the stack, always including both ends.
 
@@ -106,6 +134,7 @@ def pick_slices(count: int, wanted: int) -> list[int]:
     if count <= wanted:
         return list(range(count)) + [count - 1] * (wanted - count)
     return list(np.linspace(0, count - 1, wanted).round().astype(int))
+
 
 def read_series_volume(directory: Path) -> tuple[np.ndarray | None, float | None, str | None]:
     """Return (volume, mm_per_pixel, laterality) with slices in anatomical order."""
@@ -143,6 +172,7 @@ def read_series_volume(directory: Path) -> tuple[np.ndarray | None, float | None
     slices.sort(key=lambda item: item[0])
     return np.stack([s[1] for s in slices]), spacing, laterality
 
+
 def _laterality_from_description(description: str) -> str | None:
     text = (description or "").upper()
     if text.startswith("LT") or "_LT_" in text or " LEFT" in text or text.startswith("L_"):
@@ -150,6 +180,7 @@ def _laterality_from_description(description: str) -> str | None:
     if text.startswith("RT") or "_RT_" in text or " RIGHT" in text or text.startswith("R_"):
         return "R"
     return None
+
 
 def build_study(root: Path, split: str, study: str, series_rows: pd.DataFrame) -> tuple:
     """One study to (planes, slices, size, size) uint8, plus a record of what happened."""
@@ -206,40 +237,106 @@ def build_study(root: Path, split: str, study: str, series_rows: pd.DataFrame) -
 
     return stack, record
 
-def build_model(backbone: str, n_planes: int, n_out: int):
+
+# --------------------------------------------------------------------------- #
+# from kaggle/_templates/_shared/model.py
+# --------------------------------------------------------------------------- #
+# ImageNet statistics. Every pretrained backbone here — torchvision and DINOv2
+# alike — was trained on inputs normalised this way. The earliest runs fed raw
+# 0..1 values straight in, which shifts the input distribution away from what
+# the pretrained filters expect and quietly costs transfer quality. It never
+# errors; it just makes the pretrained weights worth less than they should be.
+#
+# It is therefore a property of a trained model, not a preference: INPUT_NORM
+# comes from the manifest at training time and from the checkpoint at inference
+# time, and mixing the two in an ensemble is refused rather than averaged.
+IMAGENET_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_STD = (0.229, 0.224, 0.225)
+
+# DINOv2 uses 14-pixel patches, so its input side must be a multiple of 14.
+# A 192px cache becomes 196 here — a 2% resize — which keeps one cache usable
+# by every architecture instead of forcing a rebuild per backbone.
+PATCH_MULTIPLE = 14
+
+
+def build_model(backbone: str, n_planes: int, n_out: int, normalise_input: bool):
     """2.5D: a 2D backbone over slices, attention-pooled to a study.
 
     Attention pooling rather than mean pooling because a finding is usually
     visible on a handful of slices; averaging over twenty dilutes it.
+
+    Accepts either a torchvision name or a timm name. DINOv2 is the reason:
+    the public baseline for this competition reportedly reaches ~0.809 with
+    DINOv2 features while this project's ImageNet resnet34 reached 0.725, and
+    self-supervised features transfer to medical imaging far better than
+    ImageNet classification features do.
     """
+    import torch
     import torch.nn as nn
-    import torchvision
 
-    weights = "DEFAULT"
-    try:
-        net = getattr(torchvision.models, backbone)(weights=weights)
-    except Exception:  # noqa: BLE001 - no internet, or weights unavailable
-        # Expected in any internet-off kernel. Harmless at inference: every
-        # parameter is overwritten by the checkpoint moments later, and the
-        # strict-load check would reject a partial load. Only a problem if a
-        # TRAINING kernel prints it, which would mean no pretrained init.
-        print("no pretrained download (internet off) — random init; "
-              "at inference the checkpoint replaces all of it")
-        net = getattr(torchvision.models, backbone)(weights=None)
+    net = None
+    features = None
+    if "." in backbone or backbone.startswith(("vit_", "convnext", "tf_efficientnet")):
+        import timm
 
-    features = net.fc.in_features
-    net.fc = nn.Identity()
+        try:
+            net = timm.create_model(backbone, pretrained=True, num_classes=0,
+                                    dynamic_img_size=True)
+        except Exception:  # noqa: BLE001 - offline, or no dynamic_img_size support
+            try:
+                net = timm.create_model(backbone, pretrained=True, num_classes=0)
+            except Exception:  # noqa: BLE001 - internet off (inference kernels)
+                print("no pretrained download (internet off) — random init; "
+                      "at inference the checkpoint replaces all of it")
+                net = timm.create_model(backbone, pretrained=False, num_classes=0,
+                                        dynamic_img_size=True)
+        features = net.num_features
+    else:
+        import torchvision
+
+        try:
+            net = getattr(torchvision.models, backbone)(weights="DEFAULT")
+        except Exception:  # noqa: BLE001
+            print("no pretrained download (internet off) — random init; "
+                  "at inference the checkpoint replaces all of it")
+            net = getattr(torchvision.models, backbone)(weights=None)
+        features = net.fc.in_features
+        net.fc = nn.Identity()
+
+    is_patch_model = backbone.startswith("vit_")
 
     class Model(nn.Module):
         def __init__(self):
             super().__init__()
             self.backbone = net
+            self.patch_multiple = PATCH_MULTIPLE if is_patch_model else 0
+            self.normalise = normalise_input
+            # persistent=False deliberately: these are constants, not learned
+            # state. Persisting them would add two keys to every state_dict and
+            # the strict-load check at inference would then reject every
+            # checkpoint written before they existed — including the folds
+            # currently training.
+            self.register_buffer("mean", torch.tensor(IMAGENET_MEAN).view(1, 3, 1, 1),
+                                 persistent=False)
+            self.register_buffer("std", torch.tensor(IMAGENET_STD).view(1, 3, 1, 1),
+                                 persistent=False)
             self.attention = nn.Sequential(nn.Linear(features, 128), nn.Tanh(), nn.Linear(128, 1))
             self.head = nn.Linear(features, n_out)
 
         def forward(self, x):                      # x: (B, P, S, H, W)
             b, p, s, h, w = x.shape
             flat = x.reshape(b * p * s, 1, h, w).repeat(1, 3, 1, 1)
+
+            # Patch-based backbones need a side length divisible by the patch
+            # size. Resizing here rather than in the cache keeps one cache
+            # usable by every architecture.
+            if self.patch_multiple and (h % self.patch_multiple or w % self.patch_multiple):
+                side = int(round(h / self.patch_multiple)) * self.patch_multiple
+                flat = torch.nn.functional.interpolate(
+                    flat, size=(side, side), mode="bilinear", align_corners=False)
+
+            if self.normalise:
+                flat = (flat - self.mean) / self.std
             embedded = self.backbone(flat).reshape(b, p * s, -1)
             scores = self.attention(embedded).softmax(dim=1)
             pooled = (embedded * scores).sum(dim=1)
@@ -268,21 +365,59 @@ def main() -> int:
             print("pre-Volta GPU; falling back to CPU to avoid a CUDA failure")
             device = "cpu"
 
-    state = torch.load(weights_dir / "checkpoint_fold0.pt", map_location=device,
-                       weights_only=False)
-    # Read the backbone from the checkpoint rather than hardcoding it. When
-    # training switched resnet18 -> resnet34 a hardcoded name here would have
-    # thrown a size-mismatch at best, and silently loaded nothing at worst.
-    backbone = state.get("backbone", "resnet18")
-    print(f"backbone from checkpoint: {backbone}")
-    model = build_model(backbone, 3, len(FINDINGS)).to(device)
-    missing, unexpected = model.load_state_dict(state["model"], strict=False)
-    if missing or unexpected:
-        raise SystemExit(f"weight mismatch — missing={len(missing)} "
-                         f"unexpected={len(unexpected)}; refusing to predict")
+    # Every mounted training kernel contributes one fold. Discovered rather than
+    # listed, so adding a fold means mounting it and nothing else.
+    checkpoints = sorted(Path("/kaggle/input").glob("notebooks/*/*/checkpoint_fold*.pt"))
+    if not checkpoints:
+        raise SystemExit("no checkpoints mounted")
+    print(f"checkpoints mounted: {len(checkpoints)}")
+
+    # Averaging is only meaningful between models that were fed the same way.
+    # Two properties are invisible in the weights and fatal if they differ:
+    # how many slices the model saw, and whether its input was ImageNet-
+    # normalised. Both are recorded at training time and checked here against
+    # the manifest, so a mismatch stops the kernel instead of quietly costing
+    # AUC on the leaderboard.
+    EXPECTED = {"slice_subsample": SLICE_SUBSAMPLE_EXPECTED,
+                "input_norm": INPUT_NORM_EXPECTED}
+
+    models = []
+    for path in checkpoints:
+        state = torch.load(path, map_location=device, weights_only=False)
+        # A checkpoint written before a key existed did not have that
+        # behaviour: input normalisation was added after the 192px folds were
+        # trained, so absent means False for them. Recorded here rather than
+        # assumed at read time, so the defaults are visible.
+        LEGACY = {"slice_subsample": None, "input_norm": False}
+        recorded = {key: state.get(key, LEGACY[key]) for key in EXPECTED}
+        for key, want in EXPECTED.items():
+            if recorded[key] != want:
+                raise SystemExit(
+                    f"{path.parent.parent.name}/{path.name} was trained with "
+                    f"{key}={recorded[key]!r} but this kernel declares {want!r}. "
+                    "The inputs differ, so averaging these models would be "
+                    "invalid — refusing to predict.")
+
+        backbone = state.get("backbone", "resnet18")
+        model = build_model(backbone, 3, len(FINDINGS), INPUT_NORM_EXPECTED).to(device)
+
+        # The ImageNet mean/std were briefly saved as persistent buffers, so
+        # checkpoints written in that window carry two extra keys. They are
+        # constants that the model reconstructs for itself, so dropping them is
+        # lossless — but leaving them in would trip the strict-load check below
+        # and refuse a perfectly good set of weights.
+        weights = {k: v for k, v in state["model"].items() if k not in ("mean", "std")}
+        missing, unexpected = model.load_state_dict(weights, strict=False)
+        if missing or unexpected:
+            raise SystemExit(f"weight mismatch in {path.name} — missing={len(missing)} "
+                             f"unexpected={len(unexpected)}; refusing to predict")
+        model.eval()
+        models.append(model)
+        print(f"  {path.parent.parent.name}/{path.name}: {backbone}, "
+              f"epoch {state.get('epoch')}, val macro AUC "
+              f"{state.get('macro_auc', float('nan')):.4f}")
+    print(f"ensembling {len(models)} models")
     model.eval()
-    print(f"loaded weights from epoch {state.get('epoch')} "
-          f"(val macro AUC {state.get('macro_auc', float('nan')):.4f})")
 
     test = pd.read_csv(root / "test.csv")
     series = pd.read_csv(root / "test_series.csv")
@@ -306,12 +441,15 @@ def main() -> int:
             if rows is None or rows.empty:
                 return index, None, "no series rows"
             stack, _record = build_study(root, "test", study, rows)
-            # v2 trained on a random 14 of 24 slices per plane and validated on
-            # an evenly spaced 14. Inference must present the same count the
-            # model was scored with — handing it 24 changes the sequence length
-            # the attention pool sees and raises nothing.
-            if SLICE_SUBSAMPLE and stack.shape[1] > SLICE_SUBSAMPLE:
-                idx = np.linspace(0, stack.shape[1] - 1, SLICE_SUBSAMPLE).round().astype(int)
+
+            # A model trained on a subset of slices was also VALIDATED on an
+            # evenly spaced subset of that size. Handing it the full stack here
+            # changes the sequence length the attention pool sees and raises
+            # nothing at all — it just scores worse. None means the model saw
+            # every cached slice, and this is then a no-op.
+            if SLICE_SUBSAMPLE_EXPECTED and stack.shape[1] > SLICE_SUBSAMPLE_EXPECTED:
+                idx = np.linspace(0, stack.shape[1] - 1,
+                                  SLICE_SUBSAMPLE_EXPECTED).round().astype(int)
                 stack = stack[:, idx]
             return index, stack, None
         except Exception as exc:  # noqa: BLE001
@@ -338,7 +476,9 @@ def main() -> int:
         batch = torch.from_numpy(
             np.stack([p[1] for p in pending_batch]).astype(np.float32) / 255.0).to(device)
         with torch.no_grad():
-            out = torch.sigmoid(model(batch)).cpu().numpy()
+            # One decode, N models. Equal weights: the folds differ only by
+            # split, so weighting them would be fitting validation noise.
+            out = np.mean([torch.sigmoid(m(batch)).cpu().numpy() for m in models], axis=0)
         for slot, index in enumerate(indices):
             predictions[index] = out[slot]
 
@@ -395,8 +535,7 @@ def main() -> int:
         "setup_seconds": round(setup_seconds, 1),
         "wall_clock_seconds": round(elapsed, 1),
         "projected_hours_1300_studies": round(projected, 3),
-        "checkpoint_epoch": state.get("epoch"),
-        "checkpoint_val_macro_auc": state.get("macro_auc"),
+        "n_models": len(models),
         "prediction_spread": spread}, indent=2))
     return 0
 

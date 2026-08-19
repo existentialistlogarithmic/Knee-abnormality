@@ -1,7 +1,40 @@
 # Kaggle kernels
 
-One folder per kernel. Each folder holds a `kernel-metadata.json` and the code
-file it points at. Push with:
+**Most of this directory is generated.** `src/pipeline.py` declares the
+pipeline and `eda/generate_kernels.py` renders it:
+
+```bash
+python eda/generate_kernels.py            # what would change
+python eda/generate_kernels.py --diff     # the diffs
+python eda/generate_kernels.py --write    # apply
+python eda/generate_kernels.py --check    # exit 1 if the tree has drifted
+```
+
+`--check` runs in the test suite, so editing a generated `run.py` by hand fails
+CI rather than quietly making the manifest fiction.
+
+Kaggle script kernels are single files, so sharing code between them means
+splicing it at generation time. `kaggle/_templates/` holds three templates
+(`cache_build`, `train`, `infer`) and three shared modules under `_shared/`.
+A template is ordinary Python with two placeholders:
+
+```
+@@CONFIG@@                        the constants for this kernel, from the manifest
+@@INCLUDE volume@@                the whole of _shared/volume.py
+@@INCLUDE discovery:find_marker@@ just that one definition
+```
+
+Why it is worth the machinery: `build_study` used to be byte-identical in four
+kernels, `find_marker` in seven, and `build_model` had **drifted into two
+variants across five files** — the training kernel normalising its input and
+the inference kernel that scores those weights not. That does not raise; it
+just scores worse. There is now one of each.
+
+**Six folders are not generated** and are edited by hand: `00_dicom_header_scan`,
+`01_submission_baseline`, `02_metadata_submission`, `05_infer`, `05_infer_cpu`
+and `09_infer_ensemble`. They are one-offs rather than members of a lineage.
+
+Push with:
 
 ```bash
 kaggle kernels push -p kaggle/<folder>

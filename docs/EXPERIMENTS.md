@@ -498,3 +498,26 @@ Notes on the fields that people fudge:
   the inference kernel — the checkpoint overwrites every parameter and the
   strict-load check confirms 0 missing and 0 unexpected keys — but the message
   is alarming and should be reworded.
+
+### E015 — v2 cache built at 288px: 4,407/4,407 studies, zero errors
+- **date**: 2026-08-19
+- **commit**: (this commit)
+- **what changed**: `kaggle/06_cache_v2_shard{0..7}` — 288px @ 0.40 mm/px,
+  24 slices, same 115 mm field of view as v1.
+- **runtime**: 14–23 min per shard, 8 shards, 5 concurrent (Kaggle's CPU cap)
+  with the rest drip-fed by `eda/push_queue.sh`.
+- **result**: **4,407 studies built across 8/8 shards, 0 errors**, 6.0 MB/study,
+  shape `(3, 24, 288, 288)` — 26 GB total.
+- **why it exists**: v1 used 0.60 mm/px against a native median of **0.312 mm**,
+  so **96% of series were downsampled roughly 2×**, and it kept 20 of a median
+  30 slices. Meniscal tears and cartilage lesions are thin structures; that is
+  the detail they live in. The resnet34 run supports this reading — 1.9× the
+  backbone and 4× the epochs bought +0.007 over resnet18 while the curve
+  flattened and training loss kept falling, which is a model starved of input
+  rather than capacity.
+- **verification technique worth reusing**: Kaggle publishes a kernel's log only
+  when it completes, so the "did every shard land" check could not be read from
+  the training log mid-run. Fetching each shard's few-KB
+  `cache_manifest_*.json` with `--file-pattern` verifies the same fact
+  independently without touching the 26 GB of volumes — and without the
+  output-download rate limit that has bitten this project repeatedly.

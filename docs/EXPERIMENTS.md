@@ -862,3 +862,48 @@ Notes on the fields that people fudge:
   (`COMPETITIVE_ANALYSIS.md` §2); that would predict 0.752 against an actual
   0.725. Encouraging for the estimator, but 23 studies and a 0.143-wide interval
   cannot confirm a 0.027 discrepancy. Revisit at n = 58.
+
+### E025 — the GPU budget ran out, and the gold instrument came online
+- **date**: 2026-08-19
+- **the block, correctly identified**: `Maximum weekly GPU quota of 30.00 hours
+  reached.` Not the concurrency limit this project had been assuming — that one
+  says `Maximum batch GPU session count of 2 reached` and is fixed by waiting.
+  A quota exhaustion is not. `eda/push_queue.sh` now distinguishes them and
+  exits instead of waiting forever, and `kaggle/README.md` records both.
+  **CPU sessions are a separate allowance and still work**, verified by pushing
+  a CPU kernel immediately after a GPU push was refused.
+- **what the 30 hours bought**, from the fetched logs: 1.33 h fold 0, 1.33 h
+  fold 1, 3.63 h the 288px run, **3.59 h its continuation which gained nothing**
+  (E024), 1.84 h DINOv2, 3.74 h the labeler, plus folds 2–4, the pooling A/B,
+  the DINOv2 continuation and two failed labeler attempts. The single largest
+  avoidable item is the 3.59 h continuation of a geometry the board had already
+  placed 0.037 behind.
+- **six runs completed before the quota closed**:
+
+  | run | best report-label CV | gold studies held out | gold AUC |
+  |---|---:|---:|---:|
+  | fold 1 | 0.7434 | 14 | 0.754 |
+  | fold 2 | 0.7410 | 11 | 0.783 |
+  | fold 3 | 0.7260 | 12 | 0.687 |
+  | fold 4 | **0.7639** | 9 | 0.831 |
+  | v1pool (per-finding attention) | 0.7088 | 12 | 0.742 |
+  | dinov2-long (34 epochs) | 0.7041 | 12 | 0.644 |
+
+- **the gold out-of-fold pool works** — folds 1–4 verified to share one
+  configuration and one label file (all four logged `no per-finding confidence
+  column`, so none saw the fused labels):
+
+  **n = 46, macro AUC 0.7264, 95% CI [0.672, 0.776].**
+
+- **and it lands on the leaderboard, not 0.044 above it.** The public writeup
+  reports gold-58 predicting the board with a constant **+0.044** offset across
+  three systems (`COMPETITIVE_ANALYSIS.md` §2). This configuration scored
+  **0.725** on the board and **0.7264** out-of-fold on gold — an offset of
+  **−0.001**. The published correction does not reproduce here.
+
+  Held loosely for two reasons: the board score came from a fold-0 model while
+  this pool is folds 1–4, and at n=46 the interval is 0.103 wide, so the offset
+  is only pinned to about ±0.05. But the practical consequence is real and
+  useful — **gold OOF appears to estimate this project's leaderboard score
+  directly, with no correction**, and it costs nothing but the folds already
+  being trained.

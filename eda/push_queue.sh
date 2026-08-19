@@ -19,6 +19,15 @@ for folder in "$@"; do
       sleep "$POLL"
       continue
     fi
+    # A weekly-quota refusal also starts with "Maximum" but no amount of waiting
+    # fixes it, so it must not be mistaken for a busy slot. Stop the whole queue
+    # rather than the current item: every remaining push would fail the same way.
+    if echo "$out" | grep -q "weekly.*quota"; then
+      echo "QUOTA EXHAUSTED: $out"
+      echo "nothing further can run until the weekly allowance resets; "\
+           "check the Kaggle account page, the API does not report it"
+      exit 2
+    fi
     echo "FAILED  $slug: $out"
     break
   done

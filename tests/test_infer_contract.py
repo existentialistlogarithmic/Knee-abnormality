@@ -191,3 +191,29 @@ def test_inference_excludes_setup_from_the_per_study_projection():
     assert "setup_seconds" in source and "loop_started" in source
     assert "per_study = loop_seconds" in source, "per-study cost must exclude setup"
     assert "setup_seconds + per_study * 1300" in source, "projection must add setup once"
+
+
+INFER_V2 = REPO_ROOT / "kaggle" / "08_infer_v2" / "run.py"
+CACHE_V2 = REPO_ROOT / "kaggle" / "06_cache_v2" / "run.py"
+TRAIN_V2 = REPO_ROOT / "kaggle" / "07_train_v2" / "run.py"
+
+
+def test_v2_inference_matches_the_v2_cache_geometry():
+    cache, infer = _source(CACHE_V2), _source(INFER_V2)
+    for constant in ("TARGET_MM_PER_PIXEL", "TARGET_SIZE", "SLICES_PER_PLANE"):
+        pattern = rf"^{constant} = ([0-9.]+)"
+        a = re.search(pattern, cache, re.M)
+        b = re.search(pattern, infer, re.M)
+        assert a and b and a.group(1) == b.group(1), f"{constant} differs between v2 cache and v2 inference"
+
+
+def test_v2_inference_subsamples_slices_like_training_did():
+    """v2 trained and validated on 14 of 24 slices; feeding 24 at inference is a
+    silent mismatch — the attention pool sees a different sequence length than
+    it was scored with and nothing raises."""
+    train, infer = _source(TRAIN_V2), _source(INFER_V2)
+    a = re.search(r"^SLICE_SUBSAMPLE = (\d+)", train, re.M)
+    b = re.search(r"^SLICE_SUBSAMPLE = (\d+)", infer, re.M)
+    assert a and b and a.group(1) == b.group(1), "SLICE_SUBSAMPLE differs"
+    assert "np.linspace(0, stack.shape[1] - 1, SLICE_SUBSAMPLE)" in infer, \
+        "inference must take an evenly spaced subset, as validation did"

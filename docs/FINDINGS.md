@@ -298,6 +298,41 @@ Report-derived CV is for *ranking* candidate models, never for estimating the
 leaderboard. Absolute claims come from the leaderboard or from the 58 gold
 studies (with their wide intervals) — never from report-label CV.
 
+### …and the imaging model INVERTS it — `VERIFIED`, 2026-08-19
+
+| model | report-label CV | leaderboard | gap |
+|---|---:|---:|---:|
+| scanner metadata (no pixels) | 0.6687 | 0.531 | **+0.138** |
+| imaging, resnet34 2.5D @192px | 0.7001 | **0.725** | **−0.025** |
+
+**The imaging model scores *higher* on the leaderboard than in cross-validation.**
+That is the opposite sign to the metadata model, and it settles the question
+this project has been circling since the beginning.
+
+The mechanism is straightforward once seen. CV is scored against
+**report-derived labels**, which are noisy — the labeler reaches 0.769 macro AUC
+against expert truth. The leaderboard is scored against **expert labels**. A
+model that learns the underlying anatomy will therefore *disagree* with its own
+noisy training targets exactly where those targets are wrong, and agree with the
+experts. Its CV is dragged down by label noise that the leaderboard does not
+contain.
+
+The metadata model could not do this: with no anatomical information, the only
+thing it could learn was the site-convention component of the report labels —
+precisely the part that does not transfer.
+
+**Consequences:**
+
+1. **The pixels carry real anatomical signal.** 0.531 → **0.725** is +0.194 over
+   the metadata baseline. The earlier worry that the CNN had merely re-found the
+   scanner through image appearance is answered: it has not.
+2. **Report-label CV now *understates* imaging progress.** A CV gain of +0.01 is
+   worth at least that on the board, not 0.138 less. The pessimism baked into
+   earlier entries should not be applied to imaging runs.
+3. **The label ceiling is not a hard ceiling.** A model trained on 0.769-quality
+   labels scored 0.725 against expert truth and is nowhere near converged. Noise
+   in the targets is largely unbiased, so the network averages it out.
+
 ---
 
 ## 10. Series selection — Phase 0 step 4, `VERIFIED`

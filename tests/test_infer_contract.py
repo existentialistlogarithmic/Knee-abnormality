@@ -93,12 +93,33 @@ def test_model_consumes_a_cache_shaped_volume():
 
 
 def test_inference_falls_back_rather_than_crashing_on_one_bad_study():
-    """A single unreadable study must cost a little AUC, never the submission."""
+    """A single unreadable study must cost a little AUC, never the submission.
+
+    Asserted against behaviour rather than code shape: the per-study builder
+    must catch, the failure must be counted, and predictions must start at the
+    fallback prior so an uncaught study still emits a valid row.
+    """
     source = _source(INFER)
     assert "FALLBACK_PRIOR" in source
     assert "failures += 1" in source
-    body = source[source.index("for i, study in enumerate(studies)"):]
-    assert "except Exception" in body, "per-study loop has no guard"
+    builder = source[source.index("def build_one("):source.index("workers =")]
+    assert "except Exception" in builder, "the per-study builder has no guard"
+    assert "return index, None," in builder, "builder must report failure, not raise"
+    # every row starts at the prior, so a study that never gets predicted is valid
+    assert "np.full((len(studies), len(FINDINGS)), FALLBACK_PRIOR" in source
+
+
+def test_inference_predicts_every_study_it_builds():
+    """The batching must flush a partial final batch, or the tail is dropped.
+
+    A batched loop that only predicts on full batches silently leaves the last
+    1..BATCH_STUDIES-1 studies at the fallback prior — valid output, quietly
+    worse score, no error anywhere.
+    """
+    source = _source(INFER)
+    after_loop = source[source.index("for done, (index, stack, error)"):]
+    tail = after_loop[after_loop.index("if done % 100"):]
+    assert "flush(pending)" in tail, "partial final batch is never flushed"
 
 
 def test_inference_does_not_hardcode_the_backbone():

@@ -213,7 +213,12 @@ def build_model(backbone: str, n_planes: int, n_out: int):
     try:
         net = getattr(torchvision.models, backbone)(weights=weights)
     except Exception:  # noqa: BLE001 - no internet, or weights unavailable
-        print("pretrained weights unavailable; training from scratch")
+        # Expected in any internet-off kernel. Harmless at inference: every
+        # parameter is overwritten by the checkpoint moments later, and the
+        # strict-load check would reject a partial load. Only a problem if a
+        # TRAINING kernel prints it, which would mean no pretrained init.
+        print("no pretrained download (internet off) — random init; "
+              "at inference the checkpoint replaces all of it")
         net = getattr(torchvision.models, backbone)(weights=None)
 
     features = net.fc.in_features

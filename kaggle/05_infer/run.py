@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -39,6 +40,7 @@ TARGET_MM_PER_PIXEL = 0.6
 TARGET_SIZE = 192
 SLICES_PER_PLANE = 20
 FALLBACK_PRIOR = 0.3     # used only if a study cannot be read at all
+BATCH_STUDIES = 4        # studies pushed through the network at once
 
 
 def find_marker(marker: str, max_depth: int = 4):
@@ -213,7 +215,12 @@ def build_model(backbone: str, n_planes: int, n_out: int):
     try:
         net = getattr(torchvision.models, backbone)(weights=weights)
     except Exception:  # noqa: BLE001 - no internet, or weights unavailable
-        print("pretrained weights unavailable; training from scratch")
+        # Expected in any internet-off kernel. Harmless at inference: every
+        # parameter is overwritten by the checkpoint moments later, and the
+        # strict-load check would reject a partial load. Only a problem if a
+        # TRAINING kernel prints it, which would mean no pretrained init.
+        print("no pretrained download (internet off) — random init; "
+              "at inference the checkpoint replaces all of it")
         net = getattr(torchvision.models, backbone)(weights=None)
 
     features = net.fc.in_features
@@ -284,30 +291,57 @@ def main() -> int:
     predictions = np.full((len(studies), len(FINDINGS)), FALLBACK_PRIOR, dtype=np.float32)
     failures = 0
 
-    with torch.no_grad():
-        for i, study in enumerate(studies):
-            try:
-                rows = by_study.get(study)
-                if rows is None or rows.empty:
-                    failures += 1
-                    continue
-                stack, _record = build_study(root, "test", study, rows)
-                batch = torch.from_numpy(
-                    stack.astype(np.float32) / 255.0).unsqueeze(0).to(device)
-                predictions[i] = torch.sigmoid(model(batch))[0].cpu().numpy()
-            except Exception as exc:  # noqa: BLE001
-                # One unreadable study must not lose the submission. It keeps the
-                # prior, which costs a little AUC; an exception would cost all of it.
+    # Decoding DICOMs is I/O- and CPU-bound and was the whole cost: 19.7 s/study
+    # measured single-threaded, which projects to 7.1 h of a 9 h cap on ~1,300
+    # studies. Far too little headroom for the run that actually counts. Build
+    # volumes on a thread pool and predict in batches so decode overlaps compute.
+    def build_one(index_and_study):
+        index, study = index_and_study
+        try:
+            rows = by_study.get(study)
+            if rows is None or rows.empty:
+                return index, None, "no series rows"
+            stack, _record = build_study(root, "test", study, rows)
+            return index, stack, None
+        except Exception as exc:  # noqa: BLE001
+            return index, None, f"{type(exc).__name__}: {exc}"
+
+    workers = max(2, min(8, (os.cpu_count() or 4)))
+    print(f"decoding on {workers} threads, predicting in batches of {BATCH_STUDIES}")
+
+    pending: list = []
+
+    def flush(pending_batch):
+        if not pending_batch:
+            return
+        indices = [p[0] for p in pending_batch]
+        batch = torch.from_numpy(
+            np.stack([p[1] for p in pending_batch]).astype(np.float32) / 255.0).to(device)
+        with torch.no_grad():
+            out = torch.sigmoid(model(batch)).cpu().numpy()
+        for slot, index in enumerate(indices):
+            predictions[index] = out[slot]
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for done, (index, stack, error) in enumerate(
+                pool.map(build_one, enumerate(studies)), start=1):
+            if error is not None or stack is None:
                 failures += 1
                 if failures <= 5:
-                    print(f"  study {i} failed: {type(exc).__name__}: {exc}")
+                    print(f"  study {index} failed: {error}")
+            else:
+                pending.append((index, stack))
+                if len(pending) >= BATCH_STUDIES:
+                    flush(pending)
+                    pending = []
 
-            if (i + 1) % 100 == 0 or i + 1 == len(studies):
+            if done % 100 == 0 or done == len(studies):
                 elapsed = time.time() - started
-                rate = (i + 1) / elapsed
-                print(f"  {i + 1:,}/{len(studies):,}  {elapsed / 60:.1f} min  "
+                rate = done / elapsed
+                print(f"  {done:,}/{len(studies):,}  {elapsed / 60:.1f} min  "
                       f"{1 / rate:.2f} s/study  eta "
-                      f"{(len(studies) - i - 1) / rate / 60:.1f} min", flush=True)
+                      f"{(len(studies) - done) / rate / 60:.1f} min", flush=True)
+        flush(pending)
 
     submission = pd.DataFrame({"StudyInstanceUID": studies})
     for j, finding in enumerate(FINDINGS):

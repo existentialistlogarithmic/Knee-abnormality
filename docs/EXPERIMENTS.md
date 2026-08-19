@@ -462,3 +462,39 @@ Notes on the fields that people fudge:
   are genuinely rare in this corpus. No vocabulary work will fix that, and
   chasing it would only cost precision.
 - **next**: the labels are now the training targets for the v2 (288px) run.
+
+### E014 — resnet34 / 24 epochs / 2×T4+AMP: 0.7001, and the curve says capacity is not the problem
+- **date**: 2026-08-19
+- **commit**: (this commit)
+- **config**: resnet34, 2.5D over 3 planes × 20 slices at 192px, batch 16,
+  cosine + 2-epoch warmup, EMA 0.999, label smoothing 0.02, AMP, DataParallel
+- **runtime**: **3.3 min/epoch**, 79.7 min for 24 epochs. The v1 run was
+  9.2 min/epoch on one card in fp32, so AMP + both T4s delivered the predicted
+  ~2.8× — the throughput work paid for itself in one run.
+- **CV**: best val macro AUC **0.7001** (report-derived labels, grouped fold 0)
+- **prediction spread**: 0.196, rising monotonically — no collapse
+
+| epoch | 0 | 5 | 11 | 17 | 21 | 23 |
+|---|---:|---:|---:|---:|---:|---:|
+| val macro AUC | 0.543 | 0.627 | 0.663 | 0.693 | 0.700 | **0.7001** |
+
+- **what it means**: this is the important negative result of the night.
+  Against the v1 run (resnet18, 6 epochs, same 192px cache) at **0.6928**, a
+  **1.9× larger backbone trained 4× longer bought +0.007**. The curve is also
+  clearly flattening — the last six epochs moved it 0.6946 → 0.7001 while
+  training loss kept falling from 0.539 to 0.502, which is the signature of a
+  model running out of *input* information rather than capacity.
+
+  That is direct support for the resolution hypothesis: the v1 cache used
+  0.60 mm/px against a native median of 0.312 mm, downsampling 96% of series
+  roughly 2×. Adding parameters cannot recover detail the cache already threw
+  away. The 288px v2 cache and its training run are the test of that.
+- **inference measured on CPU**: 19.7 s/study, projecting **7.1 h of the 9 h
+  cap** for ~1,300 studies. That works but leaves little headroom — the real
+  submission kernel should be GPU. CPU was used here only because Kaggle caps
+  concurrent GPU sessions at 2 and the v2 training run held both.
+- **also learned**: with internet off, torchvision cannot fetch pretrained
+  weights and `build_model` logs "training from scratch". That is harmless in
+  the inference kernel — the checkpoint overwrites every parameter and the
+  strict-load check confirms 0 missing and 0 unexpected keys — but the message
+  is alarming and should be reworded.

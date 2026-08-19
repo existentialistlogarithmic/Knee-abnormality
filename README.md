@@ -68,8 +68,18 @@ Six measurements govern everything downstream:
   scored 0.725 against expert truth, and was not converged.
 
 Target: **macro ROC-AUC ≥ 0.90**. Current standing: **0.725**. The leaderboard
-top is 0.951 and the top 200 teams are all above 0.917 (`docs/FINDINGS.md` §8),
+top is 0.952 and the top 200 teams are all above 0.917 (`docs/FINDINGS.md` §8),
 so 0.90 is below the field, not above it — there is a long way to go.
+
+**But there are two boards, and this project is much better placed on the other
+one.** The efficiency prize is scored `AUC/(Benchmark − maxAUC) + Runtime/32400`,
+minimised, which makes an extra hour cost **0.0502 AUC**. Inference here takes
+**0.8 h** where published systems take 3–4, and that alone puts the 0.725 model
+ahead of a public **0.883** model on efficiency. See
+`docs/COMPETITIVE_ANALYSIS.md` — which also itemises the main-board gap, most of
+which is **label quality**: the leading public report reader scores 0.881
+against the 58 expert-labelled studies where this project's lexicon scores
+0.769.
 
 ## Layout
 

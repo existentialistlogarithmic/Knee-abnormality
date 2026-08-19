@@ -58,9 +58,17 @@ reports, so Spanish (16%) and Turkish (12%) are first-class, not afterthoughts:
    `src/report_labeler.py`, macro AUC **0.745** on gold. Laterality still to do.
 3. ~~Soft labels with a confidence/abstain channel.~~ **DONE** — five channels:
    asserted / hedged / low_severity / negated / absent.
-3a. **NEXT: close the three coverage gaps.** Synovitis (0.561 AUC, 89% abstain),
-   Lateral OA (0.691, 77%), Medial OA (0.695, 76%). AUC tracks abstain rate
-   almost monotonically, so these are the cheapest gains on the board.
+3a. ~~Close the three coverage gaps by extending the lexicon.~~ **SUPERSEDED.**
+   AUC does track abstain rate almost monotonically — Synovitis abstains on 72%
+   of reports and scores 0.580, Fracture 62% and 0.759 — but three rounds of
+   corpus-driven vocabulary work moved the macro from 0.745 to 0.769 and the
+   remaining gaps are paraphrase, implication and negation scope rather than
+   missing words. Public systems reading the same reports with an open-weights
+   language model into a **closed vocabulary** reach **0.881**
+   (`COMPETITIVE_ANALYSIS.md`), and that 0.112 is the largest single number
+   available to this project. `kaggle/16_llm_labeler` is that approach; it
+   scores the 58 gold studies first so the comparison against 0.769 costs a
+   minute rather than an hour.
 4. Evaluation on the 58 gold studies: per-finding AUC, agreement rate, and a
    confusion analysis of *where* report and image labels diverge — **always with
    intervals**, because 58 studies cannot separate 0.86 from 0.90.
@@ -123,6 +131,20 @@ the metadata model is free.
 12 output heads. Resumable and checkpointed with a wall-clock guard, because
 Kaggle sessions die. T4, never P100.
 
+**Two revisions, both from measurement rather than taste:**
+
+- **Per-finding attention pooling.** A single attention map serving twelve
+  findings forces one compromise about which slices matter, and the focal
+  findings lose it — the four weakest on fold 1 are Medial Meniscus 0.656,
+  PF OA 0.659, Synovitis 0.663, MCL 0.669. `knee-train-v1pool` is a
+  one-variable A/B of this against the 0.725 configuration, enforced as
+  one-variable by a test.
+- **Self-supervised backbone, fine-tuned.** Published measurements put
+  adaptation at roughly five times the value of resolution (+0.09 against
+  +0.017), moving exactly the focal findings — Medial Meniscus +0.171,
+  MCL +0.118, ACL +0.113 *(Torres)*. `knee-train-dinov2` holds v1 geometry
+  fixed so its result attributes to the backbone alone.
+
 ### Order of work
 
 1. ~~CPU cache-build kernel~~ **DONE** — `kaggle/03_cache_build_shard{0..3}`,
@@ -131,6 +153,30 @@ Kaggle sessions die. T4, never P100.
 2. **Train one fold, confirm it beats 0.669 grouped, check prediction spread.**
    In progress — `kaggle/04_train`.
 3. Only then the full cross-validated run.
+
+## Phase 2.5 — the two boards are different problems
+
+The efficiency track is scored `AUC/(Benchmark − maxAUC) + RuntimeSeconds/32400`,
+minimised, which at today's top makes an extra hour cost **0.0502 AUC**
+(`COMPETITIVE_ANALYSIS.md` §4, derived from the competition's own page). This
+project runs inference in **0.8 h** against published systems' 3–4 h, and that
+already puts its 0.725 model ahead of a public 0.883 model on efficiency.
+
+So runtime is not slack against the 9-hour cap — it is the one axis where this
+project currently leads the field, and the two configurations should diverge:
+
+| | main board | efficiency board |
+|---|---|---|
+| folds | all five | one or two |
+| resolution | whatever wins | the cheaper one |
+| anything free at inference | yes | yes |
+
+**Free-at-inference changes are worth double** and should be exhausted first:
+rank averaging, better labels, a better backbone, per-finding pooling. Folds
+and resolution buy AUC with runtime and are roughly break-even on the efficiency
+board, so they are where the configurations part company — not earlier.
+
+---
 
 ## Phase 3 — inference kernel
 

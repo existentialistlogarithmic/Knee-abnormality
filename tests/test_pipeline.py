@@ -413,3 +413,13 @@ def test_a_pre_existing_checkpoint_still_loads():
     rebuilt = ns["build_model"]("resnet18", 3, 12, False, False)
     missing, unexpected = rebuilt.load_state_dict(legacy.state_dict(), strict=False)
     assert not missing and not unexpected
+
+
+def test_the_pooling_ab_differs_in_exactly_one_constant():
+    """The 288px run changed five things at once and its number meant nothing.
+    An A/B that is not one-variable is not an A/B."""
+    baseline = constants(KAGGLE / "04_train" / "run.py")
+    variant = constants(KAGGLE / "17_train_v1pool" / "run.py")
+    differing = {k for k in set(baseline) | set(variant)
+                 if baseline.get(k) != variant.get(k)}
+    assert differing == {"PER_FINDING_POOL"}, differing

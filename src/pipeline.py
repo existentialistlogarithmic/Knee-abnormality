@@ -300,6 +300,26 @@ LINEAGES = [
         infer_directory="08_infer_v2",
     ),
     Lineage(
+        # A one-variable A/B against knee-train: same cache, same fold, same
+        # everything except that each finding gets its own attention map. Fold 0
+        # scored 0.7001 CV and 0.725 on the board, so the comparison is against
+        # a number that has been measured on the thing that counts.
+        name="v1pool",
+        cache=CACHE_V1,
+        train=TrainConfig(
+            backbone="resnet34", epochs=24, batch=16, lr=6e-4,
+            per_finding_pool=True,
+            note="Identical to the v1 configuration except PER_FINDING_POOL.\n"
+                 "input_norm stays False so this differs from knee-train in\n"
+                 "exactly one respect — the discipline the 288px run failed.\n"
+                 "The four findings this is aimed at are the focal ones:\n"
+                 "Medial Meniscus, PF OA, Synovitis and MCL.",
+        ),
+        trainers=(Trainer(0, "knee-train-v1pool", "17_train_v1pool"),),
+        infer_slug="knee-infer-v1pool",
+        infer_directory="18_infer_v1pool",
+    ),
+    Lineage(
         # Same cache, same config, more epochs. v2 fold 0 was still climbing at
         # epoch 29 of 30 — the last three were 0.725, 0.727, 0.7282 — so 0.7282
         # is a floor for that configuration rather than its ceiling. This mounts

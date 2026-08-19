@@ -14,10 +14,13 @@ Phase 1 (the report labeler) is built. Phase 2 (imaging) is in progress.
 | stage | state |
 |---|---|
 | Phase 0 — verification | complete, 5/5 steps |
-| Phase 1 — report labeler | macro AUC **0.761** vs the 58 expert-labelled studies |
-| Submission pipeline | proven: **0.500** and **0.531** scored on the leaderboard |
-| Phase 2 — cache build | 4 shards complete |
-| Phase 2 — training | running |
+| Phase 1 — report labeler | macro AUC **0.769** vs the 58 expert-labelled studies |
+| Phase 2 — cache | v1 192px (4 shards) and v2 288px (8 shards), both verified complete |
+| Phase 2 — imaging model | **0.725 on the leaderboard** |
+| Phase 3 — inference | working, 2.2 s/study → 0.8 h of the 9 h cap |
+
+**Leaderboard: 0.725.** Constant priors score 0.500 and scanner metadata alone
+scores 0.531, so the pixels are contributing 0.194 of real signal.
 
 What the data actually is: **4,407 training studies, exactly 58 with expert
 labels**, 12 binary findings, one free-text report per study across ten
@@ -30,15 +33,27 @@ Four measurements govern everything downstream:
 - **No site label exists anywhere** — the DICOM headers are de-identified too.
   Folds group on a *scanner fingerprint* instead (`src/folds.py`). Random
   K-fold inflates macro AUC by **0.087**.
-- **Report-label CV overstates the leaderboard by ~0.138.** Measured, by
-  submitting a model whose CV was known. CV ranks configurations; it does not
-  predict the board.
-- **Scanner metadata alone scores 0.669** grouped, with no pixels. That is the
-  bar an imaging model must clear to have earned its place.
+- **The CV-to-leaderboard gap has opposite signs for the two model families**,
+  which is the most useful thing measured so far:
 
-Target: **macro ROC-AUC ≥ 0.90** — but see `docs/FINDINGS.md` §8: the current
-leaderboard top is 0.951 and the top 200 teams are all above 0.917, so 0.90 is
-below the field rather than above it.
+  | model | report-label CV | leaderboard | gap |
+  |---|---:|---:|---:|
+  | scanner metadata (no pixels) | 0.669 | 0.531 | **+0.138** |
+  | imaging (resnet34 2.5D) | 0.700 | **0.725** | **−0.025** |
+
+  CV is scored against noisy report-derived labels; the leaderboard against
+  expert labels. A model that learns anatomy disagrees with its own targets
+  exactly where they are wrong, so label noise depresses its CV but not its
+  score. A model with no anatomical information cannot do that — all it can
+  learn is the site-convention part, which does not transfer.
+  **Consequence: report-label CV understates imaging progress and overstates
+  everything else.**
+- **The label ceiling is not hard.** A model trained on 0.769-quality labels
+  scored 0.725 against expert truth, and was not converged.
+
+Target: **macro ROC-AUC ≥ 0.90**. Current standing: **0.725**. The leaderboard
+top is 0.951 and the top 200 teams are all above 0.917 (`docs/FINDINGS.md` §8),
+so 0.90 is below the field, not above it — there is a long way to go.
 
 ## Layout
 

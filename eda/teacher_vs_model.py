@@ -19,7 +19,6 @@ only (`docs/STRATEGY.md` rule 4).
 from __future__ import annotations
 
 import argparse
-import glob
 import json
 import sys
 from pathlib import Path
@@ -89,6 +88,13 @@ def main(argv=None) -> int:
                 if state in STATES and state != "not_mentioned":
                     machine[row, i] = STATES.index(state) / (len(STATES) - 1)
 
+    import runpy
+
+    kernel = runpy.run_path(
+        str(Path(__file__).resolve().parents[1] / "kaggle" / "16_llm_labeler" / "run.py"),
+        run_name="__not_main__")
+    fused = kernel["fuse"](lexicon, machine)
+
     print(f"\n{'finding':18s} {'teacher':>8s} {'model':>7s} {'lost':>7s} "
           f"{'abstain':>8s} {'pos':>4s}  reading")
     rows = []
@@ -96,14 +102,22 @@ def main(argv=None) -> int:
         y = (expert[:, i] > 0.5).astype(int)
         if not (0 < y.sum() < len(y)):
             continue
-        # the teacher: whichever reader is available, unioned by coverage, since
-        # that is what the training targets will be built from
-        both = np.where(np.isnan(lexicon[:, i]), machine[:, i], lexicon[:, i])
-        seen = ~np.isnan(both)
-        teacher = auc(y[seen], both[seen]) if 0 < y[seen].sum() < seen.sum() else float("nan")
+        # The teacher is the FUSED reader — the same fuse() the labeling kernel
+        # uses, not a second implementation. The first version of this script
+        # had its own: prefer the lexicon, fall back to the model, never average
+        # where both speak. That is a different and worse fusion than the one
+        # the training targets are actually built from, and it understated the
+        # teacher.
+        #
+        # It also scored the teacher only on the studies where it spoke, while
+        # scoring the model on all 58 — two different denominators in the same
+        # comparison. Abstentions now rank at the bottom for the teacher exactly
+        # as they do everywhere else, so both sides answer for all 58 studies.
+        teacher_score = np.nan_to_num(fused[:, i], nan=-1.0)
+        teacher = auc(y, teacher_score)
         got = auc(y, model[:, i])
         lost = teacher - got if teacher == teacher else float("nan")
-        abstain = float(np.isnan(both).mean())
+        abstain = float(np.isnan(fused[:, i]).mean())
         reading = ("teacher is weak — a LABEL problem" if teacher == teacher and teacher < 0.70
                    else "model lost it — RECOVERABLE" if lost == lost and lost > 0.12
                    else "model tracks its teacher")

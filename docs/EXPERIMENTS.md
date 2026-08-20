@@ -956,6 +956,10 @@ Notes on the fields that people fudge:
   `FINDINGS.md` §13. Both need a full five-fold run to be settled, and that
   needs GPU quota.
 
+### E027 — CORRECTED BELOW by E029. The teacher figures in this entry came from
+a fusion that is not the one the training targets use, and they understate it.
+The direction of the finding survives; the magnitudes do not.
+
 ### E027 — the model beats its teacher on diffuse findings and loses on focal ones
 - **date**: 2026-08-20
 - **how**: `eda/teacher_vs_model.py`, on CPU. Scores the report labelers and the
@@ -1033,3 +1037,43 @@ Notes on the fields that people fudge:
 - **`knee-embed`** runs the frozen pass on CPU; `eda/head_lab.py` runs the A/Bs.
   Every comparison is one-variable and reported as a paired interval rather than
   a score.
+
+
+### E029 — the teacher was understated: two fusions in my own code
+- **date**: 2026-08-20
+- **what was wrong**: `eda/teacher_vs_model.py` implemented its own fusion of the
+  two report readers — *prefer the lexicon, fall back to the model, never average
+  where both speak* — while `eda/combine_labelers.py` and the labeling kernel use
+  the real one: rank-normalise both, average where both speak. It also scored the
+  teacher **only on the studies where it spoke** while scoring the model on all
+  58, which is two different denominators inside one comparison.
+- **corrected, with both sides on all 58 studies and the kernel's `fuse()`**:
+
+  | finding | teacher (as reported) | teacher (correct) | model | lost |
+  |---|---:|---:|---:|---:|
+  | Medial Meniscus | 0.744 | **0.903** | 0.516 | −0.388 |
+  | MCL | 0.820 | **0.918** | 0.612 | −0.306 |
+  | ACL | 0.784 | **0.907** | 0.662 | −0.245 |
+  | Lateral Meniscus | 0.813 | **0.858** | 0.696 | −0.163 |
+  | Medial OA | 0.719 | **0.947** | 0.817 | −0.130 |
+
+  | | as reported | correct |
+  |---|---:|---:|
+  | teacher macro | 0.734 | **0.814** |
+  | recoverable gap | +0.060 | **+0.103** |
+  | findings the teacher genuinely does not know | 4 | **1** (Synovitis) |
+  | macro if the model merely matched its teacher | 0.792 | **0.835** |
+
+- **what this changes, and it is not small**: advice given on the wrong numbers
+  said *"to reach 0.90 the model must beat its teacher on all eight weakest
+  findings, and the teacher is below 0.897 on every one."* Correctly fused,
+  **four teachers are already at or above 0.897** — ACL 0.907, MCL 0.918, Medial
+  Meniscus 0.903, Medial OA 0.947. On those the model does not need to exceed
+  its supervision at all; it needs to stop throwing it away.
+- **what survives**: the direction. The model still loses on focal findings and
+  wins on diffuse ones, and Medial Meniscus at 0.516 against a teacher now
+  measured at **0.903** is a starker version of the same story, not a weaker one.
+- **the lesson, which is the same one as three entries ago**: a second
+  implementation of a shared idea is where the error lives. `to_rank` was
+  duplicated once and broke on ties; `fuse` was duplicated once and understated
+  the teacher by 0.08. Both scripts now call the kernel's implementation.

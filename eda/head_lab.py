@@ -226,7 +226,8 @@ def main(argv=None) -> int:
         m[is_gold] = 1.0
         return t, m
 
-    common = dict(epochs=args.epochs, batch=args.batch, lr=args.lr, seed=args.seed)
+    common = {"epochs": args.epochs, "batch": args.batch, "lr": args.lr,
+              "seed": args.seed}
     base_t, base_m = targets_from(args.labels)
 
     if args.compare in ("focal", "all"):

@@ -1,0 +1,123 @@
+"""Freeze the backbone and write out its embeddings once, on CPU.
+
+Fine-tuning this model on CPU would take **191 hours** — measured, not guessed.
+Running the same backbone *frozen* over the whole corpus takes **2.2 hours**,
+and everything above it — attention pooling, the focal top-k path, twelve heads,
+73,380 parameters in total — then trains over the saved embeddings in **2.6
+minutes for a full five-fold run**.
+
+That is the difference between an experiment costing a GPU session and costing a
+coffee. The weekly GPU allowance is 30 hours and it is spent; CPU sessions are a
+separate allowance. So this kernel exists to turn "wait for quota" into "run the
+A/B now".
+
+**What it does and does not buy.** A frozen backbone is not the fine-tuned model
+that scored 0.725, so absolute numbers from this rig do not transfer. What does
+transfer is *comparisons above the backbone* — does per-finding pooling help,
+does focal top-k pooling help, do the fused labels help — because those are
+exactly the parts still being trained here. Worth noting that a published system
+using a frozen DINOv2 with a trained head reached 0.776 on this leaderboard,
+above this project's fine-tuned 0.725, so "frozen" is not automatically "worse".
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from pathlib import Path
+
+import numpy as np
+
+# --------------------------------------------------------------------------- #
+# GENERATED CONFIG — written by eda/generate_kernels.py from src/pipeline.py.
+# Edit the manifest, not this file. Everything outside this block is shared by
+# every kernel rendered from this template.
+# --------------------------------------------------------------------------- #
+@@CONFIG@@
+# --------------------------------------------------------------------------- #
+
+FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
+            "Lateral OA", "PF OA", "Effusion", "Synovitis", "Baker's",
+            "Contusion", "Fracture"]
+SKIP_DIRECTORIES = {"train_series", "test_series"}
+OUT = Path("/kaggle/working")
+
+
+@@INCLUDE discovery:find_marker,find_all_markers@@
+@@INCLUDE cohort@@
+@@INCLUDE model@@
+
+
+def main() -> int:
+    import torch
+
+    torch.set_num_threads(EMBED_THREADS)
+    started = time.time()
+
+    cache_dirs = find_all_markers("cache_index_train_*.parquet")
+    artifacts = find_marker("soft_labels.parquet")
+    headers_dir = find_marker("series_headers.parquet")
+    if not cache_dirs or artifacts is None or headers_dir is None:
+        raise SystemExit(f"missing inputs: cache={cache_dirs} labels={artifacts} "
+                         f"headers={headers_dir}")
+
+    cohort = build_cohort(cache_dirs, artifacts, headers_dir,
+                          find_marker("train.csv"), FINDINGS)
+    studies = cohort["studies"]
+    cache_paths = cohort["cache_paths"]
+
+    # The backbone only. Everything above it is what the cheap rig will train,
+    # so none of it is used here.
+    full = build_model(RUN_BACKBONE, 3, len(FINDINGS), INPUT_NORM, False, 0)
+    full.eval()
+
+    limit = RUN_MAX_STUDIES or len(studies)
+    studies = studies[:limit]
+    print(f"embedding {len(studies):,} studies with {RUN_BACKBONE} "
+          f"on {EMBED_THREADS} CPU threads")
+
+    embeddings, kept = [], []
+    for index, study in enumerate(studies):
+        volume = np.load(cache_paths[study]).astype(np.float32) / 255.0
+        planes, slices = volume.shape[0], volume.shape[1]
+        flat = torch.from_numpy(volume).reshape(planes * slices, 1,
+                                                volume.shape[2], volume.shape[3])
+        flat = flat.repeat(1, 3, 1, 1)
+        if INPUT_NORM:
+            mean = torch.tensor(IMAGENET_MEAN).view(1, 3, 1, 1)
+            std = torch.tensor(IMAGENET_STD).view(1, 3, 1, 1)
+            flat = (flat - mean) / std
+        with torch.no_grad():
+            out = full.backbone(flat)
+        # float16 halves the artefact and costs nothing measurable: these are
+        # inputs to a linear layer, not accumulations.
+        embeddings.append(out.reshape(planes * slices, -1).to(torch.float16).numpy())
+        kept.append(study)
+
+        if (index + 1) % 200 == 0 or index + 1 == len(studies):
+            elapsed = time.time() - started
+            rate = (index + 1) / max(elapsed, 1e-6)
+            print(f"  {index + 1:,}/{len(studies):,}  {elapsed / 60:.1f} min  "
+                  f"{1 / rate:.2f} s/study  eta "
+                  f"{(len(studies) - index - 1) / rate / 60:.1f} min", flush=True)
+        if time.time() - started > RUN_TIME_BUDGET:
+            print(f"  time budget reached after {index + 1:,} studies")
+            break
+
+    stacked = np.stack(embeddings)
+    np.save(OUT / "embeddings.npy", stacked)
+    (OUT / "embeddings_index.json").write_text(json.dumps({
+        "backbone": RUN_BACKBONE, "input_norm": INPUT_NORM,
+        "geometry": {"mm_per_pixel": TARGET_MM_PER_PIXEL, "size": TARGET_SIZE,
+                     "slices": SLICES_PER_PLANE},
+        "shape": list(stacked.shape), "dtype": str(stacked.dtype),
+        "studies": kept,
+    }, indent=2))
+    print(f"\nwrote embeddings.npy {stacked.shape} {stacked.dtype} "
+          f"({stacked.nbytes / 1e6:.0f} MB)")
+    print(f"wall clock {(time.time() - started) / 60:.1f} min on CPU")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

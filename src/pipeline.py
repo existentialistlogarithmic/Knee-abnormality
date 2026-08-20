@@ -462,6 +462,32 @@ LINEAGES = [
 # --------------------------------------------------------------------------- #
 EXTRAS = [
     Kernel(
+        slug="knee-embed",
+        directory="26_embed",
+        template="embed",
+        gpu=False,          # 2.2 h frozen on CPU against 191 h fine-tuning
+        internet=True,      # pretrained backbone weights
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[ARTIFACTS_DATASET],
+        constants={**V1.constants(),
+                   "RUN_BACKBONE": "resnet34",
+                   "INPUT_NORM": True,     # frozen features want the right input
+                   "RUN_MAX_STUDIES": 0,   # 0 = every study
+                   "EMBED_THREADS": 4,
+                   "RUN_TIME_BUDGET": Raw("10.0 * 3600")},
+        note="Writes frozen backbone embeddings for the whole corpus once, so\n"
+             "that everything above the backbone can be trained in minutes\n"
+             "instead of hours. Measured: fine-tuning on CPU is 191 hours,\n"
+             "frozen extraction is 2.2 hours, and a five-fold run of the 73,380\n"
+             "parameters above the backbone is 2.6 minutes.\n"
+             "\n"
+             "input_norm is True here even though the 0.725 model was trained\n"
+             "without it. A FROZEN backbone has no chance to adapt to the wrong\n"
+             "input distribution, so feeding it what it was pretrained on\n"
+             "matters more here than it did there.",
+    ),
+    Kernel(
         slug="knee-gold-eval",
         directory="23_gold_eval",
         template="gold_eval",

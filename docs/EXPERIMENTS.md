@@ -1000,3 +1000,36 @@ Notes on the fields that people fudge:
   **+0.060 macro**, taking 0.720 to 0.780.
 - **`knee-train-v1focal`** is the A/B, differing from the 0.725 baseline in
   exactly one constant, asserted by a test. **Blocked on GPU quota.**
+
+### E028 — training does not need a GPU, if the backbone is frozen
+- **date**: 2026-08-20
+- **the measurement that changes the plan**, on four CPU threads:
+
+  | | cost |
+  |---|---|
+  | fine-tune the whole model, 4,407 studies × 24 epochs | **191 hours** |
+  | one frozen pass over the corpus, saved as embeddings | **2.2 hours, once** |
+  | five folds × 24 epochs of the 73,380 parameters above it | **2.6 minutes** |
+
+  The corpus of embeddings is 60 × 512 float16 per study — **0.27 GB total**.
+- **why this matters more than it looks**: "we are blocked on GPU quota" was
+  true of *fine-tuning* and quietly assumed of everything else. The questions
+  actually open — does focal top-k pooling help, does per-finding attention
+  help, do the fused labels help — are all about the part **above** the backbone,
+  which is the part that costs 2.6 minutes. The blocked thing was never the
+  thing that needed answering first.
+- **what transfers and what does not.** A frozen backbone is not the fine-tuned
+  model that scored 0.725, so absolute numbers from this rig do not predict the
+  board. **Comparisons above the backbone do transfer**, because those are
+  exactly what is being trained. A published system using a frozen DINOv2 with a
+  trained head reached **0.776** on this leaderboard — above this project's
+  fine-tuned 0.725 — so "frozen" is not automatically "worse" either.
+- **positive control before trusting it**: run on synthetic embeddings with a
+  focal signal planted on 2 slices of 20 for six findings and a diffuse signal
+  spread across all 20 for the other six, the rig recovers
+  **FOCAL_K=3 − baseline = +0.0445, 95% CI [+0.025, +0.064]**. A rig that could
+  not find an effect deliberately put there would be worth nothing, and this one
+  finds it.
+- **`knee-embed`** runs the frozen pass on CPU; `eda/head_lab.py` runs the A/Bs.
+  Every comparison is one-variable and reported as a paired interval rather than
+  a score.

@@ -907,3 +907,51 @@ Notes on the fields that people fudge:
   useful — **gold OOF appears to estimate this project's leaderboard score
   directly, with no correction**, and it costs nothing but the folds already
   being trained.
+
+### E026 — the gold pool is complete at n=58, and it tracks the leaderboard
+- **date**: 2026-08-20
+- **how**: `knee-gold-eval` on **CPU**, 1.8 minutes, no GPU quota consumed. It
+  filled the fold-0 hole that `knee-train` left by predating the gold dump.
+- **result**: **n = 58, macro AUC 0.7201, 95% CI [0.672, 0.767].**
+- **and it lands on the board.** This configuration scored **0.725** on the
+  leaderboard. Gold out-of-fold says **0.7201** — an offset of **+0.005**. The
+  published +0.044 correction (`COMPETITIVE_ANALYSIS.md` §2) does not reproduce
+  here, and the practical consequence is better than it would have been: **gold
+  OOF estimates this project's leaderboard score directly, with no correction**,
+  for the cost of folds that were being trained anyway.
+- **where the score actually is**, which the pooled number hides:
+
+  | finding | gold AUC | positives |
+  |---|---:|---:|
+  | **Medial Meniscus** | **0.516** | 26 of 58 |
+  | MCL | 0.612 | 9 |
+  | Synovitis | 0.654 | 27 |
+  | ACL | 0.662 | 24 |
+  | PF OA | 0.672 | 21 |
+  | Lateral Meniscus | 0.696 | 23 |
+  | Lateral OA | 0.723 | 11 |
+  | Contusion | 0.758 | 19 |
+  | Fracture | 0.778 | 18 |
+  | Medial OA | 0.817 | 15 |
+  | Baker's | 0.830 | 12 |
+  | Effusion | 0.924 | 35 |
+
+  **Medial Meniscus is at chance** on the most common finding in the set. Every
+  finding is 1/12 of the metric regardless of difficulty, so the weakest one
+  costs exactly as much as the strongest earns.
+- **the arithmetic that should drive everything from here**: lifting the worst
+  four to 0.80 is worth **+0.063** and takes the macro to 0.783. Reaching the
+  0.90 target requires **essentially every finding at 0.90** — there is no
+  subset of easy wins that gets there.
+- **both fold-0 experiments are NOT SEPARATED from the baseline**, paired on the
+  same 12 studies:
+
+  | comparison | delta | 95% CI |
+  |---|---:|---|
+  | per-finding attention pooling − baseline | +0.0142 | [−0.078, +0.114] |
+  | DINOv2 − baseline | −0.1322 | [−0.303, +0.083] |
+
+  Neither is established. DINOv2 looks materially worse and still cannot be
+  ruled out at n=12, which is exactly the resolution limit measured in
+  `FINDINGS.md` §13. Both need a full five-fold run to be settled, and that
+  needs GPU quota.

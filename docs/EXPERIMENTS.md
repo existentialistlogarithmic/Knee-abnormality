@@ -1124,3 +1124,43 @@ The direction of the finding survives; the magnitudes do not.
   1.76**, so 2.6 hours instead of 2.2 — essentially the same cost for features
   that a published system rode to **0.776** on this leaderboard with nothing but
   a trained head on top.
+
+### E031 — plane attribution: an attractive pattern that did not survive its own test
+- **date**: 2026-08-20
+- **the idea**: the cache gives three planes and the model pools all sixty
+  slices together, treating the planes as interchangeable. Anatomy says they are
+  not — an ACL is read on oblique sagittal, the MCL is a coronal structure, the
+  patellofemoral joint is axial. If a finding lives in one plane, pooling three
+  dilutes it threefold before any pooling rule gets a chance. Nothing in the
+  public write-ups read for `COMPETITIVE_ANALYSIS.md` reports per-finding plane
+  attribution, so it was measured here rather than looked up.
+- **the attractive first result**: training one head per plane over the frozen
+  embeddings, **5 of 12 findings scored higher on a single plane than on all
+  three pooled**, mean advantage **+0.082**.
+- **and it is selection bias.** Picking each finding's best plane after seeing
+  the results is fitting 12 × 3 choices to 58 studies. The honest test is to
+  name the plane from **anatomy first**, which is what `ANATOMICAL_PLANE` in
+  `eda/plane_ablation.py` does — fixed before the comparison was run:
+
+  | | macro |
+  |---|---:|
+  | pre-specified anatomical plane per finding | 0.6113 |
+  | all three planes pooled | **0.6314** |
+  | paired delta | **−0.0201**, 95% CI [−0.063, +0.025] |
+
+  **Not separated, and pointing the wrong way.** The pattern was noise dressed
+  as anatomy.
+- **the one thing that survives, held loosely**: the single least ambiguous
+  anatomical call is the MCL, a coronal-plane ligament. It scores **0.599 on
+  coronal against 0.478 on all three** — a 0.121 gap in the predicted direction.
+  That is one finding with **9 positives among 58 studies**, so it is a reason to
+  re-test on better features, not a result.
+- **what this does not settle**: the frozen ImageNet features score 0.63 overall
+  and are at chance on several findings (E030), so this is "unsupported on these
+  features" rather than "refuted". The DINOv2 extraction now running is the
+  fair re-test.
+- **why it is written down at all**: because the first version of this entry
+  would have read "5 of 12 findings prefer a single plane, mean +0.082, a
+  learned per-finding plane weight is 36 parameters" — which is exactly the
+  shape of the confident claim this project has had to retract six times. The
+  test that killed it cost four minutes.

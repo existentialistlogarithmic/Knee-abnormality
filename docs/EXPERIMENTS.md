@@ -1077,3 +1077,50 @@ The direction of the finding survives; the magnitudes do not.
   implementation of a shared idea is where the error lives. `to_rank` was
   duplicated once and broke on ties; `fuse` was duplicated once and understated
   the teacher by 0.08. Both scripts now call the kernel's implementation.
+
+### E030 — the CPU rig ran, and its first answer was about the rig
+- **date**: 2026-08-20
+- **the run**: `knee-embed` produced frozen ImageNet-resnet34 embeddings for all
+  4,407 studies — `(4407, 60, 512)` float16, 271 MB — and `eda/head_lab.py` ran
+  three five-fold A/Bs over them in about four minutes total.
+- **all three came back not separated**:
+
+  | comparison | delta | 95% CI |
+  |---|---:|---|
+  | FOCAL_K=3 − baseline | −0.0139 | [−0.048, +0.024] |
+  | per-finding maps − baseline | +0.0233 | [−0.028, +0.080] |
+  | fused labels − lexicon labels | +0.0099 | [−0.044, +0.062] |
+
+- **and then the per-finding breakdown explained why**, at least for the first
+  one. The frozen features are **at chance on the focal findings**:
+
+  | finding | frozen | fine-tuned | |
+  |---|---:|---:|---|
+  | MCL | **0.478** | 0.612 | focal |
+  | ACL | **0.532** | 0.662 | focal |
+  | Medial Meniscus | **0.538** | 0.516 | focal |
+  | Fracture | **0.543** | 0.778 | |
+  | Effusion | 0.846 | 0.924 | diffuse |
+
+  **No pooling change above a feature that is at chance can recover it — there
+  is nothing there to pool.** So the FOCAL_K result is not a verdict on focal
+  pooling. It is the rig reporting that it cannot see the thing being asked
+  about. Recorded as such, because "the experiment failed" and "the idea failed"
+  are different claims and this project has confused them once already (E021).
+- **an independent replication, unlooked for**: the published claim that
+  motivated the DINOv2 work is that *a backbone trained on natural images does
+  not know what to look for in an MRI, and fine-tuning at the same resolution
+  moves exactly the focal findings* — Medial Meniscus +0.171, MCL +0.118,
+  ACL +0.113 in their measurement. Here the frozen ImageNet features are at
+  chance on precisely those three, and fine-tuning lifts them. Two different
+  projects, same conclusion, arrived at from opposite directions.
+- **what the rig can still answer**: comparisons on findings its features
+  actually encode — Effusion 0.846, Baker's 0.714, Contusion 0.687, Lateral OA
+  0.675. The label A/B is one of those, and it is +0.0099 with the interval
+  containing zero, which is a real if weak reading.
+- **the fix, already running**: re-extract with **DINOv2 ViT-S/14**, which is
+  self-supervised rather than ImageNet-classification-trained and transfers to
+  medical imaging far better. Measured at **2.13 s/study against resnet34's
+  1.76**, so 2.6 hours instead of 2.2 — essentially the same cost for features
+  that a published system rode to **0.776** on this leaderboard with nothing but
+  a trained head on top.

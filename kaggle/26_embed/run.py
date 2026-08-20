@@ -47,7 +47,7 @@ import numpy as np
 TARGET_MM_PER_PIXEL = 0.6
 TARGET_SIZE         = 192
 SLICES_PER_PLANE    = 20
-RUN_BACKBONE        = "resnet34"
+RUN_BACKBONE        = "vit_small_patch14_dinov2.lvd142m"
 INPUT_NORM          = True
 RUN_MAX_STUDIES     = 0
 EMBED_THREADS       = 4

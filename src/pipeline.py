@@ -471,7 +471,13 @@ EXTRAS = [
                  "knee-cache-build-3"],
         datasets=[ARTIFACTS_DATASET],
         constants={**V1.constants(),
-                   "RUN_BACKBONE": "resnet34",
+                   # DINOv2, not resnet34. The resnet34 pass was run first and
+                   # its features turned out to be AT CHANCE on the focal
+                   # findings — ACL 0.532, MCL 0.478, Medial Meniscus 0.538 —
+                   # so no pooling change above them could be tested, because
+                   # there was nothing there to pool. Measured at 2.13 s/study
+                   # against resnet34's 1.76, so 2.6 hours rather than 2.2.
+                   "RUN_BACKBONE": "vit_small_patch14_dinov2.lvd142m",
                    "INPUT_NORM": True,     # frozen features want the right input
                    "RUN_MAX_STUDIES": 0,   # 0 = every study
                    "EMBED_THREADS": 4,

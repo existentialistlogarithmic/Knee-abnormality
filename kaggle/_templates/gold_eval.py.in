@@ -1,0 +1,154 @@
+"""Score already-trained checkpoints against the expert labels they never saw.
+
+**This runs on CPU**, which is the point. The weekly GPU allowance is 30 hours
+and it is spent; CPU sessions are a separate allowance. The work here is twelve
+studies through one backbone — seconds — so there is no reason it should ever
+have needed a GPU.
+
+It exists because `knee-train` (fold 0) predates the gold dump that later
+training runs emit, which leaves a hole in the middle of the only offline signal
+this project trusts. Folds 1–4 pool to n=46; fold 0 holds the other 12. Without
+them there is also no like-for-like baseline for the two fold-0 experiments —
+per-finding attention pooling and DINOv2 — so both are currently unmeasurable
+against the configuration they were meant to improve on.
+
+The fold split comes from the shared cohort builder, not from a copy. An
+out-of-fold score is only out-of-fold if this kernel cuts the folds exactly as
+the training kernel did, and a second implementation that sorted studies
+differently would produce a number that looks held-out and is not.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from pathlib import Path
+
+import numpy as np
+
+# --------------------------------------------------------------------------- #
+# GENERATED CONFIG — written by eda/generate_kernels.py from src/pipeline.py.
+# Edit the manifest, not this file. Everything outside this block is shared by
+# every kernel rendered from this template.
+# --------------------------------------------------------------------------- #
+@@CONFIG@@
+# --------------------------------------------------------------------------- #
+
+FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
+            "Lateral OA", "PF OA", "Effusion", "Synovitis", "Baker's",
+            "Contusion", "Fracture"]
+SKIP_DIRECTORIES = {"train_series", "test_series"}
+OUT = Path("/kaggle/working")
+
+
+@@INCLUDE discovery:find_marker,find_all_markers@@
+@@INCLUDE cohort@@
+@@INCLUDE model@@
+
+
+def main() -> int:
+    import torch
+
+    started = time.time()
+    cache_dirs = find_all_markers("cache_index_train_*.parquet")
+    artifacts = find_marker("soft_labels.parquet")
+    headers_dir = find_marker("series_headers.parquet")
+    competition = find_marker("train.csv")
+    if not cache_dirs or artifacts is None or headers_dir is None:
+        raise SystemExit(f"missing inputs: cache={cache_dirs} labels={artifacts} "
+                         f"headers={headers_dir}")
+    print(f"cache shards mounted: {len(cache_dirs)}")
+
+    cohort = build_cohort(cache_dirs, artifacts, headers_dir, competition, FINDINGS)
+    studies = cohort["studies"]
+    cache_paths = cohort["cache_paths"]
+    targets, is_gold, splits = cohort["targets"], cohort["is_gold"], cohort["splits"]
+    if not is_gold.any():
+        raise SystemExit("no gold studies found — train.csv did not mount")
+
+    checkpoints = sorted(Path("/kaggle/input").glob("notebooks/*/*/checkpoint_fold*.pt"))
+    if not checkpoints:
+        raise SystemExit("no checkpoints mounted")
+    print(f"checkpoints mounted: {len(checkpoints)}")
+
+    device = "cpu"
+    for path in checkpoints:
+        # The fold is in the FILENAME, not the checkpoint — training never
+        # recorded it. Reading it from anywhere else would risk scoring a model
+        # on studies it trained on, which is the one mistake this kernel exists
+        # to avoid making.
+        stem = path.stem                       # checkpoint_fold{n}
+        try:
+            fold = int(stem.rsplit("fold", 1)[1])
+        except (IndexError, ValueError):
+            print(f"  cannot read a fold number from {path.name}; skipping")
+            continue
+
+        state = torch.load(path, map_location=device, weights_only=False)
+        backbone = state.get("backbone", "resnet18")
+        normalise = bool(state.get("input_norm", False))
+        pooling = bool(state.get("per_finding_pool", False))
+        subsample = state.get("slice_subsample")
+
+        model = build_model(backbone, 3, len(FINDINGS), normalise, pooling).to(device)
+        weights = {k: v for k, v in state["model"].items() if k not in ("mean", "std")}
+        try:
+            missing, unexpected = model.load_state_dict(weights, strict=False)
+        except RuntimeError as exc:
+            print(f"  {path.name}: architecture mismatch, skipping ({exc})")
+            continue
+        if missing or unexpected:
+            print(f"  {path.name}: weight mismatch "
+                  f"missing={len(missing)} unexpected={len(unexpected)}; skipping")
+            continue
+        model.eval()
+
+        _train_idx, val_idx = splits[fold]
+        positions = [p for p in val_idx if is_gold[p]]
+        print(f"\n{path.parent.parent.name}/{path.name}: fold {fold}, "
+              f"{backbone}, norm={normalise}, pool={pooling}, "
+              f"subsample={subsample}, {len(positions)} held-out gold studies")
+        if not positions:
+            continue
+
+        predicted = []
+        for position in positions:
+            volume = np.load(cache_paths[studies[position]]).astype(np.float32) / 255.0
+            if subsample and volume.shape[1] > subsample:
+                # Evenly spaced, exactly as validation did during training.
+                idx = np.linspace(0, volume.shape[1] - 1, subsample).round().astype(int)
+                volume = volume[:, idx]
+            with torch.no_grad():
+                logits = model(torch.from_numpy(volume)[None])
+            predicted.append(torch.sigmoid(logits.float())[0].numpy())
+        predicted = np.stack(predicted)
+        expert = targets[positions]
+
+        from sklearn.metrics import roc_auc_score
+
+        aucs = {}
+        for i, finding in enumerate(FINDINGS):
+            y = (expert[:, i] > 0.5).astype(int)
+            if 0 < y.sum() < len(y):
+                aucs[finding] = roc_auc_score(y, predicted[:, i])
+        macro = float(np.mean(list(aucs.values()))) if aucs else float("nan")
+        print(f"  gold macro AUC {macro:.4f} over {len(aucs)} scorable findings")
+
+        tag = path.parent.parent.name.replace("/", "_")
+        (OUT / f"gold_oof_fold{fold}_{tag}.json").write_text(json.dumps({
+            "fold": fold, "epoch": state.get("epoch"), "backbone": backbone,
+            "source": tag,
+            "geometry": {"mm_per_pixel": TARGET_MM_PER_PIXEL, "size": TARGET_SIZE,
+                         "slices": SLICES_PER_PLANE, "slice_subsample": subsample},
+            "findings": FINDINGS,
+            "studies": [studies[p] for p in positions],
+            "predicted": predicted.round(5).tolist(),
+            "expert": expert.round(5).tolist(),
+        }, indent=2))
+
+    print(f"\nwall clock {(time.time() - started) / 60:.1f} min on CPU")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

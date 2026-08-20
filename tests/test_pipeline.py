@@ -464,3 +464,38 @@ def test_the_label_ab_differs_only_in_which_dataset_supplies_the_labels():
     assert b["dataset_sources"] == [pipeline.FUSED_DATASET]
     for field in ("kernel_sources", "enable_gpu", "enable_internet", "machine_shape"):
         assert a[field] == b[field], f"{field} differs; this is no longer an A/B"
+
+
+def test_the_cohort_builder_is_shared_not_copied():
+    """An out-of-fold score is only out-of-fold if every kernel cuts the folds
+    identically. A second implementation that sorted studies differently would
+    produce a number that looks held-out and is not, and nothing would raise."""
+    shared = (KAGGLE / "_templates" / "_shared" / "cohort.py").read_text()
+    assert "def build_cohort(" in shared
+    for directory in ("04_train", "23_gold_eval"):
+        source = (KAGGLE / directory / "run.py").read_text()
+        assert source.count("def build_cohort(") == 1, f"{directory}: not spliced once"
+        assert "build_cohort(cache_dirs" in source, f"{directory}: does not call it"
+    # the ordering is the whole contract
+    assert "studies = sorted(" in shared
+
+
+def test_the_gold_evaluator_runs_on_cpu():
+    """Twelve studies through one backbone. The weekly GPU allowance is 30 hours
+    and spending any of it on this would be a straightforward waste."""
+    by_slug = {k.slug: k for k in pipeline.all_kernels()}
+    kernel = by_slug["knee-gold-eval"]
+    assert kernel.gpu is False
+    assert kernel.metadata()["machine_shape"] == ""
+    source = (KAGGLE / kernel.directory / "run.py").read_text()
+    assert 'device = "cpu"' in source
+
+
+def test_the_gold_evaluator_takes_the_fold_from_the_filename():
+    """Training never recorded the fold in the checkpoint. Guessing it from
+    anywhere else risks scoring a model on studies it trained on, which is the
+    one mistake this kernel exists to avoid."""
+    source = (KAGGLE / "23_gold_eval" / "run.py").read_text()
+    assert 'stem.rsplit("fold", 1)[1]' in source
+    assert "positions = [p for p in val_idx if is_gold[p]]" in source, \
+        "it must score the VALIDATION half of the fold, never the training half"

@@ -435,6 +435,26 @@ LINEAGES = [
 # --------------------------------------------------------------------------- #
 EXTRAS = [
     Kernel(
+        slug="knee-gold-eval",
+        directory="23_gold_eval",
+        template="gold_eval",
+        gpu=False,          # twelve studies through one backbone; CPU is ample
+        internet=False,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3", "knee-train"],
+        datasets=[ARTIFACTS_DATASET],
+        constants={**V1.constants()},
+        note="Scores already-trained checkpoints against the expert labels they\n"
+             "never saw, on CPU, because the weekly GPU allowance is spent and\n"
+             "this is twelve studies through one backbone.\n"
+             "\n"
+             "knee-train predates the gold dump later runs emit, which leaves a\n"
+             "hole in the middle of the only offline signal this project trusts:\n"
+             "folds 1-4 pool to n=46 and fold 0 holds the other 12. It also\n"
+             "leaves the two fold-0 experiments — per-finding pooling and\n"
+             "DINOv2 — with no like-for-like baseline to be measured against.",
+    ),
+    Kernel(
         slug="knee-llm-labeler",
         directory="16_llm_labeler",
         template="llm_label",

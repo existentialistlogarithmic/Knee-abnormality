@@ -499,3 +499,75 @@ def test_the_gold_evaluator_takes_the_fold_from_the_filename():
     assert 'stem.rsplit("fold", 1)[1]' in source
     assert "positions = [p for p in val_idx if is_gold[p]]" in source, \
         "it must score the VALIDATION half of the fold, never the training half"
+
+
+def test_focal_pooling_is_a_strict_extension():
+    """FOCAL_K=0 must reproduce the 0.725 configuration exactly. An option that
+    changed the baseline would make every earlier number incomparable."""
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+    import runpy
+
+    ns = runpy.run_path(str(KAGGLE / "04_train" / "run.py"), run_name="__not_main__")
+    x = torch.rand(2, 3, 6, 64, 64)
+    torch.manual_seed(0)
+    a = ns["build_model"]("resnet18", 3, 12, False, False, 0)
+    torch.manual_seed(0)
+    b = ns["build_model"]("resnet18", 3, 12, False, False, 0)
+    a.eval()
+    b.eval()
+    with torch.no_grad():
+        assert torch.equal(a(x), b(x))
+
+
+def test_focal_pooling_reacts_to_one_slice_where_the_mean_cannot():
+    """A meniscal tear is on about three slices of sixty. A weighted mean over
+    sixty embeddings dilutes it by construction, and the gold measurement says
+    that is exactly what is happening: focal findings score 0.632 against a
+    0.798 teacher while diffuse ones score 0.783 against a 0.688 teacher."""
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+    import runpy
+
+    ns = runpy.run_path(str(KAGGLE / "04_train" / "run.py"), run_name="__not_main__")
+    torch.manual_seed(0)
+    model = ns["build_model"]("resnet18", 3, 12, False, False, 3)
+    model.eval()
+    embedded = torch.randn(1, 60, model.head.in_features)
+    spiked = embedded.clone()
+    spiked[0, 7] *= 8.0
+
+    topk = (model.head(embedded).topk(3, 1).values.mean(1)
+            - model.head(spiked).topk(3, 1).values.mean(1)).abs().mean()
+    mean = (model.head(embedded.mean(1)) - model.head(spiked.mean(1))).abs().mean()
+    assert topk > 4 * mean, f"top-k {topk:.4f} is not meaningfully sharper than mean {mean:.4f}"
+
+
+def test_the_focal_blend_starts_neutral_and_is_per_finding():
+    """One blend weight per finding, so a diffuse finding can keep the mean
+    while a focal one leans on its few slices. Starting switched off would give
+    the new path no gradient."""
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+    import runpy
+
+    ns = runpy.run_path(str(KAGGLE / "04_train" / "run.py"), run_name="__not_main__")
+    model = ns["build_model"]("resnet18", 3, 12, False, False, 3)
+    assert model.mix.shape == (12,)
+    assert torch.allclose(torch.sigmoid(model.mix), torch.full((12,), 0.5))
+
+
+def test_the_focal_ab_differs_in_exactly_one_constant():
+    baseline = constants(KAGGLE / "04_train" / "run.py")
+    variant = constants(KAGGLE / "24_train_v1focal" / "run.py")
+    differing = {k for k in set(baseline) | set(variant)
+                 if baseline.get(k) != variant.get(k)}
+    assert differing == {"FOCAL_K"}, differing
+
+
+def test_inference_and_gold_eval_read_focal_k_from_the_checkpoint():
+    """It changes the shape of the weights, so building it from the manifest
+    would assemble the wrong architecture whenever the two disagreed."""
+    for directory in ("11_infer_folds", "23_gold_eval"):
+        source = (KAGGLE / directory / "run.py").read_text()
+        assert 'state.get("focal_k", 0)' in source, directory

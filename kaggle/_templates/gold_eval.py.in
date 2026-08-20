@@ -88,9 +88,11 @@ def main() -> int:
         backbone = state.get("backbone", "resnet18")
         normalise = bool(state.get("input_norm", False))
         pooling = bool(state.get("per_finding_pool", False))
+        focal = int(state.get("focal_k", 0) or 0)
         subsample = state.get("slice_subsample")
 
-        model = build_model(backbone, 3, len(FINDINGS), normalise, pooling).to(device)
+        model = build_model(backbone, 3, len(FINDINGS), normalise, pooling,
+                            focal).to(device)
         weights = {k: v for k, v in state["model"].items() if k not in ("mean", "std")}
         try:
             missing, unexpected = model.load_state_dict(weights, strict=False)

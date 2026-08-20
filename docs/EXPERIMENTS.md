@@ -955,3 +955,48 @@ Notes on the fields that people fudge:
   ruled out at n=12, which is exactly the resolution limit measured in
   `FINDINGS.md` §13. Both need a full five-fold run to be settled, and that
   needs GPU quota.
+
+### E027 — the model beats its teacher on diffuse findings and loses on focal ones
+- **date**: 2026-08-20
+- **how**: `eda/teacher_vs_model.py`, on CPU. Scores the report labelers and the
+  imaging model's out-of-fold predictions against the **same 58 expert-labelled
+  studies**, per finding, so the two are directly comparable.
+- **the split is anatomical and it is clean**:
+
+  | | model | teacher | |
+  |---|---:|---:|---|
+  | **focal** (ACL, MCL, both menisci, PF OA) | 0.632 | 0.798 | model is **worse** |
+  | **diffuse** (effusion, OA, synovitis, Baker's, contusion, fracture) | 0.783 | 0.688 | model is **better** |
+
+  Per finding, where the signal was in the targets and did not survive:
+
+  | finding | teacher | model | lost |
+  |---|---:|---:|---:|
+  | Medial Meniscus | 0.744 | 0.516 | **−0.228** |
+  | MCL | 0.820 | 0.612 | −0.208 |
+  | PF OA | 0.828 | 0.672 | −0.156 |
+  | ACL | 0.784 | 0.662 | −0.123 |
+
+  And where the model **exceeds** its own supervision: Effusion 0.719 → 0.924,
+  Lateral OA 0.534 → 0.723, Medial OA 0.719 → 0.817, Fracture 0.695 → 0.778.
+- **what that rules out**: Medial Meniscus at 0.516 is not a hard problem being
+  lost to. Its teacher scores 0.744 on the same studies, and the finding has 26
+  positives of 58 — the most common in the set. The signal was **present in the
+  targets and thrown away between the targets and the predictions.**
+- **the mechanism it points at**: attention pooling produces a weighted MEAN
+  over sixty slice embeddings. A meniscal tear is on about three of them; an
+  effusion is on most. Averaging is the right operation for the second kind and
+  the wrong one for the first, and the measurement splits exactly that way.
+- **the change**: `FOCAL_K` keeps the **top-k slices per finding** alongside the
+  weighted mean, and learns a per-finding blend between them, so a diffuse
+  finding can keep the mean while a focal one reads off its few slices. Twelve
+  extra parameters — one blend weight per finding.
+
+  Verified: `FOCAL_K=0` reproduces the 0.725 configuration bit-for-bit, so every
+  earlier number stays comparable. A single strong slice out of sixty moves the
+  top-k path **8×** further than it moves the mean path. The blend starts at
+  0.5, so neither path begins switched off.
+- **what it is worth if it works**: closing only the four recoverable gaps is
+  **+0.060 macro**, taking 0.720 to 0.780.
+- **`knee-train-v1focal`** is the A/B, differing from the 0.725 baseline in
+  exactly one constant, asserted by a test. **Blocked on GPU quota.**

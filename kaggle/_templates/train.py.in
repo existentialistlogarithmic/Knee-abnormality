@@ -191,7 +191,8 @@ def main() -> int:
           f"val groups {pd.Series(group_values[val_idx]).nunique()}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = build_model(args.backbone, 3, len(FINDINGS), INPUT_NORM, PER_FINDING_POOL).to(device)
+    model = build_model(args.backbone, 3, len(FINDINGS), INPUT_NORM,
+                        PER_FINDING_POOL, FOCAL_K).to(device)
 
     # Both cards were sitting idle: NvidiaTeslaT4 grants two, and the first run
     # used one. With AMP as well this is roughly a 4x throughput change, which is
@@ -403,6 +404,7 @@ def main() -> int:
                     "slice_subsample": SLICE_SUBSAMPLE,
                     "input_norm": INPUT_NORM,
                     "per_finding_pool": PER_FINDING_POOL,
+                    "focal_k": FOCAL_K,
                     }, checkpoint_path)
         (out_dir / f"history_fold{args.fold}.json").write_text(json.dumps(history, indent=2))
 

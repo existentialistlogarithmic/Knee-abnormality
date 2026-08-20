@@ -115,6 +115,7 @@ class TrainConfig:
     slice_subsample: int | None = None
     input_norm: bool = False
     per_finding_pool: bool = False
+    focal_k: int = 0
     note: str = ""
 
     def constants(self) -> dict[str, object]:
@@ -124,6 +125,7 @@ class TrainConfig:
                 "SLICE_SUBSAMPLE": self.slice_subsample,
                 "INPUT_NORM": self.input_norm,
                 "PER_FINDING_POOL": self.per_finding_pool,
+                "FOCAL_K": self.focal_k,
                 "RUN_TIME_BUDGET": Raw("7.5 * 3600"),
                 "GOLD_WEIGHT": 8.0, "ABSTAIN_MASKS_LOSS": True,
                 "WARMUP_EPOCHS": 2, "EMA_DECAY": 0.999, "LABEL_SMOOTH": 0.02}
@@ -358,6 +360,31 @@ LINEAGES = [
                           resume_from="knee-train-dinov2"),),
         infer_slug="knee-infer-dinov2-long",
         infer_directory="20_infer_dinov2_long",
+    ),
+    Lineage(
+        # The change the gold measurement actually asked for. Against the same
+        # 58 expert-labelled studies this configuration BEATS its own teacher on
+        # every diffuse finding and LOSES to it on every focal one — focal 0.632
+        # against a 0.798 teacher, diffuse 0.783 against a 0.688 teacher. Losing
+        # 0.228 on Medial Meniscus, which the teacher scores 0.744, is not a hard
+        # problem being lost to; it is signal present in the targets and thrown
+        # away by pooling that averages over sixty slice embeddings.
+        #
+        # FOCAL_K keeps the top three slices per finding alongside the weighted
+        # mean and learns, per finding, how much to lean on each. Twelve extra
+        # parameters. Closing only the recoverable gaps is worth +0.060 macro.
+        name="v1focal",
+        cache=CACHE_V1,
+        train=TrainConfig(
+            backbone="resnet34", epochs=24, batch=16, lr=6e-4, focal_k=3,
+            note="Identical to the 0.725 configuration except FOCAL_K=3, so the\n"
+                 "result attributes to that and nothing else. k=3 because a\n"
+                 "meniscal tear or a ligament tear is visible on roughly three\n"
+                 "slices of the twenty kept per plane.",
+        ),
+        trainers=(Trainer(0, "knee-train-v1focal", "24_train_v1focal"),),
+        infer_slug="knee-infer-v1focal",
+        infer_directory="25_infer_v1focal",
     ),
     Lineage(
         # A one-variable A/B against knee-train: same cache, same fold, same

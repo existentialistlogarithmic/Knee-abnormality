@@ -61,6 +61,7 @@ RUN_BACKBONE        = "resnet34"
 SLICE_SUBSAMPLE     = None
 INPUT_NORM          = False
 PER_FINDING_POOL    = False
+FOCAL_K             = 0
 RUN_TIME_BUDGET     = 7.5 * 3600
 GOLD_WEIGHT         = 8.0
 ABSTAIN_MASKS_LOSS  = True
@@ -281,7 +282,7 @@ PATCH_MULTIPLE = 14
 
 
 def build_model(backbone: str, n_planes: int, n_out: int, normalise_input: bool,
-                per_finding_pool: bool = False):
+                per_finding_pool: bool = False, focal_k: int = 0):
     """2.5D: a 2D backbone over slices, attention-pooled to a study.
 
     Attention pooling rather than mean pooling because a finding is usually
@@ -365,6 +366,25 @@ def build_model(backbone: str, n_planes: int, n_out: int, normalise_input: bool,
             else:
                 self.head = nn.Linear(features, n_out)
 
+            # Focal pooling. Measured motivation (E027): against the same 58
+            # expert-labelled studies, this model BEATS its own teacher on every
+            # diffuse finding — Effusion 0.719 -> 0.924, Lateral OA 0.534 ->
+            # 0.723 — and LOSES to it on every focal one: Medial Meniscus
+            # 0.744 -> 0.516, MCL 0.820 -> 0.612, PF OA 0.828 -> 0.672,
+            # ACL 0.784 -> 0.662. Focal 0.632 against a 0.798 teacher; diffuse
+            # 0.783 against a 0.688 teacher.
+            #
+            # That is what a weighted MEAN over sixty slice embeddings does. A
+            # meniscal tear is on three of them, an effusion is on most. So take
+            # the top-k slices per finding as well, and let a learned per-finding
+            # blend decide which pooling that finding wants. Diffuse findings can
+            # keep the mean; focal ones can read off their few slices.
+            self.focal_k = focal_k
+            if focal_k:
+                # 0 -> sigmoid 0.5: both paths start with equal weight and equal
+                # gradient, rather than one starting switched off.
+                self.mix = nn.Parameter(torch.zeros(n_out))
+
         def forward(self, x):                      # x: (B, P, S, H, W)
             b, p, s, h, w = x.shape
             flat = x.reshape(b * p * s, 1, h, w).repeat(1, 3, 1, 1)
@@ -385,9 +405,25 @@ def build_model(backbone: str, n_planes: int, n_out: int, normalise_input: bool,
                 # (B, T, F) x (B, T, C) -> (B, F, C): one pooled vector per
                 # finding, each attending wherever that finding actually lives.
                 pooled = torch.einsum("btf,btc->bfc", scores, embedded)
-                return (pooled * self.head_weight).sum(-1) + self.head_bias
-            pooled = (embedded * scores).sum(dim=1)
-            return self.head(pooled)
+                averaged = (pooled * self.head_weight).sum(-1) + self.head_bias
+            else:
+                averaged = self.head((embedded * scores).sum(dim=1))
+
+            if not self.focal_k:
+                return averaged
+
+            # Score every slice on every finding, then keep the best few. This
+            # is the path a focal finding can win on: it never averages over the
+            # fifty-odd slices the finding is not on.
+            if self.per_finding:
+                per_slice = (torch.einsum("btc,fc->btf", embedded, self.head_weight)
+                             + self.head_bias)
+            else:
+                per_slice = self.head(embedded)                # (B, T, F)
+            k = min(self.focal_k, per_slice.shape[1])
+            strongest = per_slice.topk(k, dim=1).values.mean(dim=1)
+            weight = torch.sigmoid(self.mix)                   # (F,)
+            return weight * averaged + (1 - weight) * strongest
 
     return Model()
 
@@ -521,7 +557,8 @@ def main() -> int:
           f"val groups {pd.Series(group_values[val_idx]).nunique()}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = build_model(args.backbone, 3, len(FINDINGS), INPUT_NORM, PER_FINDING_POOL).to(device)
+    model = build_model(args.backbone, 3, len(FINDINGS), INPUT_NORM,
+                        PER_FINDING_POOL, FOCAL_K).to(device)
 
     # Both cards were sitting idle: NvidiaTeslaT4 grants two, and the first run
     # used one. With AMP as well this is roughly a 4x throughput change, which is
@@ -733,6 +770,7 @@ def main() -> int:
                     "slice_subsample": SLICE_SUBSAMPLE,
                     "input_norm": INPUT_NORM,
                     "per_finding_pool": PER_FINDING_POOL,
+                    "focal_k": FOCAL_K,
                     }, checkpoint_path)
         (out_dir / f"history_fold{args.fold}.json").write_text(json.dumps(history, indent=2))
 

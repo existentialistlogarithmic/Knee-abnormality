@@ -126,8 +126,9 @@ def main() -> int:
         # strict load below rather than silently mis-assembled. Absent means a
         # checkpoint from before the option existed, which had a single map.
         pooling = bool(state.get("per_finding_pool", False))
+        focal = int(state.get("focal_k", 0) or 0)
         model = build_model(backbone, 3, len(FINDINGS), INPUT_NORM_EXPECTED,
-                            pooling).to(device)
+                            pooling, focal).to(device)
 
         # The ImageNet mean/std were briefly saved as persistent buffers, so
         # checkpoints written in that window carry two extra keys. They are

@@ -302,7 +302,10 @@ def test_fold_ensemble_combines_all_models_not_one():
     assert loop in source, "every model must be run on each batch"
     body = source[source.index(loop):source.index("with ThreadPoolExecutor")]
     assert "torch.sigmoid(model(batch))" in body, "the forward pass is not in the loop"
-    assert source.count("torch.sigmoid(") == 1, "a second prediction path exists"
+    # Count only sigmoids applied to a MODEL CALL. The model itself now uses
+    # torch.sigmoid internally for the focal-pooling blend weight, which is not
+    # a prediction path and must not be counted as one.
+    assert source.count("torch.sigmoid(model(") == 1, "a second prediction path exists"
     assert "ranked[:, j] += ranks" in source, "members must be combined by rank"
     assert "np.mean([torch.sigmoid" not in source, "probability averaging is the wrong operation"
 

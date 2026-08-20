@@ -46,6 +46,11 @@ from dataclasses import dataclass, field
 ACCOUNT = "achelijndiamantidis"
 COMPETITION = "rsna-knee-abnormality-detection"
 ARTIFACTS_DATASET = f"{ACCOUNT}/knee-phase1-artifacts"
+# Same headers, but soft_labels.parquet is the FUSION of the lexicon labeler
+# and the LLM reader. A separate dataset rather than a new version of the
+# one above, so every run already made stays comparable — replacing the
+# labels in place would silently change what every earlier number meant.
+FUSED_DATASET = f"{ACCOUNT}/knee-phase1-fused"
 T4 = "NvidiaTeslaT4"
 
 
@@ -110,6 +115,7 @@ class TrainConfig:
     slice_subsample: int | None = None
     input_norm: bool = False
     per_finding_pool: bool = False
+    focal_k: int = 0
     note: str = ""
 
     def constants(self) -> dict[str, object]:
@@ -119,6 +125,7 @@ class TrainConfig:
                 "SLICE_SUBSAMPLE": self.slice_subsample,
                 "INPUT_NORM": self.input_norm,
                 "PER_FINDING_POOL": self.per_finding_pool,
+                "FOCAL_K": self.focal_k,
                 "RUN_TIME_BUDGET": Raw("7.5 * 3600"),
                 "GOLD_WEIGHT": 8.0, "ABSTAIN_MASKS_LOSS": True,
                 "WARMUP_EPOCHS": 2, "EMA_DECAY": 0.999, "LABEL_SMOOTH": 0.02}
@@ -191,6 +198,12 @@ class Lineage:
     trainers: tuple[Trainer, ...]
     infer_slug: str | None = None
     infer_directory: str | None = None
+    labels: str = ARTIFACTS_DATASET
+    """Which dataset supplies soft_labels.parquet.
+
+    Exactly one must be mounted: the training kernel finds the file by search,
+    so mounting two would make the targets depend on directory order.
+    """
 
     @property
     def geometry(self) -> Geometry:
@@ -208,7 +221,7 @@ class Lineage:
                 internet=True,      # pretrained weights; only submissions go offline
                 depends=cache_slugs + ([trainer.resume_from]
                                        if trainer.resume_from else []),
-                datasets=[ARTIFACTS_DATASET],
+                datasets=[self.labels],
                 constants={"RUN_FOLD": trainer.fold,
                            **self.geometry.constants(),
                            **self.train.constants()},
@@ -300,6 +313,29 @@ LINEAGES = [
         infer_directory="08_infer_v2",
     ),
     Lineage(
+        # The label experiment. Identical to knee-train in every constant; the
+        # only difference is which dataset supplies soft_labels.parquet.
+        #
+        # Measured on the 58 gold studies (E023): neither labeler beats the
+        # other — the paired interval on their difference contains zero — but
+        # their union beats both by +0.070, because they abstain on different
+        # findings. Across the corpus the fusion drops unsupervised slots from
+        # 49.4% to 34.6%. The 0.725 imaging model was trained by a 0.769
+        # teacher, so a better teacher is the change most likely to move the
+        # board, and nothing else here has that much headroom.
+        name="v1fused",
+        cache=CACHE_V1,
+        labels=FUSED_DATASET,
+        train=TrainConfig(
+            backbone="resnet34", epochs=24, batch=16, lr=6e-4,
+            note="Identical to the 0.725 configuration. The labels are the\n"
+                 "single variable.",
+        ),
+        trainers=(Trainer(0, "knee-train-v1fused", "21_train_v1fused"),),
+        infer_slug="knee-infer-v1fused",
+        infer_directory="22_infer_v1fused",
+    ),
+    Lineage(
         # DINOv2 reached 0.6878 in 16 epochs and NEVER FLATTENED — it climbed
         # 0.588 to 0.688 with the last three epochs still adding 0.002 each,
         # where the resnet34 run plateaued by epoch 18 of 24. So 0.6878 is not a
@@ -324,6 +360,31 @@ LINEAGES = [
                           resume_from="knee-train-dinov2"),),
         infer_slug="knee-infer-dinov2-long",
         infer_directory="20_infer_dinov2_long",
+    ),
+    Lineage(
+        # The change the gold measurement actually asked for. Against the same
+        # 58 expert-labelled studies this configuration BEATS its own teacher on
+        # every diffuse finding and LOSES to it on every focal one — focal 0.632
+        # against a 0.798 teacher, diffuse 0.783 against a 0.688 teacher. Losing
+        # 0.228 on Medial Meniscus, which the teacher scores 0.744, is not a hard
+        # problem being lost to; it is signal present in the targets and thrown
+        # away by pooling that averages over sixty slice embeddings.
+        #
+        # FOCAL_K keeps the top three slices per finding alongside the weighted
+        # mean and learns, per finding, how much to lean on each. Twelve extra
+        # parameters. Closing only the recoverable gaps is worth +0.060 macro.
+        name="v1focal",
+        cache=CACHE_V1,
+        train=TrainConfig(
+            backbone="resnet34", epochs=24, batch=16, lr=6e-4, focal_k=3,
+            note="Identical to the 0.725 configuration except FOCAL_K=3, so the\n"
+                 "result attributes to that and nothing else. k=3 because a\n"
+                 "meniscal tear or a ligament tear is visible on roughly three\n"
+                 "slices of the twenty kept per plane.",
+        ),
+        trainers=(Trainer(0, "knee-train-v1focal", "24_train_v1focal"),),
+        infer_slug="knee-infer-v1focal",
+        infer_directory="25_infer_v1focal",
     ),
     Lineage(
         # A one-variable A/B against knee-train: same cache, same fold, same
@@ -400,6 +461,52 @@ LINEAGES = [
 # they inherit the shared code and the metadata contract like everything else.
 # --------------------------------------------------------------------------- #
 EXTRAS = [
+    Kernel(
+        slug="knee-embed",
+        directory="26_embed",
+        template="embed",
+        gpu=False,          # 2.2 h frozen on CPU against 191 h fine-tuning
+        internet=True,      # pretrained backbone weights
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[ARTIFACTS_DATASET],
+        constants={**V1.constants(),
+                   "RUN_BACKBONE": "resnet34",
+                   "INPUT_NORM": True,     # frozen features want the right input
+                   "RUN_MAX_STUDIES": 0,   # 0 = every study
+                   "EMBED_THREADS": 4,
+                   "RUN_TIME_BUDGET": Raw("10.0 * 3600")},
+        note="Writes frozen backbone embeddings for the whole corpus once, so\n"
+             "that everything above the backbone can be trained in minutes\n"
+             "instead of hours. Measured: fine-tuning on CPU is 191 hours,\n"
+             "frozen extraction is 2.2 hours, and a five-fold run of the 73,380\n"
+             "parameters above the backbone is 2.6 minutes.\n"
+             "\n"
+             "input_norm is True here even though the 0.725 model was trained\n"
+             "without it. A FROZEN backbone has no chance to adapt to the wrong\n"
+             "input distribution, so feeding it what it was pretrained on\n"
+             "matters more here than it did there.",
+    ),
+    Kernel(
+        slug="knee-gold-eval",
+        directory="23_gold_eval",
+        template="gold_eval",
+        gpu=False,          # twelve studies through one backbone; CPU is ample
+        internet=False,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3", "knee-train"],
+        datasets=[ARTIFACTS_DATASET],
+        constants={**V1.constants()},
+        note="Scores already-trained checkpoints against the expert labels they\n"
+             "never saw, on CPU, because the weekly GPU allowance is spent and\n"
+             "this is twelve studies through one backbone.\n"
+             "\n"
+             "knee-train predates the gold dump later runs emit, which leaves a\n"
+             "hole in the middle of the only offline signal this project trusts:\n"
+             "folds 1-4 pool to n=46 and fold 0 holds the other 12. It also\n"
+             "leaves the two fold-0 experiments — per-finding pooling and\n"
+             "DINOv2 — with no like-for-like baseline to be measured against.",
+    ),
     Kernel(
         slug="knee-llm-labeler",
         directory="16_llm_labeler",

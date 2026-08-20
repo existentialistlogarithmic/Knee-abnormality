@@ -1,0 +1,65 @@
+{
+  "title": "Knee MRI \u2014 report-derived soft labels (lexicon)",
+  "subtitle": "Weak labels for 4,407 knee MRI studies, read from ten-language reports",
+  "description": "Training targets for the RSNA Knee Abnormality Detection competition, where\n**only 58 of 4,407 training studies carry expert labels** and the rest carry a\nfree-text radiology report instead. No report text exists at test time, so the\nlabeler is a training-time device only: it manufactures targets and never ships\nin the submission.\n\nProduced by a hand-built multilingual lexicon (`src/report_labeler.py`) across\nten languages \u2014 English is only 39% of the corpus, so Spanish and Turkish are\nfirst-class rather than afterthoughts.\n\n**Measured quality: macro AUC 0.769 against the 58 expert-labelled studies.**\nPer-finding AUC tracks the abstain rate almost monotonically, which is the most\nuseful thing to know about it: Synovitis abstains on 72% of reports and scores\n0.580, while Effusion abstains on 9% and scores 0.721.\n\n**Design choice worth borrowing:** five channels, not a probability. Silence and\ndenial are different states and collapsing them is the single most damaging\nthing a weak labeler can do here. Training masks the loss on abstentions.\n\n**Access:** private. It is keyed by competition StudyInstanceUIDs and is\ncompetition-derived data, which may not be redistributed.",
+  "id": "achelijndiamantidis/knee-phase1-artifacts",
+  "licenses": [
+    {
+      "name": "other"
+    }
+  ],
+  "keywords": [
+    "healthcare",
+    "nlp",
+    "multilingual",
+    "medicine"
+  ],
+  "resources": [
+    {
+      "path": "soft_labels.parquet",
+      "description": "One row per training study (4,407). Twelve soft target scores, one per finding, plus a five-way supervision channel per finding recording HOW each score was reached: asserted, hedged, low_severity, negated, or absent. `absent` means the labeler had nothing to say, and training masks the loss on those rather than teaching them as negatives \u2014 a report that never mentions the ACL is not a report saying the ACL is intact. Also carries the detected report language. No report text.",
+      "schema": {
+        "fields": [
+          {
+            "name": "StudyInstanceUID",
+            "description": "Competition study identifier",
+            "type": "string"
+          },
+          {
+            "name": "lang",
+            "description": "Detected report language, ten in the corpus",
+            "type": "string"
+          },
+          {
+            "name": "<finding>",
+            "description": "Soft score in [0,1], or null where the labeler abstained",
+            "type": "number"
+          },
+          {
+            "name": "<finding>__channel",
+            "description": "asserted | hedged | low_severity | negated | absent",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "path": "series_headers.parquet",
+      "description": "DICOM header scan over 24,386 series and 819,635 slices, headers only \u2014 no pixels were read. Carries pixel spacing, slice counts, laterality, anatomical plane and the scanner fields used to build the fold-grouping fingerprint. Grouping on that fingerprint matters: random K-fold inflates macro AUC by 0.087 on this dataset, because no site column exists anywhere and the scanner is the leak.",
+      "schema": {
+        "fields": [
+          {
+            "name": "StudyInstanceUID",
+            "description": "Competition study identifier",
+            "type": "string"
+          },
+          {
+            "name": "SeriesInstanceUID",
+            "description": "Competition series identifier",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ]
+}

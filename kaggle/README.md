@@ -163,6 +163,41 @@ on, and it also sidesteps the output-download rate limit entirely.
 Note `kernel_sources` mounts a kernel's **latest** output, which is why the
 cache is four separate kernels rather than one kernel run four times.
 
+## Two GPU limits, and they are not the same thing
+
+The accelerator is **2× NVIDIA Tesla T4** per session (compute capability 7.5),
+requested with `machine_shape: "NvidiaTeslaT4"`. Both cards are granted to a
+single kernel; `torch.cuda.device_count()` returns 2 and `DataParallel` uses
+both.
+
+There are **two separate ceilings**, with different error messages, and
+confusing them wastes a lot of thinking:
+
+| limit | message | what it means |
+|---|---|---|
+| concurrency | `Maximum batch GPU session count of 2 reached.` | two kernels are running now; wait and retry |
+| **weekly quota** | `Maximum weekly GPU quota of 30.00 hours reached.` | **no more GPU runs this week at any concurrency** |
+
+The first is a queueing problem and `eda/push_queue.sh` handles it. The second is
+a budget problem and no amount of waiting inside a session fixes it. This
+project spent its 30 hours and hit the second one, having assumed for some time
+that it was still hitting the first.
+
+`eda/push_queue.sh` distinguishes them: it retries on `Maximum batch` and stops
+on anything else, so a quota exhaustion surfaces as `FAILED` rather than an
+endless "waiting for a slot".
+
+**Kaggle's API does not expose remaining quota or the reset time** — the only
+place either appears is the account page in the browser. So the reset moment is
+`UNVERIFIED` here; the allowance is stated by the error message itself.
+
+**CPU sessions are a separate allowance and keep working** when GPU is
+exhausted. Verified by pushing a CPU kernel immediately after a GPU push was
+refused for quota. That matters for planning: cache builds, header scans and
+CPU inference remain available, and CPU inference was measured at 19.7 s/study
+for one model — 7.1 h of the 9 h cap on ~1,300 studies, so it fits for a single
+model and does not fit for an ensemble.
+
 ## Concurrency limit: 5 CPU sessions
 
 `Kernel push error: Maximum batch CPU session count of 5 reached.` Kaggle runs at

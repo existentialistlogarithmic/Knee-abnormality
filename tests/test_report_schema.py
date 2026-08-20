@@ -217,3 +217,48 @@ def test_the_reader_is_spread_across_every_visible_gpu():
     assert "max_memory=budget" in source
     assert "torch.cuda.device_count()" in source
     assert "RUN_GPU_BUDGET" in source
+
+
+def test_to_rank_averages_ties_rather_than_breaking_them_by_position(kernel):
+    """The lexicon emits only 2-4 distinct values per finding, so ties are the
+    common case. `argsort().argsort()` would invent an order between equal
+    scores based on array position — pure noise, baked into 4,407 studies'
+    training targets. It also made the local analysis and the kernel disagree.
+    """
+    import numpy as np
+
+    values = np.array([[0.9], [0.9], [0.9], [0.05]], float)
+    ranked = kernel["to_rank"](values)
+    assert ranked[0, 0] == ranked[1, 0] == ranked[2, 0], \
+        "equal scores must receive equal ranks"
+    assert ranked[3, 0] < ranked[0, 0]
+
+    # a permutation of the input must give the same multiset of ranks
+    shuffled = kernel["to_rank"](values[[3, 1, 0, 2]])
+    assert sorted(ranked[:, 0]) == sorted(shuffled[:, 0])
+
+
+def test_fuse_is_a_coverage_union_with_no_free_parameters(kernel):
+    """A rule that picked the better labeler per finding would fit twelve
+    choices to 58 studies and report a number that means nothing."""
+    import numpy as np
+
+    lexicon = np.array([[0.9], [np.nan], [0.1], [np.nan]], float)
+    machine = np.array([[1.0], [0.5], [np.nan], [np.nan]], float)
+    fused = kernel["fuse"](lexicon, machine)
+    assert not np.isnan(fused[0, 0]), "both spoke; must combine"
+    assert not np.isnan(fused[1, 0]), "only the model spoke; must take it"
+    assert not np.isnan(fused[2, 0]), "only the lexicon spoke; must take it"
+    assert np.isnan(fused[3, 0]), "neither spoke; must abstain"
+
+
+def test_the_kernel_gates_on_the_union_not_the_standalone_score():
+    """The first run asked 'does this beat the lexicon', answered no at 0.7526
+    against 0.769, and stopped — while the union of the two scored well above
+    either. That is a good idea very nearly discarded for asking the wrong
+    question."""
+    source = KERNEL.read_text()
+    assert "if combined_macro <= lex_macro:" in source
+    assert "The union adds" in source
+    assert 'find_marker("soft_labels.parquet")' in source, \
+        "the kernel must load the lexicon labels to compare against"

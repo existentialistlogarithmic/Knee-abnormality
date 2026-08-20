@@ -749,3 +749,331 @@ Notes on the fields that people fudge:
 - **compliance note**: this reads report text into a *local* process. Nothing
   was printed but aggregates. `STRATEGY.md` rule 4 covers why that distinction
   is the whole difference.
+
+### E023 — the LLM reader is a wash alone and worth +0.070 combined
+- **date**: 2026-08-19
+- **run**: `knee-llm-labeler`, Qwen2.5-7B-Instruct sharded across both T4s,
+  3.5 min for the 58 gold studies (one automatic batch halving, 16 → 8).
+- **standalone result**: macro AUC **0.7526** against the lexicon's 0.769, with
+  a **48.7%** abstain rate against 40.6%. Worse on both headline numbers, and
+  the kernel stopped there by its own gate.
+- **that gate asked the wrong question.** "Does this beat the lexicon" is not
+  the decision; "does adding this to the lexicon beat the lexicon" is. Scored on
+  the same 58 studies with an identical convention, and with a combination rule
+  that has **no free parameters** — exactly one labeler speaks, take it; both
+  speak, average their ranks; neither, abstain:
+
+  | labeler | macro AUC | 95% CI | abstain |
+  |---|---:|---|---:|
+  | lexicon | 0.7446 | [0.701, 0.787] | 39.7% |
+  | LLM | 0.7421 | [0.689, 0.791] | 48.7% |
+  | **union** | **0.8145** | [0.772, 0.853] | **30.2%** |
+
+  Paired bootstrap on the same studies, which is about twice as sharp as
+  comparing independent intervals (`FINDINGS.md` §13):
+
+  | comparison | delta | 95% CI | verdict |
+  |---|---:|---|---|
+  | union − lexicon | **+0.0698** | [+0.041, +0.097] | higher |
+  | union − LLM | **+0.0724** | [+0.033, +0.116] | higher |
+  | LLM − lexicon | −0.0025 | [−0.060, +0.049] | **not separated** |
+
+  Note the absolute numbers differ from the 0.769 recorded elsewhere because
+  this scores abstentions at the bottom of the ranking rather than at a prior.
+  All three rows share that convention, which is what makes the comparison
+  valid; none of them is comparable to the earlier 0.769.
+- **why they combine so well**: they fail on different findings. The LLM is far
+  better on Medial Meniscus (+0.163), Medial OA (+0.102) and Lateral OA
+  (+0.099); far worse on Fracture (−0.222), PF OA (−0.124), Contusion (−0.114)
+  and Baker's (−0.095). Coverage explains most of it — the union leaves only
+  30.2% of study×finding slots unsupervised against 39.7% and 48.7% — and
+  coverage has tracked AUC across every version of this labeler.
+- **a defect found while checking the two implementations against each other**:
+  the first version ranked with `argsort().argsort()`, which breaks ties by
+  array position. The lexicon emits only **2–4 distinct values per finding**, so
+  ties are the common case, and that arbitrary order would have been baked into
+  4,407 studies' training targets as noise. Averaging tied ranks *raised* the
+  union to 0.8145 from 0.7994 and the gain to +0.070 from +0.049. The local
+  analysis now calls the kernel's implementation rather than keeping a second
+  copy, since a second copy is how they disagreed.
+- **next**: re-run so the corpus is read, then rebuild `soft_labels.parquet`
+  from the union and retrain. On this project's history — the imaging model
+  scored 0.725 against a 0.769 teacher — a better teacher is the change most
+  likely to move the board.
+
+### E024 — 30 more epochs of 288px bought nothing, and the guards held
+- **date**: 2026-08-19
+- **runtime**: 3.6 GPU-hours.
+- **result**: **no improvement.** Resumed at 0.7282 and never beat it. The best
+  of the 30 new epochs was 0.7280 at epoch 34; from there it declined
+  monotonically to **0.706** by epoch 59.
+- **what this corrects**: E017 read the last three epochs (0.725, 0.727, 0.7282)
+  as "still climbing" and called 0.7282 a floor. It was not a floor, it was the
+  top. Thirty epochs of evidence say that curve had converged and the small
+  rises at the end were noise. **A rising tail of three points is not a trend**,
+  and this cost 3.6 GPU-hours to learn — on a geometry the board had already
+  placed 0.037 behind.
+- **both guards fired, and one of them mattered a lot**:
+  - The run **inherited** the mounted checkpoint's 0.7282 as its best, so a
+    continuation that never recovered exported the old weights rather than its
+    own. Log: `inherited best macro AUC 0.7282 from the mounted checkpoint`.
+  - The **best-epoch export** kept epoch 29's weights instead of the last
+    epoch's. Under the previous behaviour this run would have shipped epoch 59
+    at **0.706** — a 0.022 loss, silently, with a healthy-looking log.
+
+  Final line: `best val macro AUC 0.7282 (epoch 29, and these are the weights
+  saved)`. Between them the two guards turned a wasted run into a no-op instead
+  of a regression, which is what they were built for.
+
+### E025 — four runs land; the gold instrument starts working, and disagrees with CV
+- **date**: 2026-08-19
+
+| run | epochs | report-label CV | gold-subset AUC | n |
+|---|---:|---:|---:|---:|
+| `knee-train` (baseline, fold 0) | 24 | 0.7001 | — | — |
+| **`v1pool`** — per-finding attention, fold 0 | 24 | **0.7088** | **0.7355** | 12 |
+| `dinov2-long` — ViT-S/14, fold 0 | 40 | 0.7041 | **0.5890** | 12 |
+| `fold2` (baseline) | 24 | 0.7410 | 0.7589 | 12 |
+| `fold3` (baseline) | 24 | 0.7260 | 0.6793 | 11 |
+
+- **DINOv2 has now converged, and it is not the answer here.** Continuing 16 → 40
+  epochs moved it 0.6878 → **0.7041** and the last eight epochs are flat
+  (0.700–0.704), so E020's "the clock stopped early" reading was right about the
+  cause and wrong about the size: the extra 24 epochs bought 0.016, not the gap
+  to the baseline. Against `v1pool` on **the same 12 gold studies** it scores
+  0.5890 against 0.7355.
+- **but that comparison is not conclusive, and the tooling says so**: paired
+  bootstrap gives **+0.1465, 95% CI [−0.054, +0.295] — NOT SEPARATED**. Twelve
+  studies cannot resolve a 0.15 gap. This is exactly what `FINDINGS.md` §13
+  predicted from simulation (a single fold's gold subset has a ~0.173 interval),
+  and it is the first time that prediction has been checked against real data.
+- **CV and gold disagree about these two models, sharply.** CV puts them at
+  0.7088 and 0.7041 — a 0.005 gap, effectively tied. Gold puts them 0.147 apart.
+  Given §11 records CV mis-ranking on the one comparison that was checked
+  against the board, gold is the one to believe; but at n=12 neither is
+  actionable yet. Folds 1 and 4 are running and will take the pool toward 58.
+- **per-finding attention is ahead on both metrics** — +0.0087 CV over the same
+  fold with **one constant changed**, and the higher gold number — and its curve
+  was still rising at epoch 23 of 24 (0.706, 0.708, 0.708, 0.709). Cheap to
+  extend, and unlike the 288px case the rise is over eight monotone epochs
+  rather than three.
+- **the baseline's pooled gold OOF, folds 2+3**: **0.7078**, 95% CI
+  [0.636, 0.779] over 23 studies. Published work reports gold-58 + 0.044 ≈ LB
+  (`COMPETITIVE_ANALYSIS.md` §2); that would predict 0.752 against an actual
+  0.725. Encouraging for the estimator, but 23 studies and a 0.143-wide interval
+  cannot confirm a 0.027 discrepancy. Revisit at n = 58.
+
+### E025 — the GPU budget ran out, and the gold instrument came online
+- **date**: 2026-08-19
+- **the block, correctly identified**: `Maximum weekly GPU quota of 30.00 hours
+  reached.` Not the concurrency limit this project had been assuming — that one
+  says `Maximum batch GPU session count of 2 reached` and is fixed by waiting.
+  A quota exhaustion is not. `eda/push_queue.sh` now distinguishes them and
+  exits instead of waiting forever, and `kaggle/README.md` records both.
+  **CPU sessions are a separate allowance and still work**, verified by pushing
+  a CPU kernel immediately after a GPU push was refused.
+- **what the 30 hours bought**, from the fetched logs: 1.33 h fold 0, 1.33 h
+  fold 1, 3.63 h the 288px run, **3.59 h its continuation which gained nothing**
+  (E024), 1.84 h DINOv2, 3.74 h the labeler, plus folds 2–4, the pooling A/B,
+  the DINOv2 continuation and two failed labeler attempts. The single largest
+  avoidable item is the 3.59 h continuation of a geometry the board had already
+  placed 0.037 behind.
+- **six runs completed before the quota closed**:
+
+  | run | best report-label CV | gold studies held out | gold AUC |
+  |---|---:|---:|---:|
+  | fold 1 | 0.7434 | 14 | 0.754 |
+  | fold 2 | 0.7410 | 11 | 0.783 |
+  | fold 3 | 0.7260 | 12 | 0.687 |
+  | fold 4 | **0.7639** | 9 | 0.831 |
+  | v1pool (per-finding attention) | 0.7088 | 12 | 0.742 |
+  | dinov2-long (34 epochs) | 0.7041 | 12 | 0.644 |
+
+- **the gold out-of-fold pool works** — folds 1–4 verified to share one
+  configuration and one label file (all four logged `no per-finding confidence
+  column`, so none saw the fused labels):
+
+  **n = 46, macro AUC 0.7264, 95% CI [0.672, 0.776].**
+
+- **and it lands on the leaderboard, not 0.044 above it.** The public writeup
+  reports gold-58 predicting the board with a constant **+0.044** offset across
+  three systems (`COMPETITIVE_ANALYSIS.md` §2). This configuration scored
+  **0.725** on the board and **0.7264** out-of-fold on gold — an offset of
+  **−0.001**. The published correction does not reproduce here.
+
+  Held loosely for two reasons: the board score came from a fold-0 model while
+  this pool is folds 1–4, and at n=46 the interval is 0.103 wide, so the offset
+  is only pinned to about ±0.05. But the practical consequence is real and
+  useful — **gold OOF appears to estimate this project's leaderboard score
+  directly, with no correction**, and it costs nothing but the folds already
+  being trained.
+
+### E026 — the gold pool is complete at n=58, and it tracks the leaderboard
+- **date**: 2026-08-20
+- **how**: `knee-gold-eval` on **CPU**, 1.8 minutes, no GPU quota consumed. It
+  filled the fold-0 hole that `knee-train` left by predating the gold dump.
+- **result**: **n = 58, macro AUC 0.7201, 95% CI [0.672, 0.767].**
+- **and it lands on the board.** This configuration scored **0.725** on the
+  leaderboard. Gold out-of-fold says **0.7201** — an offset of **+0.005**. The
+  published +0.044 correction (`COMPETITIVE_ANALYSIS.md` §2) does not reproduce
+  here, and the practical consequence is better than it would have been: **gold
+  OOF estimates this project's leaderboard score directly, with no correction**,
+  for the cost of folds that were being trained anyway.
+- **where the score actually is**, which the pooled number hides:
+
+  | finding | gold AUC | positives |
+  |---|---:|---:|
+  | **Medial Meniscus** | **0.516** | 26 of 58 |
+  | MCL | 0.612 | 9 |
+  | Synovitis | 0.654 | 27 |
+  | ACL | 0.662 | 24 |
+  | PF OA | 0.672 | 21 |
+  | Lateral Meniscus | 0.696 | 23 |
+  | Lateral OA | 0.723 | 11 |
+  | Contusion | 0.758 | 19 |
+  | Fracture | 0.778 | 18 |
+  | Medial OA | 0.817 | 15 |
+  | Baker's | 0.830 | 12 |
+  | Effusion | 0.924 | 35 |
+
+  **Medial Meniscus is at chance** on the most common finding in the set. Every
+  finding is 1/12 of the metric regardless of difficulty, so the weakest one
+  costs exactly as much as the strongest earns.
+- **the arithmetic that should drive everything from here**: lifting the worst
+  four to 0.80 is worth **+0.063** and takes the macro to 0.783. Reaching the
+  0.90 target requires **essentially every finding at 0.90** — there is no
+  subset of easy wins that gets there.
+- **both fold-0 experiments are NOT SEPARATED from the baseline**, paired on the
+  same 12 studies:
+
+  | comparison | delta | 95% CI |
+  |---|---:|---|
+  | per-finding attention pooling − baseline | +0.0142 | [−0.078, +0.114] |
+  | DINOv2 − baseline | −0.1322 | [−0.303, +0.083] |
+
+  Neither is established. DINOv2 looks materially worse and still cannot be
+  ruled out at n=12, which is exactly the resolution limit measured in
+  `FINDINGS.md` §13. Both need a full five-fold run to be settled, and that
+  needs GPU quota.
+
+### E027 — CORRECTED BELOW by E029. The teacher figures in this entry came from
+a fusion that is not the one the training targets use, and they understate it.
+The direction of the finding survives; the magnitudes do not.
+
+### E027 — the model beats its teacher on diffuse findings and loses on focal ones
+- **date**: 2026-08-20
+- **how**: `eda/teacher_vs_model.py`, on CPU. Scores the report labelers and the
+  imaging model's out-of-fold predictions against the **same 58 expert-labelled
+  studies**, per finding, so the two are directly comparable.
+- **the split is anatomical and it is clean**:
+
+  | | model | teacher | |
+  |---|---:|---:|---|
+  | **focal** (ACL, MCL, both menisci, PF OA) | 0.632 | 0.798 | model is **worse** |
+  | **diffuse** (effusion, OA, synovitis, Baker's, contusion, fracture) | 0.783 | 0.688 | model is **better** |
+
+  Per finding, where the signal was in the targets and did not survive:
+
+  | finding | teacher | model | lost |
+  |---|---:|---:|---:|
+  | Medial Meniscus | 0.744 | 0.516 | **−0.228** |
+  | MCL | 0.820 | 0.612 | −0.208 |
+  | PF OA | 0.828 | 0.672 | −0.156 |
+  | ACL | 0.784 | 0.662 | −0.123 |
+
+  And where the model **exceeds** its own supervision: Effusion 0.719 → 0.924,
+  Lateral OA 0.534 → 0.723, Medial OA 0.719 → 0.817, Fracture 0.695 → 0.778.
+- **what that rules out**: Medial Meniscus at 0.516 is not a hard problem being
+  lost to. Its teacher scores 0.744 on the same studies, and the finding has 26
+  positives of 58 — the most common in the set. The signal was **present in the
+  targets and thrown away between the targets and the predictions.**
+- **the mechanism it points at**: attention pooling produces a weighted MEAN
+  over sixty slice embeddings. A meniscal tear is on about three of them; an
+  effusion is on most. Averaging is the right operation for the second kind and
+  the wrong one for the first, and the measurement splits exactly that way.
+- **the change**: `FOCAL_K` keeps the **top-k slices per finding** alongside the
+  weighted mean, and learns a per-finding blend between them, so a diffuse
+  finding can keep the mean while a focal one reads off its few slices. Twelve
+  extra parameters — one blend weight per finding.
+
+  Verified: `FOCAL_K=0` reproduces the 0.725 configuration bit-for-bit, so every
+  earlier number stays comparable. A single strong slice out of sixty moves the
+  top-k path **8×** further than it moves the mean path. The blend starts at
+  0.5, so neither path begins switched off.
+- **what it is worth if it works**: closing only the four recoverable gaps is
+  **+0.060 macro**, taking 0.720 to 0.780.
+- **`knee-train-v1focal`** is the A/B, differing from the 0.725 baseline in
+  exactly one constant, asserted by a test. **Blocked on GPU quota.**
+
+### E028 — training does not need a GPU, if the backbone is frozen
+- **date**: 2026-08-20
+- **the measurement that changes the plan**, on four CPU threads:
+
+  | | cost |
+  |---|---|
+  | fine-tune the whole model, 4,407 studies × 24 epochs | **191 hours** |
+  | one frozen pass over the corpus, saved as embeddings | **2.2 hours, once** |
+  | five folds × 24 epochs of the 73,380 parameters above it | **2.6 minutes** |
+
+  The corpus of embeddings is 60 × 512 float16 per study — **0.27 GB total**.
+- **why this matters more than it looks**: "we are blocked on GPU quota" was
+  true of *fine-tuning* and quietly assumed of everything else. The questions
+  actually open — does focal top-k pooling help, does per-finding attention
+  help, do the fused labels help — are all about the part **above** the backbone,
+  which is the part that costs 2.6 minutes. The blocked thing was never the
+  thing that needed answering first.
+- **what transfers and what does not.** A frozen backbone is not the fine-tuned
+  model that scored 0.725, so absolute numbers from this rig do not predict the
+  board. **Comparisons above the backbone do transfer**, because those are
+  exactly what is being trained. A published system using a frozen DINOv2 with a
+  trained head reached **0.776** on this leaderboard — above this project's
+  fine-tuned 0.725 — so "frozen" is not automatically "worse" either.
+- **positive control before trusting it**: run on synthetic embeddings with a
+  focal signal planted on 2 slices of 20 for six findings and a diffuse signal
+  spread across all 20 for the other six, the rig recovers
+  **FOCAL_K=3 − baseline = +0.0445, 95% CI [+0.025, +0.064]**. A rig that could
+  not find an effect deliberately put there would be worth nothing, and this one
+  finds it.
+- **`knee-embed`** runs the frozen pass on CPU; `eda/head_lab.py` runs the A/Bs.
+  Every comparison is one-variable and reported as a paired interval rather than
+  a score.
+
+
+### E029 — the teacher was understated: two fusions in my own code
+- **date**: 2026-08-20
+- **what was wrong**: `eda/teacher_vs_model.py` implemented its own fusion of the
+  two report readers — *prefer the lexicon, fall back to the model, never average
+  where both speak* — while `eda/combine_labelers.py` and the labeling kernel use
+  the real one: rank-normalise both, average where both speak. It also scored the
+  teacher **only on the studies where it spoke** while scoring the model on all
+  58, which is two different denominators inside one comparison.
+- **corrected, with both sides on all 58 studies and the kernel's `fuse()`**:
+
+  | finding | teacher (as reported) | teacher (correct) | model | lost |
+  |---|---:|---:|---:|---:|
+  | Medial Meniscus | 0.744 | **0.903** | 0.516 | −0.388 |
+  | MCL | 0.820 | **0.918** | 0.612 | −0.306 |
+  | ACL | 0.784 | **0.907** | 0.662 | −0.245 |
+  | Lateral Meniscus | 0.813 | **0.858** | 0.696 | −0.163 |
+  | Medial OA | 0.719 | **0.947** | 0.817 | −0.130 |
+
+  | | as reported | correct |
+  |---|---:|---:|
+  | teacher macro | 0.734 | **0.814** |
+  | recoverable gap | +0.060 | **+0.103** |
+  | findings the teacher genuinely does not know | 4 | **1** (Synovitis) |
+  | macro if the model merely matched its teacher | 0.792 | **0.835** |
+
+- **what this changes, and it is not small**: advice given on the wrong numbers
+  said *"to reach 0.90 the model must beat its teacher on all eight weakest
+  findings, and the teacher is below 0.897 on every one."* Correctly fused,
+  **four teachers are already at or above 0.897** — ACL 0.907, MCL 0.918, Medial
+  Meniscus 0.903, Medial OA 0.947. On those the model does not need to exceed
+  its supervision at all; it needs to stop throwing it away.
+- **what survives**: the direction. The model still loses on focal findings and
+  wins on diffuse ones, and Medial Meniscus at 0.516 against a teacher now
+  measured at **0.903** is a starker version of the same story, not a weaker one.
+- **the lesson, which is the same one as three entries ago**: a second
+  implementation of a shared idea is where the error lives. `to_rank` was
+  duplicated once and broke on ties; `fuse` was duplicated once and understated
+  the teacher by 0.08. Both scripts now call the kernel's implementation.

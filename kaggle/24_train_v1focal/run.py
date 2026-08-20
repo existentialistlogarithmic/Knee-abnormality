@@ -44,12 +44,12 @@ import pandas as pd
 # Edit the manifest, not this file. Everything outside this block is shared by
 # every kernel rendered from this template.
 # --------------------------------------------------------------------------- #
-# The configuration that scored 0.725. Batch 16 is affordable
-# because of AMP across both T4s; the LR is scaled to it.
-# input_norm is False because that is what these weights were
-# trained with — see the module docstring.
+# Identical to the 0.725 configuration except FOCAL_K=3, so the
+# result attributes to that and nothing else. k=3 because a
+# meniscal tear or a ligament tear is visible on roughly three
+# slices of the twenty kept per plane.
 #
-RUN_FOLD            = 1
+RUN_FOLD            = 0
 TARGET_MM_PER_PIXEL = 0.6
 TARGET_SIZE         = 192
 SLICES_PER_PLANE    = 20
@@ -61,7 +61,7 @@ RUN_BACKBONE        = "resnet34"
 SLICE_SUBSAMPLE     = None
 INPUT_NORM          = False
 PER_FINDING_POOL    = False
-FOCAL_K             = 0
+FOCAL_K             = 3
 RUN_TIME_BUDGET     = 7.5 * 3600
 GOLD_WEIGHT         = 8.0
 ABSTAIN_MASKS_LOSS  = True

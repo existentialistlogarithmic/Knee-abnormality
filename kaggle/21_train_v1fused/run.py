@@ -44,12 +44,10 @@ import pandas as pd
 # Edit the manifest, not this file. Everything outside this block is shared by
 # every kernel rendered from this template.
 # --------------------------------------------------------------------------- #
-# The configuration that scored 0.725. Batch 16 is affordable
-# because of AMP across both T4s; the LR is scaled to it.
-# input_norm is False because that is what these weights were
-# trained with — see the module docstring.
+# Identical to the 0.725 configuration. The labels are the
+# single variable.
 #
-RUN_FOLD            = 1
+RUN_FOLD            = 0
 TARGET_MM_PER_PIXEL = 0.6
 TARGET_SIZE         = 192
 SLICES_PER_PLANE    = 20

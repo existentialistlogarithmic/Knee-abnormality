@@ -1,0 +1,65 @@
+{
+  "title": "Knee MRI \u2014 fused soft labels (lexicon + open-weights LLM)",
+  "subtitle": "The union of two report readers, +0.070 macro AUC over either alone",
+  "description": "The same twelve soft targets as `knee-phase1-artifacts`, but produced by\n**combining two independent readers of the same reports**: the hand-built\nmultilingual lexicon, and Qwen2.5-7B-Instruct reading each report into a closed\nseven-rung state ladder under a fixed output schema.\n\n**Neither reader wins alone.** Scored on the 58 expert-labelled studies with one\nconvention: lexicon 0.7446, LLM 0.7421, and a paired bootstrap puts the\ndifference between them at -0.0025, CI [-0.060, +0.049] \u2014 not separated.\n\n**The union beats both: 0.8145**, paired difference +0.0698 over the lexicon,\nCI [+0.041, +0.097]. They combine because they fail on different findings; the\nLLM is far better on Medial Meniscus, Medial OA and Lateral OA and far worse on\nFracture, PF OA and Contusion.\n\n**The combination rule has no free parameters**, deliberately: exactly one\nreader speaks, take it; both speak, average their ranks; neither, abstain. A\nrule that picked the better reader per finding would be fitting twelve choices\nto 58 studies and would report a number that means nothing.\n\nSupervision rises from 50.6% of study-by-finding slots to 65.4%. Adds a\n`__weight` column per finding \u2014 a confidence that scales that target's\ncontribution to the loss, so an explicit severe finding counts for more than a\nhedge.\n\n**Two layers, deliberately:** the model picks from a closed vocabulary and\nPython maps vocabulary to numbers. A model is good at choosing from a fixed set\nand bad at emitting calibrated probabilities, and a confident wrong number is\nnot catchable downstream.\n\n**Compliance:** the reader is open-weights and ran inside a Kaggle kernel. No\nreport text was sent to any hosted LLM API, and none is present in these files.\n\n**Access:** private. Keyed by competition StudyInstanceUIDs; competition-derived\ndata may not be redistributed.",
+  "id": "achelijndiamantidis/knee-phase1-fused",
+  "licenses": [
+    {
+      "name": "other"
+    }
+  ],
+  "keywords": [
+    "healthcare",
+    "nlp",
+    "multilingual",
+    "medicine"
+  ],
+  "resources": [
+    {
+      "path": "soft_labels.parquet",
+      "description": "One row per training study (4,407). Twelve soft target scores, one per finding, plus a five-way supervision channel per finding recording HOW each score was reached: asserted, hedged, low_severity, negated, or absent. `absent` means the labeler had nothing to say, and training masks the loss on those rather than teaching them as negatives \u2014 a report that never mentions the ACL is not a report saying the ACL is intact. Also carries the detected report language. No report text.",
+      "schema": {
+        "fields": [
+          {
+            "name": "StudyInstanceUID",
+            "description": "Competition study identifier",
+            "type": "string"
+          },
+          {
+            "name": "lang",
+            "description": "Detected report language, ten in the corpus",
+            "type": "string"
+          },
+          {
+            "name": "<finding>",
+            "description": "Soft score in [0,1], or null where the labeler abstained",
+            "type": "number"
+          },
+          {
+            "name": "<finding>__channel",
+            "description": "asserted | hedged | low_severity | negated | absent",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "path": "series_headers.parquet",
+      "description": "DICOM header scan over 24,386 series and 819,635 slices, headers only \u2014 no pixels were read. Carries pixel spacing, slice counts, laterality, anatomical plane and the scanner fields used to build the fold-grouping fingerprint. Grouping on that fingerprint matters: random K-fold inflates macro AUC by 0.087 on this dataset, because no site column exists anywhere and the scanner is the leak.",
+      "schema": {
+        "fields": [
+          {
+            "name": "StudyInstanceUID",
+            "description": "Competition study identifier",
+            "type": "string"
+          },
+          {
+            "name": "SeriesInstanceUID",
+            "description": "Competition series identifier",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -363,7 +363,16 @@ def build_model(backbone: str, n_planes: int, n_out: int, normalise_input: bool,
                 # gradient, rather than one starting switched off.
                 self.mix = nn.Parameter(torch.zeros(n_out))
 
-        def forward(self, x):                      # x: (B, P, S, H, W)
+        def embed(self, x):                        # x: (B, P, S, H, W)
+            """Per-slice backbone embeddings, (B, P*S, C).
+
+            Everything a slice goes through before pooling lives here, so a
+            caller that wants embeddings — the frozen-extraction kernel — gets
+            the identical preprocessing rather than a second copy of it. The
+            first version of that kernel called `self.backbone` directly and
+            died on `Input height (192) should be divisible by patch size (14)`,
+            having skipped the resize below and the normalisation with it.
+            """
             b, p, s, h, w = x.shape
             flat = x.reshape(b * p * s, 1, h, w).repeat(1, 3, 1, 1)
 
@@ -377,7 +386,10 @@ def build_model(backbone: str, n_planes: int, n_out: int, normalise_input: bool,
 
             if self.normalise:
                 flat = (flat - self.mean) / self.std
-            embedded = self.backbone(flat).reshape(b, p * s, -1)
+            return self.backbone(flat).reshape(b, p * s, -1)
+
+        def forward(self, x):                      # x: (B, P, S, H, W)
+            embedded = self.embed(x)
             scores = self.attention(embedded).softmax(dim=1)   # (B, T, maps)
             if self.per_finding:
                 # (B, T, F) x (B, T, C) -> (B, F, C): one pooled vector per

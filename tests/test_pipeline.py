@@ -572,3 +572,27 @@ def test_inference_and_gold_eval_read_focal_k_from_the_checkpoint():
     for directory in ("11_infer_folds", "23_gold_eval"):
         source = (KAGGLE / directory / "run.py").read_text()
         assert 'state.get("focal_k", 0)' in source, directory
+
+
+def test_embed_and_forward_share_one_preprocessing_path():
+    """The extraction kernel must get the same resize and normalisation the
+    model applies in forward(). Its first version called self.backbone directly,
+    skipped both, and died on "Input height (192) should be divisible by patch
+    size (14)" — a frozen backbone fed the wrong thing cannot adapt to it."""
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+    import runpy
+
+    ns = runpy.run_path(str(KAGGLE / "04_train" / "run.py"), run_name="__not_main__")
+    model = ns["build_model"]("resnet18", 3, 12, True, False, 0)
+    model.eval()
+    volume = torch.rand(1, 3, 4, 64, 64)
+    with torch.no_grad():
+        embedded = model.embed(volume)
+        assert embedded.shape[:2] == (1, 12)          # 3 planes x 4 slices
+        assert torch.isfinite(embedded).all()
+        assert model(volume).shape == (1, 12)
+
+    source = (KAGGLE / "26_embed" / "run.py").read_text()
+    assert "full.embed(" in source, "the extraction kernel must call embed()"
+    assert "full.backbone(" not in source, "calling the backbone directly skips preprocessing"

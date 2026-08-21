@@ -37,15 +37,16 @@ def constants(path: Path) -> dict[str, str]:
     regex is what stops a cosmetic change from silently disabling a test.
     """
     import ast
+    import contextlib
 
     found = {}
     for node in ast.parse(path.read_text()).body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 \
                 and isinstance(node.targets[0], ast.Name):
-            try:
+            # A non-literal right-hand side is a constant this reader cannot
+            # evaluate, not a failure: skip it and carry on.
+            with contextlib.suppress(ValueError):
                 found[node.targets[0].id] = ast.literal_eval(node.value)
-            except ValueError:
-                pass
     return found
 
 

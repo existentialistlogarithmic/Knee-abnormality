@@ -88,7 +88,7 @@ data/          competition CSVs + sample DICOMs        (gitignored)
 eda/           local CPU analysis scripts
 src/           report labeler, preprocessing, model code, pipeline manifest
 kaggle/        one folder per kernel; 22 of 28 generated from src/pipeline.py
-docs/          FINDINGS.md, STRATEGY.md, EXPERIMENTS.md, ROADMAP.md
+docs/          HANDOFF.md first; then STATUS.md, PATH.md, FINDINGS.md, ...
 artifacts/     derived data                            (gitignored)
 ```
 
@@ -97,6 +97,12 @@ and `eda/generate_kernels.py` renders every cache, training and inference
 kernel from the templates in `kaggle/_templates/`. `python
 eda/generate_kernels.py --check` fails if a generated kernel has been edited by
 hand, and runs as a test. See `kaggle/README.md`.
+
+**Start here: `docs/HANDOFF.md`** — the session entry point, with the live
+blocker and the next action. **Before any push, run `bash eda/preflight.sh`**;
+it runs the same four gates as CI (lint, tests, kernel drift, and the check
+that no patient-derived file is tracked) so a failure arrives locally in a
+minute rather than on the Actions tab in ten.
 
 `data/` and `artifacts/` are gitignored, as are `*.csv`, `*.dcm`, `*.parquet`
 and friends wherever they appear — anything that can carry a StudyInstanceUID,

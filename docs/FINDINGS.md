@@ -732,6 +732,35 @@ And prefer changes that have a prior reason to be safe — averaging folds of a
 configuration already known to score is not a hypothesis that can be wrong —
 over changes that need a measurement this project cannot afford to make.
 
+## 14. What the frozen-embedding rig settles — `VERIFIED`
+
+`knee-embed` writes one frozen DINOv2 ViT-S/14 pass over all 4,407 studies as
+`(4407, 60, 384)` float16. Training only the head above it costs minutes on CPU,
+so the questions that had been queued behind the 30 h GPU quota were answered
+without spending any of it. All comparisons are paired, one-variable, 5-fold
+grouped on the scanner fingerprint, scored out-of-fold against the 58 expert
+studies, 2,000-sample bootstrap (E030).
+
+| # | Claim | Tag | Note |
+|---|---|---|---|
+| 14.1 | Fused labels (lexicon ∪ LLM) beat lexicon labels for a trained head | **`VERIFIED` — +0.0508, CI [+0.001, +0.102]** | replicated at seeds 1 and 2: +0.0838 [+0.035, +0.134] and +0.0501 [−0.011, +0.111]. Direction consistent 3/3, **mean +0.062**. Two of three intervals exclude zero. |
+| 14.2 | Focal top-k pooling (k=3) is worth ~+0.060 | **`CONTRADICTED` — +0.0060, CI [−0.041, +0.051]** | the +0.060 was the model-to-teacher *headroom* on focal findings, never a measured gain from this change. The rig's positive control recovers a planted focal effect at +0.0445 [+0.025, +0.064], so it can see effects of this size. This one is absent. |
+| 14.3 | Per-finding attention maps help | `UNVERIFIED` — +0.0389, CI [−0.009, +0.090] | same verdict as the n=12 measurement (+0.014), now with n=58 behind it. Suggestive, not separated. |
+
+**What transfers.** A frozen backbone is not the fine-tuned model that scored
+0.725, so **absolute numbers here do not predict the board** — the rig's
+baseline sits near 0.60 where the fine-tuned model sits at 0.725. What transfers
+is the *comparison*, because the head is exactly the part being varied. A
+published system using a frozen DINOv2 with a trained head reached 0.776 on this
+leaderboard, so "frozen" is not automatically "worse" either.
+
+**What this does not settle.** 14.1 says the fused labels help a linear-ish head
+on frozen features. It does not say by how much they help a fine-tuned resnet34,
+and the n=58 interval is too wide to promise a board movement. It is a reason to
+spend the GPU hours there first, not a prediction of the result.
+
+---
+
 ## 7. Sources
 
 | source | status |

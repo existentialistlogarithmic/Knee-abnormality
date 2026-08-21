@@ -5,7 +5,7 @@ kernels and 62 tagged claims, and the single most expensive mistakes in it came
 from **treating a weakly-known number as a well-known one**. So the organising
 axis here is not topic. It is *evidence strength*.
 
-Last updated 2026-08-19.
+Last updated 2026-08-21.
 
 ---
 
@@ -61,9 +61,29 @@ lexicon −0.0025, CI [−0.060, +0.049] — **not separated**.
 differences this project has acted on. A single fold's gold subset (n≈12) has a
 0.173 interval and settles nothing on its own.
 
-### E — built and tested, never measured on anything
+### E — measured on the frozen-embedding rig, out-of-fold on the 58
 
-Rank-mean ensembling · fused labels wired into training (65.4% of slots
+`knee-embed` finished on 2026-08-20, so the questions *above* the backbone no
+longer wait on the GPU quota. Paired one-variable A/Bs, 5-fold grouped on the
+scanner fingerprint, 8.5 min of CPU for all six configurations (E030):
+
+| comparison | delta | 95% CI | verdict |
+|---|---:|---|---|
+| **fused labels − lexicon** | **+0.0508** | **[+0.001, +0.102]** | **A is better** |
+| per-finding maps − baseline | +0.0389 | [−0.009, +0.090] | not separated |
+| focal top-k (k=3) − baseline | +0.0060 | [−0.041, +0.051] | not separated |
+
+The labels comparison replicates across seeds — +0.0508, +0.0838, +0.0501,
+**mean +0.062**, direction consistent 3/3 — so it is the one configuration with
+offline support for spending GPU on it.
+
+A frozen backbone is not the fine-tuned model, so **absolute numbers here do not
+predict the board**; comparisons above the backbone do transfer, because those
+are exactly what is being trained.
+
+### F — built and tested, never measured on anything
+
+Rank-mean ensembling · fused labels wired into *GPU* training (65.4% of slots
 supervised against 50.6%) · per-finding confidence weights · inference timing
 instrumentation. All are blocked behind the GPU budget, not behind doubt.
 
@@ -99,6 +119,7 @@ pattern matters more than any individual entry.
 | "report-label CV ranks models correctly" | **contradicted** — CV put 288px ahead by 0.028; the board put it 0.037 behind | the loss of the only cheap selection signal |
 | "the 288px curve is still climbing" | **contradicted** — 30 more epochs peaked at 0.7280 and decayed to 0.706 | 3.59 GPU-hours |
 | "gold-58 sits 0.044 below the board" (published) | **does not reproduce** — measured offset −0.001 | nothing; caught before use |
+| "focal top-k pooling is worth +0.060" | **contradicted** — +0.060 was the model-to-teacher *headroom* on focal findings, not a gain; measured, top-k gives +0.006 with an interval eight times its width | nothing; the rig caught it for 8 min of CPU |
 
 The common shape: **a small number of observations read as a trend.** The
 countermeasure now in place is that every comparison is one-variable by
@@ -113,8 +134,8 @@ construction and a test asserts it.
 | `src/` | 5 | 1,037 | labeler, fold grouping, label schema, **the pipeline manifest** |
 | `kaggle/_templates/` | 7 | 1,800 | 3 kernel templates + 3 shared modules — **the only hand-edited kernel code** |
 | `kaggle/*/run.py` | 31 | 17,087 | **generated**, never hand-edited; `--check` fails if they drift |
-| `eda/` | 11 | 2,296 | verification, evaluation, label fusion, push queueing |
-| `tests/` | 9 | 1,804 | **151 tests** |
+| `eda/` | 12 | 2,349 | verification, evaluation, label fusion, push queueing, **the preflight gate** |
+| `tests/` | 9 | 1,804 | **159 tests** — 158 pass with the artifacts present, 6 skip without them |
 
 Six kernels remain hand-written one-offs: the header scan, two baseline
 submissions, single-model inference, CPU inference, and the cross-geometry
@@ -124,8 +145,8 @@ ensemble.
 
 ## 5. Claim ledger
 
-`docs/FINDINGS.md` tags every claim: **49 `VERIFIED`, 6 `UNVERIFIED`,
-6 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 28 numbered runs
+`docs/FINDINGS.md` tags every claim: **50 `VERIFIED`, 7 `UNVERIFIED`,
+7 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 30 numbered runs
 with what changed, the runtime, the result and what it meant.
 
 ---
@@ -139,11 +160,15 @@ moment is `UNVERIFIED`.
 Waiting on it, in the order they are worth doing:
 
 1. **Train on the fused labels.** The teacher improved by +0.070 on gold; a
-   0.725 imaging model came from a 0.769 teacher. Most likely to move the board.
+   0.725 imaging model came from a 0.769 teacher. Now also **+0.062 on the rig
+   across three seeds** (§1E), so two independent lines point at it. Most likely
+   to move the board. Push refused again on 2026-08-21 — quota not yet reset.
 2. **Submit the 4-fold rank-mean ensemble.** Same configuration, different
    splits, no hypothesis that can be wrong.
 3. **Complete the gold pool** to n=58 by running fold 0 with a gold dump.
 4. **Re-examine DINOv2** — 0.7041 at epoch 34, still not clearly converged.
 
 CPU work is unaffected and is where anything further will happen until the
-quota returns.
+quota returns. As of E030 the rig has answered every question that was waiting
+on it, so what remains on CPU is a **third report reader** (`PATH.md` Phase A,
+~4 h of CPU, the union rule already exists) rather than more head-level A/Bs.

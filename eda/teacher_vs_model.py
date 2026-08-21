@@ -81,7 +81,7 @@ def main(argv=None) -> int:
     states_path = Path(args.states)
     if states_path.exists():
         blob = json.loads(states_path.read_text())
-        by_study = dict(zip(blob["StudyInstanceUID"], blob["states"]))
+        by_study = dict(zip(blob["StudyInstanceUID"], blob["states"], strict=True))
         for row, study in enumerate(studies):
             for i, finding in enumerate(FINDINGS):
                 state = by_study.get(study, {}).get(finding)

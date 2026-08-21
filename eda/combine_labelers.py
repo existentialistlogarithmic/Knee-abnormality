@@ -85,7 +85,7 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     blob = json.loads(Path(args.states).read_text())
-    llm_states = dict(zip(blob["StudyInstanceUID"], blob["states"]))
+    llm_states = dict(zip(blob["StudyInstanceUID"], blob["states"], strict=True))
 
     train = pd.read_csv(args.train)
     gold = train[train[FINDINGS].notna().all(axis=1)].reset_index(drop=True)
@@ -96,7 +96,7 @@ def main(argv=None) -> int:
     lexicon = np.full((len(gold), len(FINDINGS)), np.nan)
     machine = np.full((len(gold), len(FINDINGS)), np.nan)
     for row, (study, report) in enumerate(zip(gold.StudyInstanceUID.astype(str),
-                                              gold.Report.astype(str))):
+                                              gold.Report.astype(str), strict=True)):
         labelled = labeler.label(report, detect_language(report))
         for i, finding in enumerate(FINDINGS):
             score = labelled[finding].score

@@ -18,16 +18,18 @@ plus unlimited CPU and 2 submissions a day.
 
 | | status |
 |---|---|
-| fused labels (lexicon ∪ LLM), **+0.070 teacher on gold** | built, tested, not yet trained on |
-| focal top-k pooling, **+0.060 of measured headroom** | built, tested, A/B queued |
-| per-finding attention maps | built, +0.014 at n=12 — not separated |
+| fused labels (lexicon ∪ LLM), **+0.070 teacher on gold** | **+0.062 on the rig too**, 3 seeds; not yet trained on GPU |
+| focal top-k pooling | **measured, no effect**: +0.006 [−0.041, +0.051] (E030) |
+| per-finding attention maps | **still not separated at n=58**: +0.039 [−0.009, +0.090] (E030) |
 | rank-mean ensembling | shipped |
 | gold OOF at n=58, tracks the board to **+0.005** | working |
-| frozen-embedding rig: 5-fold A/B in **2.6 min on CPU** | `knee-embed` running now |
+| frozen-embedding rig: 5-fold A/B in **~8 min on CPU** | `knee-embed` **finished**; three A/Bs run (E030) |
 
-**The immediate move is not a GPU run.** Once `knee-embed` finishes, every open
-architecture and label question is answerable in minutes on CPU. Do that first,
-then spend GPU only on configurations that already won on the rig.
+**The immediate move is not a GPU run.** `knee-embed` has finished and the three
+open questions above the backbone are answered (E030): the fused labels win, and
+neither focal top-k nor per-finding maps separates from zero. GPU goes only to
+configurations that already won on the rig — which now means the fused labels,
+and not the two pooling changes.
 
 ## 2. The ranked plan
 
@@ -37,9 +39,12 @@ union of two readers is 0.8145. Leading public systems use **three independent
 report readers**, not two. A second open-weights model reading into the same
 closed ladder is ~4 h of CPU and the union rule already exists.
 
-### Phase B — decide the architecture on the rig (CPU, minutes)
-`eda/head_lab.py` answers focal-k, per-finding pooling and fused-vs-lexicon as
-one-variable paired A/Bs. Nothing here needs quota. Only what wins goes to GPU.
+### Phase B — decide the architecture on the rig (CPU, minutes) — **done**
+`eda/head_lab.py` answered focal-k, per-finding pooling and fused-vs-lexicon as
+one-variable paired A/Bs, in 8.5 min of CPU (E030). **Only the labels won**;
+both pooling changes came back unseparated, and the focal-k "+0.060" this file
+previously carried was a *headroom* figure, never a measured gain. The rig stays
+the gate: nothing goes to GPU that has not won here first.
 
 ### Phase C — the backbone (≈50 GPU-h)
 DINOv2 reached 0.7041 at epoch 34 **and had not converged** — the curve was

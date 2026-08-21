@@ -34,8 +34,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.report_labeler import ABSTAIN, ReportLabeler, detect_language  # noqa: E402
-from src.report_schema import (FINDINGS, STATE_SCORE, STATE_WEIGHT,  # noqa: E402
-                               STATES)
+from src.report_schema import FINDINGS, STATE_SCORE, STATE_WEIGHT, STATES  # noqa: E402
 
 
 def channel_for(score: float) -> str:
@@ -64,7 +63,7 @@ def main(argv=None) -> int:
     for path in args.llm:
         blob = json.loads(Path(path).read_text())
         states.update(dict(zip([str(s) for s in blob["StudyInstanceUID"]],
-                               blob["states"])))
+                               blob["states"], strict=True)))
     train = pd.read_csv(args.train)
     studies = train.StudyInstanceUID.astype(str).tolist()
     covered = sum(s in states for s in studies)
@@ -77,7 +76,7 @@ def main(argv=None) -> int:
     machine_weight = np.zeros((n, f))
     languages = []
 
-    for row, (study, report) in enumerate(zip(studies, train.Report.astype(str))):
+    for row, (study, report) in enumerate(zip(studies, train.Report.astype(str), strict=True)):
         language = detect_language(report)
         languages.append(language)
         labelled = labeler.label(report, language)

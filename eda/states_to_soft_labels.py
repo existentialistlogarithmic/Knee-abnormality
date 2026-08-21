@@ -36,8 +36,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.report_schema import (FINDINGS, STATE_SCORE, STATE_WEIGHT,  # noqa: E402
-                               STATES)
+from src.report_schema import FINDINGS, STATE_SCORE, STATE_WEIGHT, STATES  # noqa: E402
 
 # ladder rung -> the channel vocabulary training already understands
 CHANNEL = {
@@ -124,7 +123,7 @@ def main(argv=None) -> int:
     print(f"\noverall abstain rate: {abstain:.1%}")
     print(f"\n{'finding':18s} " + "  ".join(f"{s[:5]:>5s}" for s in STATES))
     for finding in FINDINGS:
-        counts = {s: 0 for s in STATES}
+        counts = dict.fromkeys(STATES, 0)
         for row in rows:
             state = row.get(finding)
             counts[state if state in STATES else "not_mentioned"] += 1

@@ -50,7 +50,7 @@ def test_the_fused_file_loads_through_the_kernel_path_without_nans():
 def test_targets_are_probabilities_and_masks_are_non_negative():
     targets, masks = load_as_the_kernel_does(FUSED)
     supervised = masks > 0
-    assert 0.0 <= targets[supervised].min() and targets[supervised].max() <= 1.0
+    assert targets[supervised].min() >= 0.0 and targets[supervised].max() <= 1.0
     assert masks.min() >= 0.0
 
 

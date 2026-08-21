@@ -1077,3 +1077,60 @@ The direction of the finding survives; the magnitudes do not.
   implementation of a shared idea is where the error lives. `to_rank` was
   duplicated once and broke on ties; `fuse` was duplicated once and understated
   the teacher by 0.08. Both scripts now call the kernel's implementation.
+
+
+### E030 — the rig answers all three open questions, and only the labels survive
+- **date**: 2026-08-21
+- **what changed**: nothing in the model. `knee-embed` finished — one frozen
+  DINOv2 ViT-S/14 pass over the corpus, **344.6 min of CPU, 4.69 s/study**,
+  written as `embeddings.npy (4407, 60, 384) float16`, 203 MB — so the three
+  questions that had been waiting on the GPU quota were run as paired,
+  one-variable A/Bs above that frozen backbone.
+- **config**: `eda/head_lab.py`, 5-fold grouped on the scanner fingerprint (178
+  groups), 24 epochs, batch 64, LR 1e-3, scored out-of-fold against the 58
+  expert-labelled studies. 2,000-sample paired bootstrap.
+- **runtime**: **8.5 min on CPU for all six configurations.** No GPU quota spent.
+- **results**, each against the same baseline (lexicon labels, mean pooling,
+  single attention map):
+
+  | comparison | delta | 95% CI | verdict |
+  |---|---:|---|---|
+  | focal top-k (k=3) − baseline | +0.0060 | [−0.041, +0.051] | not separated |
+  | per-finding maps − baseline | +0.0389 | [−0.009, +0.090] | not separated |
+  | **fused labels − lexicon** | **+0.0508** | **[+0.001, +0.102]** | **A is better** |
+
+- **seed replication of the one that separated**, because its interval only
+  barely excluded zero:
+
+  | seed | fused | lexicon | delta | 95% CI |
+  |---|---:|---:|---:|---|
+  | 0 | 0.6542 | 0.6034 | +0.0508 | [+0.001, +0.102] |
+  | 1 | 0.6738 | 0.5900 | +0.0838 | [+0.035, +0.134] |
+  | 2 | 0.6543 | 0.6043 | +0.0501 | [−0.011, +0.111] |
+  | **mean** | | | **+0.0616** | direction consistent 3/3 |
+
+  Two of three intervals exclude zero and all three point the same way at a
+  stable magnitude. That is *supporting* evidence, not proof — n=58 with a
+  ±0.05 interval cannot deliver proof — but it is the first offline signal for
+  the fused labels that does not come from the teacher's own scoring.
+- **what it means**:
+  - **The fused labels are the right next GPU run.** They were already the top
+    of the queue on the strength of the teacher improving +0.070 on gold. That
+    argument was about label quality in isolation; this one measures what a
+    trained head actually does with them, and it agrees.
+  - **Focal top-k does not survive contact with a measurement.** `docs/PATH.md`
+    carried it as "+0.060 of measured headroom". The +0.060 was a *ceiling* —
+    the gap between the model and its teacher on focal findings — and not a
+    prediction of what top-k pooling recovers. Measured, top-k recovers
+    **+0.006 with an interval eight times its width.** The rig's positive
+    control (E028) plants a focal signal and recovers +0.0445, so the rig can
+    see this kind of effect when it is there. It is not there.
+  - **Per-finding maps remain unseparated**, now at n=58 rather than n=12.
+    +0.0389 with the interval crossing zero is the same verdict as before with
+    a wider base to say it on.
+- **the pattern this repeats**: a quantity measured as *headroom* was carried
+  forward as though it were a *gain*. That is the sixth entry in this log where
+  a number changed meaning between where it was measured and where it was used.
+- **next**: `kaggle/21_train_v1fused` on a T4 the moment the weekly quota
+  resets. The push was attempted on 2026-08-21 and refused with "Maximum weekly
+  GPU quota of 30.00 hours reached", so the reset had not happened by then.

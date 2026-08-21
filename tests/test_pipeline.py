@@ -318,7 +318,8 @@ def _rank_block(directory: str):
     source = (KAGGLE / directory / "run.py").read_text()
     block = source[source.index("    scored = ~np.isnan"):
                    source.index("    submission = pd.DataFrame")]
-    return "\n".join(l[4:] if l.startswith("    ") else l for l in block.splitlines())
+    return "\n".join(line[4:] if line.startswith("    ") else line
+                     for line in block.splitlines())
 
 
 def test_rank_averaging_is_a_no_op_for_a_single_model():

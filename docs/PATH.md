@@ -59,6 +59,14 @@ Three independent families — a CNN, a ViT, and one more — five folds each, r
 blended. Published gain **+0.02 to +0.05**. Decode once, score N times, so it
 costs almost nothing at inference.
 
+**The cheap version of this does not work and has been tested (E033).** Blending
+the fused and lexicon 5-folds — two label sets on one backbone — is *worse than
+the fused model alone at every weight*, and the curve rises monotonically toward
+"use none of the lexicon model". Blending needs members that are comparably
+strong and decorrelated; a strictly weaker model trained on a subset of the same
+information is neither. **Phase D requires a second architecture, not a second
+label set**, which means Phase C has to come first.
+
 ### Phase E — spend submissions as confirmation
 Gold OOF estimates the board to within 0.005. Submissions confirm; they do not
 explore.

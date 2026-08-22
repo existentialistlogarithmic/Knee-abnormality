@@ -1290,3 +1290,42 @@ The direction of the finding survives; the magnitudes do not.
   it is a 5-fold rank-mean and costs ~0.8 h. That converts the strongest offline
   result this project has produced into a number on the board that cannot be
   argued with.
+
+
+### E033 — the cross-label ensemble is worse than its better half, at every weight
+- **date**: 2026-08-22
+- **what changed**: nothing was trained. This blends two model families that
+  already exist — the fused 5-fold (E032) and the lexicon 5-fold — by
+  rank-averaging their gold out-of-fold predictions, exactly as
+  `22_infer_v1fused` rank-averages folds. **Cost: seconds of CPU, zero quota,
+  zero submissions.**
+- **why it looked promising**: `PATH.md` Phase D carries a published +0.02 to
+  +0.05 for blending independent families, and these two share a backbone and a
+  cache but differ in supervision, which is the axis the fusion was built on.
+
+| blend | gold macro AUC at n=58 |
+|---|---:|
+| lexicon alone | 0.7201 |
+| rank blend, w_fused = 0.5 | 0.7740 |
+| rank blend, w_fused = 0.7 | 0.7853 |
+| rank blend, w_fused = 0.8 | 0.7902 |
+| rank blend, w_fused = 0.9 | 0.7911 |
+| **fused alone** | **0.7918** |
+
+- **result**: **every blend is below fused alone, and the curve rises
+  monotonically toward w=1.** The best blend tested (0.7) is −0.0065 against
+  fused alone, CI [−0.017, +0.004] — not separated, but pointing down, and the
+  monotonicity is the real evidence: there is no interior optimum. The
+  optimiser's answer is "use none of the lexicon model".
+- **what it means**: blending helps when members are *comparably strong and
+  decorrelated*. These are neither — the lexicon model is 0.072 worse and was
+  trained on labels that are a strict subset of the fused ones' information, so
+  it contributes noise where it disagrees rather than an independent view.
+  Phase D's +0.02–0.05 assumed independent *families*; two label sets on one
+  backbone is not that.
+- **what it saved**: one of two daily submissions, and the temptation to read a
+  published ensemble gain as applying here. The check cost seconds because the
+  gold OOF predictions already existed.
+- **next**: a genuine ensemble needs a second *architecture*, not a second label
+  set. That is `PATH.md` Phase C — DINOv2 to convergence — and it costs ~23
+  GPU-hours for five folds, which is the entire remaining weekly allowance.

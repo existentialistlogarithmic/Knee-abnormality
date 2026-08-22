@@ -157,7 +157,7 @@ ensemble.
 ## 5. Claim ledger
 
 `docs/FINDINGS.md` tags every claim: **51 `VERIFIED`, 7 `UNVERIFIED`,
-7 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 32 numbered runs
+7 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 33 numbered runs
 with what changed, the runtime, the result and what it meant.
 
 ---
@@ -181,7 +181,10 @@ In the order they are worth doing:
    asked to extrapolate 0.07 past it, so the submission is the test, not the
    confirmation.
 2. **Submit the 4-fold rank-mean ensemble.** Same configuration, different
-   splits, no hypothesis that can be wrong.
+   splits, no hypothesis that can be wrong. *(Superseded by the fused 5-fold,
+   which is the same idea on better labels.)*
+   **Not worth doing: blending the fused and lexicon families.** Measured in
+   E033 at zero quota — worse than fused alone at every weight, monotonically.
 3. **Complete the gold pool** to n=58 by running fold 0 with a gold dump.
 4. **Re-examine DINOv2** — 0.7041 at epoch 34, still not clearly converged.
 

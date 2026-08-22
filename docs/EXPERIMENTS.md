@@ -1209,3 +1209,84 @@ The direction of the finding survives; the magnitudes do not.
   directly comparable to the standing 0.725 since that was also one fold.
 - **next**: spend the folds. This is the one configuration that has earned GPU
   hours on evidence rather than on hope.
+
+
+### E032 — the fused labels separate at n=58: +0.0717, CI [+0.042, +0.103]
+- **date**: 2026-08-22
+- **what changed**: nothing since E031 except the number of folds. Folds 1–4 of
+  the `v1fused` lineage, declared in `src/pipeline.py` so they inherit the
+  lineage's config and label dataset by construction. `RUN_FOLD` is verifiably
+  the only difference between these `run.py` files and the fold-0 one.
+- **runtime**: 82.4 / 79.7 / 76.3 / 84.6 min, two at a time against the GPU
+  concurrency cap of 2. **~5.4 GPU-hours**, ~6.9 including fold 0.
+
+- **the measurement this was run to make**, paired on all 58 gold studies
+  against the lexicon-label folds:
+
+  | | macro AUC vs expert | 95% CI |
+  |---|---:|---|
+  | **fused labels, 5 folds** | **0.7918** | [0.754, 0.829] |
+  | lexicon labels, 5 folds | 0.7201 | [0.672, 0.767] |
+  | **paired difference** | **+0.0717** | **[+0.042, +0.103]** |
+
+  **A is better — the interval excludes zero.** This is the first change in the
+  project to clear that bar offline.
+
+- **the baseline reproduces exactly.** Pooled lexicon gold comes back at
+  **0.7201**, matching E026 to four decimals from independently re-fetched
+  outputs. The comparison is not resting on a remembered number.
+
+- **four instruments, one answer.** Every estimate of this effect, from
+  measurements that share no code path:
+
+  | instrument | delta | n |
+  |---|---:|---|
+  | teacher on the 58 (E029) | +0.070 | labels only |
+  | frozen-embedding rig, 3 seeds (E030) | +0.062 | 4,407 |
+  | fold-0 gold, paired (E031) | +0.0721 | 12 |
+  | **five-fold gold, paired (here)** | **+0.0717** | **58** |
+
+  The spread across all four is 0.010. E031's point estimate survived a
+  five-fold increase in sample size essentially unchanged, which is the
+  behaviour of a real effect rather than a favourable draw.
+
+- **where it moved**:
+
+  | finding | lexicon | fused | delta | pos |
+  |---|---:|---:|---:|---:|
+  | **Medial Meniscus** | 0.516 | **0.786** | **+0.270** | 26 |
+  | ACL | 0.662 | 0.812 | +0.151 | 24 |
+  | Baker's | 0.830 | 0.964 | +0.134 | 12 |
+  | Medial OA | 0.817 | 0.929 | +0.112 | 15 |
+  | Fracture | 0.778 | 0.883 | +0.106 | 18 |
+  | Contusion | 0.758 | 0.846 | +0.088 | 19 |
+  | Lateral Meniscus | 0.696 | 0.753 | +0.057 | 23 |
+  | MCL | 0.612 | 0.628 | +0.016 | 9 |
+  | Lateral OA | 0.723 | 0.721 | −0.003 | 11 |
+  | PF OA | 0.672 | 0.658 | −0.014 | 21 |
+  | Effusion | 0.924 | 0.906 | −0.019 | 35 |
+  | **Synovitis** | 0.654 | **0.616** | **−0.037** | 27 |
+
+  **Medial Meniscus was the whole problem and is now not.** E026 measured it at
+  **0.516 — chance — on the most common finding in the set**, and named it the
+  single largest drag on the macro. It is now 0.786. Findings at or above 0.80
+  go from **3 to 6**; findings below 0.70 go from **6 to 3**.
+
+  **Synovitis moves the wrong way**, as it did on fold 0, and at n=58 that is
+  no longer dismissible as fold noise. E029 identified Synovitis as the one
+  finding the fused teacher genuinely does not know, so a label change that
+  helps everywhere else and hurts here is the predicted shape, not an anomaly.
+  It is now the second-weakest finding and inherits Medial Meniscus's old role
+  as the thing most worth fixing.
+
+- **what this predicts for the board, and the caveat on it.** E026 established
+  that gold OOF tracks this project's leaderboard to **+0.005** with no
+  correction. Taken at face value that puts this configuration near **0.787**
+  against a standing **0.725**. That relationship was calibrated on **one**
+  submission, so it is a single-point calibration being asked to extrapolate
+  0.07 beyond where it was fitted. Treat 0.787 as an expectation to be tested,
+  not a result — the board is the only ground truth and it is two clicks away.
+- **next**: submit. `knee-infer-v1fused` now depends on all five checkpoints, so
+  it is a 5-fold rank-mean and costs ~0.8 h. That converts the strongest offline
+  result this project has produced into a number on the board that cannot be
+  argued with.

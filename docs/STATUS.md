@@ -5,7 +5,7 @@ kernels and 62 tagged claims, and the single most expensive mistakes in it came
 from **treating a weakly-known number as a well-known one**. So the organising
 axis here is not topic. It is *evidence strength*.
 
-Last updated 2026-08-22.
+Last updated 2026-08-22 (E032).
 
 ---
 
@@ -27,14 +27,14 @@ Last updated 2026-08-22.
 
 | system | gold macro AUC | 95% CI |
 |---|---:|---|
-| imaging, 192px, folds 1–4 pooled | **0.7264** | [0.672, 0.776] |
-| imaging, 192px, all five folds pooled | 0.7201 | [0.672, 0.767] |
-| **fused labels, fold 0 only (n=12)** | 0.7933 | [0.638, 0.888] |
-| lexicon labels, fold 0 only (n=12) | 0.7213 | [0.548, 0.840] |
+| **fused labels, five folds pooled** | **0.7918** | [0.754, 0.829] |
+| lexicon labels, five folds pooled | 0.7201 | [0.672, 0.767] |
+| imaging, 192px, folds 1–4 pooled | 0.7264 | [0.672, 0.776] |
 
-The last two are a **paired** A/B on the same 12 studies: **+0.0721, CI
-[−0.009, +0.183] — not separated** (E031). n=12 cannot resolve a gap this size;
-n=58 would, at an interval of ~0.044.
+Paired on all 58 shared studies: **+0.0717, CI [+0.042, +0.103] — A is better**
+(E032). **The first change in this project to separate from zero offline.** The
+lexicon baseline re-pooled from freshly fetched outputs reproduces E026's
+0.7201 exactly, so the comparison does not rest on a remembered number.
 
 This is the only offline signal currently trusted, and §3 explains why the
 obvious alternative is not.
@@ -82,9 +82,11 @@ scanner fingerprint, 8.5 min of CPU for all six configurations (E030):
 
 The labels comparison replicates across seeds — +0.0508, +0.0838, +0.0501,
 **mean +0.062**, direction consistent 3/3 — so it is the one configuration with
-offline support for spending GPU on it. **It has since been spent** (E031): a
-fine-tuned resnet34 on fold 0 gives **+0.0721** paired on gold, agreeing with
-the rig to within 0.010 and still not separated at n=12.
+offline support for spending GPU on it. **It has since been spent** (E031, E032): a
+fine-tuned resnet34 gives **+0.0721** on fold 0 and **+0.0717 across all five
+folds**, where the interval finally excludes zero. Four instruments sharing no
+code path — teacher +0.070, rig +0.062, fold-0 +0.0721, five-fold +0.0717 —
+span 0.010.
 
 A frozen backbone is not the fine-tuned model, so **absolute numbers here do not
 predict the board**; comparisons above the backbone do transfer, because those
@@ -154,8 +156,8 @@ ensemble.
 
 ## 5. Claim ledger
 
-`docs/FINDINGS.md` tags every claim: **50 `VERIFIED`, 8 `UNVERIFIED`,
-7 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 31 numbered runs
+`docs/FINDINGS.md` tags every claim: **51 `VERIFIED`, 7 `UNVERIFIED`,
+7 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 32 numbered runs
 with what changed, the runtime, the result and what it meant.
 
 ---
@@ -169,11 +171,15 @@ it. **~1.5 h of the new 30 is spent** on E031.
 
 In the order they are worth doing:
 
-1. ~~**Train on the fused labels.**~~ **Done — E031.** Fold 0 gives +0.0721
-   paired on gold, not separated at n=12, agreeing with the teacher (+0.070)
-   and the rig (+0.062). **Folds 1–4 are now the highest-value spend**: ~6
-   GPU-hours takes the paired comparison to n=58 and the interval from ~0.19 to
-   ~0.044, which would actually separate a gap this size.
+1. ~~**Train on the fused labels.**~~ **Done — E031, E032.** All five folds
+   run; **+0.0717 paired at n=58, CI [+0.042, +0.103], separated.** Gold OOF
+   0.7918 against the lexicon model's 0.7201.
+   **The open action is now to submit it.** `knee-infer-v1fused` depends on all
+   five checkpoints, so it is a 5-fold rank-mean at ~0.8 h. E026 calibrated gold
+   OOF to the board at +0.005, which points at ~0.787 against the standing
+   0.725 — but that calibration has exactly one point behind it and is being
+   asked to extrapolate 0.07 past it, so the submission is the test, not the
+   confirmation.
 2. **Submit the 4-fold rank-mean ensemble.** Same configuration, different
    splits, no hypothesis that can be wrong.
 3. **Complete the gold pool** to n=58 by running fold 0 with a gold dump.

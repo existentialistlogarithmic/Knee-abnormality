@@ -61,29 +61,29 @@ CPU is a separate allowance and is unaffected.
 
 ## 5. The next action
 
-**Run folds 1–4 on the fused labels** (~6 GPU-hours).
+**Submit the fused-label 5-fold.** `bash eda/preflight.sh && kaggle kernels push
+-p kaggle/22_infer_v1fused` — ~0.8 h. It depends on all five fused checkpoints,
+so it is a 5-fold rank-mean.
 
-E031 trained fold 0 on them and got **+0.0721 paired on gold, CI
-[−0.009, +0.183] — not separated at n=12**. Three instruments now agree to
-within 0.010 on the size of the effect:
+E032 settled the label question offline: **+0.0717 paired on gold at n=58, CI
+[+0.042, +0.103] — the interval excludes zero**, the first change in this
+project to manage that. Gold OOF **0.7918** against the lexicon model's 0.7201.
 
-| instrument | delta | what it measures |
-|---|---:|---|
-| teacher on the 58 (E029) | +0.070 | label quality alone |
-| frozen-embedding rig, 3 seeds (E030) | +0.062 | a trained head on frozen features |
-| fold-0 gold, paired (E031) | +0.072 | the actual fine-tuned model |
+E026 calibrated gold OOF to this project's board score at **+0.005**, which
+points at roughly **0.787** against the standing 0.725. **That calibration has
+one point behind it** and is being asked to extrapolate 0.07 past where it was
+fitted, so the submission is the test of it, not a formality. Two submissions a
+day are available.
 
-None is individually conclusive. Folds 1–4 take the paired gold comparison from
-n=12 to **n=58**, and the interval from ~0.19 to **~0.044** — enough to separate
-a gap of this size. That is the cheapest decisive move.
+Do **not** re-push any `21/27/28/29/30_train_v1fused*` kernel — all five folds
+are done and each re-run costs ~1.4 GPU-hours to reproduce a result already in
+hand. ~6.9 h of the weekly 30 is spent.
 
-A board submission (0.8 h) is the other decisive option and is ground truth,
-directly comparable to the standing 0.725 because that was also a single fold.
-
-**Do not re-push `21_train_v1fused`** — fold 0 is done and a second push burns
-~1.5 h to reproduce it. The fold-1..4 kernels are `kaggle/10_train_fold{1..4}`
-and need their label dataset switched to `knee-phase1-fused` **in
-`src/pipeline.py`**, then regenerated — never by editing `run.py`.
+After the submission, the ranked queue is `PATH.md` Phase C (DINOv2 to
+convergence, ~50 GPU-h — the largest published lever, never given a fair run)
+and Phase A (a third report reader on CPU). **Synovitis is now the weakest
+finding at 0.616** and has inherited Medial Meniscus's old role as the biggest
+single drag on the macro.
 
 ## 6. What the CPU rig has already settled
 

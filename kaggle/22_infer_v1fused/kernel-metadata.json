@@ -14,7 +14,11 @@
     "rsna-knee-abnormality-detection"
   ],
   "kernel_sources": [
-    "achelijndiamantidis/knee-train-v1fused"
+    "achelijndiamantidis/knee-train-v1fused",
+    "achelijndiamantidis/knee-train-v1fused-fold1",
+    "achelijndiamantidis/knee-train-v1fused-fold2",
+    "achelijndiamantidis/knee-train-v1fused-fold3",
+    "achelijndiamantidis/knee-train-v1fused-fold4"
   ],
   "model_sources": []
 }

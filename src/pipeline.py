@@ -331,7 +331,19 @@ LINEAGES = [
             note="Identical to the 0.725 configuration. The labels are the\n"
                  "single variable.",
         ),
-        trainers=(Trainer(0, "knee-train-v1fused", "21_train_v1fused"),),
+        trainers=(
+            Trainer(0, "knee-train-v1fused", "21_train_v1fused"),
+            # Folds 1-4, added after E031. Fold 0 alone gave +0.0721 paired on
+            # gold with CI [-0.009, +0.183] — the right direction, and NOT
+            # separated, because n=12 carries a ~0.19 interval. These four take
+            # the paired comparison to n=58, where FINDINGS.md 13 measured the
+            # interval at ~0.044 by simulation. That resolution separates a gap
+            # this size; nothing cheaper does.
+            Trainer(1, "knee-train-v1fused-fold1", "27_train_v1fused_fold1"),
+            Trainer(2, "knee-train-v1fused-fold2", "28_train_v1fused_fold2"),
+            Trainer(3, "knee-train-v1fused-fold3", "29_train_v1fused_fold3"),
+            Trainer(4, "knee-train-v1fused-fold4", "30_train_v1fused_fold4"),
+        ),
         infer_slug="knee-infer-v1fused",
         infer_directory="22_infer_v1fused",
     ),

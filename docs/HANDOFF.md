@@ -1,7 +1,7 @@
 # HANDOFF — read this first
 
 The session entry point. Everything here is either a live instruction or a
-pointer to the file that holds the detail. Last updated **2026-08-21**.
+pointer to the file that holds the detail. Last updated **2026-08-22**.
 
 Read order: **this file**, then `docs/STATUS.md` (what is known, by evidence
 strength), then `docs/PATH.md` (what is left and what it is worth).
@@ -42,21 +42,15 @@ package is installed. Check `which kaggle` instead.
 **0.725 on the leaderboard.** Field top 0.952, 1,866 teams, final submission
 2026-10-22. Full picture in `STATUS.md`; the costed plan in `PATH.md`.
 
-## 4. The live blocker
+## 4. Quota state
 
-**The 30-hour weekly GPU quota is exhausted.** Confirmed again on 2026-08-21 —
-pushing `kaggle/21_train_v1fused` was refused with:
+**The quota reset on 2026-08-22.** It refused at 2026-08-21 18:17 UTC and
+accepted at 00:17 UTC, so the weekly window turns over in that six-hour band.
+Kaggle's API reports neither the balance nor the reset moment — only the account
+page does — so the only test is to attempt the push and read the refusal.
 
-```
-Kernel push error: Maximum weekly GPU quota of 30.00 hours reached.
-```
-
-Kaggle's API exposes neither the remaining balance nor the reset moment; only
-the account page does. So the reset time is `UNVERIFIED` and the only way to
-test it is to attempt the push and read the refusal.
-
-Two separate limits exist and both refusals begin with "Maximum". Confusing
-them has cost real time before:
+**~1.5 h of the new 30 is spent** (E031). Two limits exist and both refusals
+begin with "Maximum"; confusing them has cost real time before:
 
 | message | meaning | does waiting help |
 |---|---|---|
@@ -67,24 +61,29 @@ CPU is a separate allowance and is unaffected.
 
 ## 5. The next action
 
-**Push `kaggle/21_train_v1fused` the moment the quota resets.**
+**Run folds 1–4 on the fused labels** (~6 GPU-hours).
 
-```bash
-bash eda/preflight.sh && kaggle kernels push -p kaggle/21_train_v1fused
-```
+E031 trained fold 0 on them and got **+0.0721 paired on gold, CI
+[−0.009, +0.183] — not separated at n=12**. Three instruments now agree to
+within 0.010 on the size of the effect:
 
-It needs nothing local: the fused labels live in the Kaggle dataset
-`achelijndiamantidis/knee-phase1-fused` and the caches are kernel sources.
+| instrument | delta | what it measures |
+|---|---:|---|
+| teacher on the 58 (E029) | +0.070 | label quality alone |
+| frozen-embedding rig, 3 seeds (E030) | +0.062 | a trained head on frozen features |
+| fold-0 gold, paired (E031) | +0.072 | the actual fine-tuned model |
 
-Two independent lines of evidence now point at it, which is why it is first:
+None is individually conclusive. Folds 1–4 take the paired gold comparison from
+n=12 to **n=58**, and the interval from ~0.19 to **~0.044** — enough to separate
+a gap of this size. That is the cheapest decisive move.
 
-- the fused teacher scores **+0.070** above the lexicon on the 58 expert
-  studies (`STATUS.md` §1C);
-- a trained head on frozen embeddings gains **+0.062 mean across three seeds**
-  from the same swap, direction consistent 3/3 (`EXPERIMENTS.md` E030).
+A board submission (0.8 h) is the other decisive option and is ground truth,
+directly comparable to the standing 0.725 because that was also a single fold.
 
-Then, in order: submit the 4-fold rank-mean ensemble, complete the gold pool at
-fold 0, re-examine DINOv2 to convergence.
+**Do not re-push `21_train_v1fused`** — fold 0 is done and a second push burns
+~1.5 h to reproduce it. The fold-1..4 kernels are `kaggle/10_train_fold{1..4}`
+and need their label dataset switched to `knee-phase1-fused` **in
+`src/pipeline.py`**, then regenerated — never by editing `run.py`.
 
 ## 6. What the CPU rig has already settled
 

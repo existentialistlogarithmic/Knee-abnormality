@@ -1134,3 +1134,78 @@ The direction of the finding survives; the magnitudes do not.
 - **next**: `kaggle/21_train_v1fused` on a T4 the moment the weekly quota
   resets. The push was attempted on 2026-08-21 and refused with "Maximum weekly
   GPU quota of 30.00 hours reached", so the reset had not happened by then.
+
+
+### E031 — the fused labels train, and the direction holds a third time
+- **date**: 2026-08-22
+- **what changed**: the label file, and nothing else. `RUN_FOLD=0`,
+  `TARGET_SIZE=192`, `resnet34`, 24 epochs, batch 16, LR 6e-4, `FOCAL_K=0`,
+  `PER_FINDING_POOL=False` — byte-identical to the configuration that scored
+  **0.725** on the board, with `knee-phase1-fused` mounted in place of
+  `knee-phase1-artifacts`.
+- **runtime**: **88.8 min wall clock** on 2×T4 (DataParallel), ~1.5 h of the
+  weekly 30. The quota reset between 2026-08-21 18:17 UTC (refused) and
+  2026-08-22 00:17 UTC (accepted).
+- **CV**: best val macro AUC **0.7350** at epoch 19, against **fused** report
+  labels.
+- **gold (12 held-out expert studies in this fold)**: **0.7933**, peaking at
+  0.7996 at epoch 18.
+- **prediction spread**: 0.1904 at the saved epoch, rising monotonically from
+  0.0273 — no collapse to base rates.
+
+- **the CV number is not a valid A/B and must not be quoted as one.** The
+  lexicon baseline's 0.7001 was scored against *lexicon* report labels; this
+  0.7350 is scored against *fused* ones. The targets changed, so the two
+  numbers have **different denominators** — the identical mistake E029 caught in
+  `teacher_vs_model.py`. `0.7350 − 0.7001 = +0.035` measures nothing.
+- **the gold comparison is the valid one**, paired on the same 12 studies
+  against the fold-0 lexicon baseline from `knee-gold-eval` (E026):
+
+  | | macro AUC vs expert | 95% CI |
+  |---|---:|---|
+  | fused labels | **0.7933** | [0.638, 0.888] |
+  | lexicon labels | 0.7213 | [0.548, 0.840] |
+  | **paired difference** | **+0.0721** | **[−0.009, +0.183]** |
+
+  **NOT SEPARATED — the interval contains zero.** At n=12 the paired interval is
+  ~0.19 wide, and `FINDINGS.md` §13 measured that limit by simulation before
+  this run existed. A +0.072 point estimate cannot be called established here no
+  matter how much the direction is liked.
+
+- **where it moved**, and the shape is the interesting part:
+
+  | finding | lexicon | fused | delta | pos |
+  |---|---:|---:|---:|---:|
+  | **Medial Meniscus** | 0.281 | **0.656** | **+0.375** | 8 |
+  | Contusion | 0.800 | 1.000 | +0.200 | 5 |
+  | Fracture | 0.714 | 0.886 | +0.171 | 7 |
+  | Baker's | 0.850 | 1.000 | +0.150 | 2 |
+  | MCL | 0.550 | 0.650 | +0.100 | 2 |
+  | PF OA | 0.704 | 0.778 | +0.074 | 3 |
+  | Effusion | 0.950 | 1.000 | +0.050 | 10 |
+  | ACL / Medial OA / Lateral OA | — | — | 0.000 | 7/1/3 |
+  | Lateral Meniscus | 0.833 | 0.778 | −0.056 | 6 |
+  | **Synovitis** | 0.600 | **0.400** | **−0.200** | 7 |
+
+  **Medial Meniscus is the headline.** E026 measured it at **0.516 pooled over
+  all 58 — at chance on the most common finding in the set** — and it is the
+  single largest drag on the macro. Here it moves +0.375 on 8 positives.
+  Synovitis moving −0.200 is the one that argues against reading too much into
+  this: it is also the one finding E029 flagged as genuinely unknown to the
+  fused teacher, so a loss there is consistent rather than anomalous, but a
+  12-study fold produces swings of this size from resampling alone.
+
+- **what it means**: three independent lines now point the same way at the same
+  magnitude — teacher **+0.070** on the 58 (E029), frozen-embedding rig
+  **+0.062** across three seeds (E030), fold-0 gold **+0.072** paired (here).
+  None is individually conclusive and the first two are not measurements of this
+  model. But they are three different instruments, and they agree to within
+  0.010. That is the strongest case this project has assembled for any change,
+  and it is still not proof.
+- **what would settle it**: folds 1–4 on fused labels, ~6 GPU-hours, taking the
+  paired gold comparison from n=12 to **n=58 and the interval from ~0.19 to
+  ~0.044** (`FINDINGS.md` §13). That resolution *would* separate a +0.072 gap.
+  A board submission (0.8 h) is the other decisive option and is ground truth,
+  directly comparable to the standing 0.725 since that was also one fold.
+- **next**: spend the folds. This is the one configuration that has earned GPU
+  hours on evidence rather than on hope.

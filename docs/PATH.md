@@ -18,7 +18,7 @@ plus unlimited CPU and 2 submissions a day.
 
 | | status |
 |---|---|
-| fused labels (lexicon ∪ LLM), **+0.070 teacher on gold** | **+0.062 on the rig too**, 3 seeds; not yet trained on GPU |
+| fused labels (lexicon ∪ LLM), **+0.070 teacher on gold** | **trained (E031)**: +0.062 rig, **+0.072 fold-0 gold**; three instruments agree |
 | focal top-k pooling | **measured, no effect**: +0.006 [−0.041, +0.051] (E030) |
 | per-finding attention maps | **still not separated at n=58**: +0.039 [−0.009, +0.090] (E030) |
 | rank-mean ensembling | shipped |

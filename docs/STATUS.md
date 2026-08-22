@@ -5,7 +5,7 @@ kernels and 62 tagged claims, and the single most expensive mistakes in it came
 from **treating a weakly-known number as a well-known one**. So the organising
 axis here is not topic. It is *evidence strength*.
 
-Last updated 2026-08-21.
+Last updated 2026-08-22.
 
 ---
 
@@ -28,6 +28,13 @@ Last updated 2026-08-21.
 | system | gold macro AUC | 95% CI |
 |---|---:|---|
 | imaging, 192px, folds 1–4 pooled | **0.7264** | [0.672, 0.776] |
+| imaging, 192px, all five folds pooled | 0.7201 | [0.672, 0.767] |
+| **fused labels, fold 0 only (n=12)** | 0.7933 | [0.638, 0.888] |
+| lexicon labels, fold 0 only (n=12) | 0.7213 | [0.548, 0.840] |
+
+The last two are a **paired** A/B on the same 12 studies: **+0.0721, CI
+[−0.009, +0.183] — not separated** (E031). n=12 cannot resolve a gap this size;
+n=58 would, at an interval of ~0.044.
 
 This is the only offline signal currently trusted, and §3 explains why the
 obvious alternative is not.
@@ -75,7 +82,9 @@ scanner fingerprint, 8.5 min of CPU for all six configurations (E030):
 
 The labels comparison replicates across seeds — +0.0508, +0.0838, +0.0501,
 **mean +0.062**, direction consistent 3/3 — so it is the one configuration with
-offline support for spending GPU on it.
+offline support for spending GPU on it. **It has since been spent** (E031): a
+fine-tuned resnet34 on fold 0 gives **+0.0721** paired on gold, agreeing with
+the rig to within 0.010 and still not separated at n=12.
 
 A frozen backbone is not the fine-tuned model, so **absolute numbers here do not
 predict the board**; comparisons above the backbone do transfer, because those
@@ -145,24 +154,26 @@ ensemble.
 
 ## 5. Claim ledger
 
-`docs/FINDINGS.md` tags every claim: **50 `VERIFIED`, 7 `UNVERIFIED`,
-7 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 30 numbered runs
+`docs/FINDINGS.md` tags every claim: **50 `VERIFIED`, 8 `UNVERIFIED`,
+7 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 31 numbered runs
 with what changed, the runtime, the result and what it meant.
 
 ---
 
-## 6. Blocked, and on what
+## 6. What to spend the quota on
 
-The **30-hour weekly GPU quota is exhausted**. Kaggle's API exposes neither the
-remaining balance nor the reset time — only the account page does — so the reset
-moment is `UNVERIFIED`.
+**The quota has reset.** It refused at 2026-08-21 18:17 UTC and accepted at
+2026-08-22 00:17 UTC, so the weekly window turns over somewhere in that
+six-hour band — still not pinned exactly, because only the account page reports
+it. **~1.5 h of the new 30 is spent** on E031.
 
-Waiting on it, in the order they are worth doing:
+In the order they are worth doing:
 
-1. **Train on the fused labels.** The teacher improved by +0.070 on gold; a
-   0.725 imaging model came from a 0.769 teacher. Now also **+0.062 on the rig
-   across three seeds** (§1E), so two independent lines point at it. Most likely
-   to move the board. Push refused again on 2026-08-21 — quota not yet reset.
+1. ~~**Train on the fused labels.**~~ **Done — E031.** Fold 0 gives +0.0721
+   paired on gold, not separated at n=12, agreeing with the teacher (+0.070)
+   and the rig (+0.062). **Folds 1–4 are now the highest-value spend**: ~6
+   GPU-hours takes the paired comparison to n=58 and the interval from ~0.19 to
+   ~0.044, which would actually separate a gap this size.
 2. **Submit the 4-fold rank-mean ensemble.** Same configuration, different
    splits, no hypothesis that can be wrong.
 3. **Complete the gold pool** to n=58 by running fold 0 with a gold dump.

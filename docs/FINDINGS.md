@@ -744,6 +744,7 @@ studies, 2,000-sample bootstrap (E030).
 | # | Claim | Tag | Note |
 |---|---|---|---|
 | 14.1 | Fused labels (lexicon ∪ LLM) beat lexicon labels for a trained head | **`VERIFIED` — +0.0508, CI [+0.001, +0.102]** | replicated at seeds 1 and 2: +0.0838 [+0.035, +0.134] and +0.0501 [−0.011, +0.111]. Direction consistent 3/3, **mean +0.062**. Two of three intervals exclude zero. |
+| 14.4 | The same swap helps the **fine-tuned** model, not just a frozen head | `UNVERIFIED` — +0.0721, CI [−0.009, +0.183] | E031, fold 0, paired on the same 12 gold studies. Not separated at n=12, where the paired interval is ~0.19 wide. The point estimate agrees with 14.1 and with the teacher (+0.070) to within 0.010, which is why it is worth n=58 to settle rather than more argument. |
 | 14.2 | Focal top-k pooling (k=3) is worth ~+0.060 | **`CONTRADICTED` — +0.0060, CI [−0.041, +0.051]** | the +0.060 was the model-to-teacher *headroom* on focal findings, never a measured gain from this change. The rig's positive control recovers a planted focal effect at +0.0445 [+0.025, +0.064], so it can see effects of this size. This one is absent. |
 | 14.3 | Per-finding attention maps help | `UNVERIFIED` — +0.0389, CI [−0.009, +0.090] | same verdict as the n=12 measurement (+0.014), now with n=58 behind it. Suggestive, not separated. |
 

@@ -5,7 +5,7 @@ kernels and 62 tagged claims, and the single most expensive mistakes in it came
 from **treating a weakly-known number as a well-known one**. So the organising
 axis here is not topic. It is *evidence strength*.
 
-Last updated 2026-08-22 (E032).
+Last updated 2026-08-22 (E034).
 
 ---
 
@@ -17,11 +17,18 @@ Last updated 2026-08-22 (E032).
 |---|---:|---|
 | constant priors | 0.500 | the benchmark the efficiency metric uses |
 | scanner metadata, no pixels | 0.531 | the bar the images must clear |
-| **imaging, resnet34 2.5D, 192px, 1 fold** | **0.725** | the standing result |
+| imaging, resnet34 2.5D, 192px, 1 fold | 0.725 | the previous standing result |
 | imaging, 288px, effective batch 4 | 0.668 | confounded run |
 | imaging, 288px, effective batch 16 | 0.688 | the confound corrected; still behind 192px |
+| **imaging, 192px, 5-fold, FUSED labels** | **0.846** | **the standing result** (E034) |
 
-**Leaderboard position: 0.725.** Field top 0.952; top-200 cut 0.917.
+**Leaderboard position: 0.846**, up from 0.725 on 2026-08-22. Field top 0.952;
+top-200 cut 0.917.
+
+**Gold OOF is not a calibrated predictor of the board.** E026 measured the
+offset at +0.005 on one model and concluded no correction was needed; the second
+point came in at **+0.054**. It ranked the two correctly, which is what it is
+for. It does not forecast a score — see §3.
 
 ### B — measured against expert labels out-of-fold (n = 46, CI ±0.05)
 
@@ -130,6 +137,7 @@ pattern matters more than any individual entry.
 | "report-label CV ranks models correctly" | **contradicted** — CV put 288px ahead by 0.028; the board put it 0.037 behind | the loss of the only cheap selection signal |
 | "the 288px curve is still climbing" | **contradicted** — 30 more epochs peaked at 0.7280 and decayed to 0.706 | 3.59 GPU-hours |
 | "gold-58 sits 0.044 below the board" (published) | **does not reproduce** — measured offset −0.001 | nothing; caught before use |
+| "gold OOF estimates the board directly, no correction" | **contradicted** — offset was +0.005 on one model and +0.054 on the next, same architecture and cache. Generalised from n=1. It still *ranks* correctly | nothing; the error was favourable, and it was flagged as a risk before the submission |
 | "focal top-k pooling is worth +0.060" | **contradicted** — +0.060 was the model-to-teacher *headroom* on focal findings, not a gain; measured, top-k gives +0.006 with an interval eight times its width | nothing; the rig caught it for 8 min of CPU |
 
 The common shape: **a small number of observations read as a trend.** The
@@ -157,7 +165,7 @@ ensemble.
 ## 5. Claim ledger
 
 `docs/FINDINGS.md` tags every claim: **51 `VERIFIED`, 7 `UNVERIFIED`,
-7 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 33 numbered runs
+8 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 34 numbered runs
 with what changed, the runtime, the result and what it meant.
 
 ---
@@ -174,12 +182,12 @@ In the order they are worth doing:
 1. ~~**Train on the fused labels.**~~ **Done — E031, E032.** All five folds
    run; **+0.0717 paired at n=58, CI [+0.042, +0.103], separated.** Gold OOF
    0.7918 against the lexicon model's 0.7201.
-   **The open action is now to submit it.** `knee-infer-v1fused` depends on all
-   five checkpoints, so it is a 5-fold rank-mean at ~0.8 h. E026 calibrated gold
-   OOF to the board at +0.005, which points at ~0.787 against the standing
-   0.725 — but that calibration has exactly one point behind it and is being
-   asked to extrapolate 0.07 past it, so the submission is the test, not the
-   confirmation.
+   ~~**The open action is now to submit it.**~~ **Submitted — 0.846** (E034).
+   **The open action is now to submit the LEXICON 5-fold**, which already exists
+   and costs 0.8 h. Gold OOF scores one model per study; the submission
+   rank-averages five. So E032's +0.0717 and the board's +0.121 are not
+   measuring the same system, and until the lexicon 5-fold is on the board,
+   "+0.121 from better labels" is an attribution nobody has earned.
 2. **Submit the 4-fold rank-mean ensemble.** Same configuration, different
    splits, no hypothesis that can be wrong. *(Superseded by the fused 5-fold,
    which is the same idea on better labels.)*

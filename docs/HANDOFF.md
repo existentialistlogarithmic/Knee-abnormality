@@ -39,8 +39,17 @@ package is installed. Check `which kaggle` instead.
 
 ## 3. Where the work stands
 
-**0.725 on the leaderboard.** Field top 0.952, 1,866 teams, final submission
-2026-10-22. Full picture in `STATUS.md`; the costed plan in `PATH.md`.
+**0.846 on the leaderboard** as of 2026-08-22, up from 0.725 — the fused-label
+5-fold rank-mean (E034). Field top 0.952, top-200 cut 0.917, 1,866 teams, final
+submission 2026-10-22. Full picture in `STATUS.md`; the costed plan in
+`PATH.md`.
+
+**The board allows 5 submissions a day, not 2.** Four files in this repo said 2
+and were wrong; corrected 2026-08-22 after a live submit reported "4 remaining".
+
+**Gold OOF ranks models; it does not forecast a score.** The offset to the board
+was +0.005 on one model and +0.054 on the next, same architecture and cache. Use
+it to choose between models, never to predict where a submission will land.
 
 ## 4. Quota state
 
@@ -61,29 +70,29 @@ CPU is a separate allowance and is unaffected.
 
 ## 5. The next action
 
-**Submit the fused-label 5-fold.** `bash eda/preflight.sh && kaggle kernels push
--p kaggle/22_infer_v1fused` — ~0.8 h. It depends on all five fused checkpoints,
-so it is a 5-fold rank-mean.
+**Submit the lexicon 5-fold** — `kaggle/11_infer_folds`, models already trained,
+~0.8 h and one of five daily submissions.
 
-E032 settled the label question offline: **+0.0717 paired on gold at n=58, CI
-[+0.042, +0.103] — the interval excludes zero**, the first change in this
-project to manage that. Gold OOF **0.7918** against the lexicon model's 0.7201.
+This is not a formality, it is the missing control. Gold OOF scores each study
+with the *single* fold that held it out, so E032's **+0.0717** measured a
+one-model system. The submission that scored 0.846 rank-averages **five**. So
+the +0.121 board jump is *labels plus ensembling*, and nothing yet separates
+them. If the lexicon 5-fold also jumps, most of the credit belongs to
+ensembling, and every future single-fold gold comparison is understating what
+its ensemble will do — which changes how the remaining GPU budget should be
+spent.
 
-E026 calibrated gold OOF to this project's board score at **+0.005**, which
-points at roughly **0.787** against the standing 0.725. **That calibration has
-one point behind it** and is being asked to extrapolate 0.07 past where it was
-fitted, so the submission is the test of it, not a formality. Two submissions a
-day are available.
+After that, the ranked queue is `PATH.md` Phase C (DINOv2 to convergence, ~23
+GPU-h for five folds — the largest published lever, still never given a fair
+run) and Phase A (a third report reader, CPU only).
+
+**Synovitis is the weakest finding at 0.616** and has inherited Medial
+Meniscus's old role as the biggest single drag on the macro. E029 flagged it as
+the one finding the fused teacher genuinely does not know, so it is a *label*
+problem before it is a modelling one.
 
 Do **not** re-push any `21/27/28/29/30_train_v1fused*` kernel — all five folds
-are done and each re-run costs ~1.4 GPU-hours to reproduce a result already in
-hand. ~6.9 h of the weekly 30 is spent.
-
-After the submission, the ranked queue is `PATH.md` Phase C (DINOv2 to
-convergence, ~50 GPU-h — the largest published lever, never given a fair run)
-and Phase A (a third report reader on CPU). **Synovitis is now the weakest
-finding at 0.616** and has inherited Medial Meniscus's old role as the biggest
-single drag on the macro.
+are done. ~6.9 h of the weekly 30 is spent, ~23 h remain.
 
 ## 6. What the CPU rig has already settled
 

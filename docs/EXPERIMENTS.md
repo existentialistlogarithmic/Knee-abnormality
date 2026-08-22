@@ -1329,3 +1329,62 @@ The direction of the finding survives; the magnitudes do not.
 - **next**: a genuine ensemble needs a second *architecture*, not a second label
   set. That is `PATH.md` Phase C — DINOv2 to convergence — and it costs ~23
   GPU-hours for five folds, which is the entire remaining weekly allowance.
+
+
+### E034 — 0.846 on the board, and the gold-to-board calibration does not hold
+- **date**: 2026-08-22
+- **what**: `knee-infer-v1fused` v1, the 5-fold rank-mean of the fused-label
+  models from E031/E032, submitted to the competition. Kaggle re-ran the
+  notebook against the ~1,300 hidden studies.
+- **result**: **public leaderboard 0.846**, from a standing **0.725**.
+  **+0.121 in one day**, the largest move this project has made by a wide
+  margin, and the second-largest single lever after the pixels themselves.
+
+| submission | date | board |
+|---|---|---:|
+| constant priors | 08-18 | 0.500 |
+| scanner metadata, no pixels | 08-18 | 0.531 |
+| imaging, 192px, 1 fold, lexicon labels | 08-19 | 0.725 |
+| imaging, 288px, effective batch 16 | 08-19 | 0.688 |
+| **imaging, 192px, 5-fold, fused labels** | **08-22** | **0.846** |
+
+- **THE CALIBRATION IS CONTRADICTED, and this is the more important half of the
+  entry.** E026 measured gold OOF against the board on one model and concluded
+  "**gold OOF estimates this project's leaderboard score directly, with no
+  correction**". Two points now exist:
+
+  | model | gold OOF (n=58) | board | offset |
+  |---|---:|---:|---:|
+  | lexicon, 192px | 0.7201 | 0.725 | **+0.005** |
+  | fused, 192px 5-fold | 0.7918 | **0.846** | **+0.054** |
+
+  The offset moved by **an order of magnitude** between two models of the same
+  architecture on the same cache. Gold OOF **understated** the board both times,
+  so it is not biased in a dangerous direction — but it is **not a calibrated
+  predictor** and the "no correction needed" claim was, once again, a
+  relationship measured at n=1 and generalised. It ranked the two models
+  correctly, which is what it is actually good for.
+- **the prediction made before submitting was 0.787, and it was wrong by
+  −0.059.** That was stated in advance with the reason it might fail — a
+  single-point calibration extrapolating 0.07 past where it was fitted — and the
+  failure arrived in exactly that form, in the favourable direction. Recorded so
+  the next forecast is not made with more confidence than this one earned.
+- **two plausible reasons the five-fold gains more on the board than on gold**,
+  neither established:
+  1. **The gold 58 are a harder, non-representative slice.** Every gold study is
+     one a model never saw in its own fold, and they are only 1.3% of the
+     corpus. The hidden 1,300 may simply be easier.
+  2. **Rank-mean ensembling helps the board more than the gold measurement can
+     see.** Gold OOF scores each study with the *single* fold that held it out,
+     so it measures a **1-model** system. The submission rank-averages **5**.
+     The 4-fold ensemble gain was never measured, and this is the first
+     submission that carries it — so E032's +0.0717 and the board's +0.121 are
+     not measuring the same system, and the difference is the ensemble.
+
+  **Reason 2 is testable and matters**: if most of the +0.121 is ensembling
+  rather than labels, the lexicon 5-fold would also have jumped, and every
+  future single-fold gold comparison is understating what its ensemble will do.
+- **next**: the honest follow-up is to submit the **lexicon 5-fold** — the
+  models already exist, it costs 0.8 h and one of five daily submissions, and it
+  separates the label effect from the ensemble effect on ground truth. Without
+  it, "+0.121 from better labels" is an attribution nobody has earned.

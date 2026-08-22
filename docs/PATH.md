@@ -1,7 +1,9 @@
 # What is left, what it is worth, and what 0.95 actually requires
 
-Standing: **0.725 on the leaderboard**, 0.7201 gold out-of-fold at n=58.
-**Unsubmitted:** the fused-label 5-fold at **0.7918** gold OOF (E032).
+Standing: **0.846 on the leaderboard** (2026-08-22, fused-label 5-fold, E034),
+up from 0.725. Gold OOF for that model is 0.7918, so **gold understates the
+board by 0.054 here and by 0.005 on the previous model — it ranks, it does not
+forecast.**
 Leaderboard top **0.952**. 1,866 teams. Final submission **2026-10-22**.
 
 Budget from 2026-08-20: **63 days, ~270 GPU-hours** at the 30 h weekly quota,
@@ -72,9 +74,11 @@ Gold OOF estimates the board to within 0.005. Submissions confirm; they do not
 explore.
 
 ### Where that lands
-Compounding the measured and published values from 0.725 gives roughly
-**0.82–0.88**. That is an honest range, not a promise, and it assumes each lever
-delivers near the top of its published band.
+Compounding the measured and published values from 0.725 gave roughly
+**0.82–0.88**. **The board reached 0.846 on 2026-08-22 from the labels and
+ensembling alone**, i.e. inside that range on the first two levers, with Phase C
+and Phase D untouched. The range was not wrong, but it was not conservative
+either — it is now the *floor* of what the remaining levers start from.
 
 ---
 

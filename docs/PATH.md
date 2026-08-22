@@ -5,7 +5,7 @@ Standing: **0.725 on the leaderboard**, 0.7201 gold out-of-fold at n=58.
 Leaderboard top **0.952**. 1,866 teams. Final submission **2026-10-22**.
 
 Budget from 2026-08-20: **63 days, ~270 GPU-hours** at the 30 h weekly quota,
-plus unlimited CPU and 2 submissions a day.
+plus unlimited CPU and 5 submissions a day.
 
 | affordable in that budget | cost each | count |
 |---|---:|---:|

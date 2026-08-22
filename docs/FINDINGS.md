@@ -76,7 +76,7 @@ clever workaround.
 | 2.12 | **Hidden test set size** | `VERIFIED` | data-description page: "There are about 1300 studies in the test set." The 3-row `test.csv` is a stub replaced at scoring time. |
 | 2.13 | **Efficiency score formula** | `VERIFIED (quoted)` | `Efficiency = AUC / (Benchmark − maxAUC) + RuntimeSeconds / 32400`, minimised, where `Benchmark` is `sample_submission.csv`'s score and `maxAUC` the best private-LB score. 32,400 s is the 9-hour cap. Eligibility: must be a selected submission and must beat the `sample_submission.csv` benchmark on the private LB. *(As written the first term is negative, since Benchmark < maxAUC; recorded verbatim rather than "corrected", but worth watching the forum for an erratum.)* |
 | 2.14 | **Timeline** | `VERIFIED` | Start 2026-07-30; entry and team-merger deadline 2026-10-15; final submission 2026-10-22; winners' requirement deadline 2026-11-05. All 23:59 UTC. *(The API's `enabled_date` says 2026-08-05, which disagrees with the Timeline page's start date; immaterial, but noted.)* |
-| 2.10 | Submission limits | `VERIFIED` | `max_daily_submissions` = 5, `max_team_size` = 5 |
+| 2.10 | Submission limits | **`VERIFIED` twice** | `max_daily_submissions` = **5**, `max_team_size` = 5. Confirmed live on 2026-08-22: submitting the fused 5-fold returned "4 submissions remaining today". **Three other files in this repo said 2 a day and were wrong** — README, this file twice, and PATH.md — which had the practical effect of rationing a resource that was never that scarce. Corrected everywhere. |
 | 2.11 | Field size | `VERIFIED` | `team_count` = 1,866 as of this run |
 
 ---
@@ -413,7 +413,7 @@ OA 0.519 and Lateral OA 0.599, both far *below* the 192px model. This is a
 comparison across different folds and so is suggestive, not conclusive.
 
 **What this costs the project.** There is now **no trustworthy offline
-model-selection signal**. The board allows 2 submissions per day. Every
+model-selection signal**. The board allows 5 submissions per day. Every
 configuration choice from here is either paid for at that rate or made on a
 signal that has been shown to mis-rank.
 
@@ -698,7 +698,7 @@ discovering later.
 ## 13. How much the gold set can actually settle — `VERIFIED` by simulation
 
 §11 leaves the project with report-label CV that mis-ranks, a leaderboard that
-allows two submissions a day, and 58 expert-labelled studies. Before building a
+allows five submissions a day, and 58 expert-labelled studies. Before building a
 development loop on those 58 studies it is worth knowing what they can resolve.
 Simulated at macro AUC ≈ 0.73 over 12 findings, 400 bootstrap resamples,
 5 repeats — `eda/pool_gold_oof.py` carries the same method:

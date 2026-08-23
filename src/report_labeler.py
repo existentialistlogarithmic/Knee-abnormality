@@ -137,14 +137,33 @@ class ReportLabeler:
         for row in cues:
             cue_groups[(row["language"], row["cue_type"])].append(row["cue"].strip().lower())
         for (language, cue_type), words in cue_groups.items():
-            self._cues[language][cue_type] = self._compile(words)
+            self._cues[language][cue_type] = self._compile(words, whole_word=True)
 
     @staticmethod
-    def _compile(words: list[str]) -> re.Pattern:
-        # Longest first so "no evidence of" wins over "no"; \b is unreliable for
-        # non-Latin scripts, so anchor on a non-word char or string edge.
+    def _compile(words: list[str], whole_word: bool = False) -> re.Pattern:
+        """Case-folded alternation, anchored at the start of a word.
+
+        Longest first so "no evidence of" wins over "no"; `\b` is unreliable for
+        non-Latin scripts, so anchor on a non-word char or string edge.
+
+        `whole_word` also anchors the END, and the distinction is not cosmetic:
+
+        - **Finding terms leave it off on purpose.** They must match inflected
+          forms — "effusion" inside "effusions", "sinovit" inside "sinovitis",
+          and the Turkish suffixes the corpus is full of. Anchoring both ends
+          drops mean coverage on the 58 gold studies from 60.3% to 54.0%.
+        - **Cues must have it on.** Without it a cue matches the *prefix of the
+          very term it is judging*: Spanish "sin" (without) matched the first
+          three letters of "sinovitis" and negated all 8 Spanish Synovitis
+          mentions, 6 of them expert-positive. English "not" did the same to
+          "noted" and "no" to "nodular". 166 mention-decisions across all 12
+          findings and 5 languages were being decided this way
+          (docs/EXPERIMENTS.md E037).
+        """
         parts = sorted((re.escape(w) for w in words), key=len, reverse=True)
-        return re.compile(r"(?<![^\W\d_])(?:" + "|".join(parts) + r")", re.IGNORECASE | re.UNICODE)
+        tail = r"(?![^\W\d_])" if whole_word else ""
+        return re.compile(r"(?<![^\W\d_])(?:" + "|".join(parts) + r")" + tail,
+                          re.IGNORECASE | re.UNICODE)
 
     def _languages_for(self, language: str) -> list[str]:
         """The report's language, plus English.

@@ -70,29 +70,26 @@ CPU is a separate allowance and is unaffected.
 
 ## 5. The next action
 
-**Submit the lexicon 5-fold** — `kaggle/11_infer_folds`, models already trained,
-~0.8 h and one of five daily submissions.
+**Rebuild the fused labels and retrain the 5-fold on them** (~7 GPU-h, next
+week's quota — this week's is spent at ~28.7 h of 30).
 
-This is not a formality, it is the missing control. Gold OOF scores each study
-with the *single* fold that held it out, so E032's **+0.0717** measured a
-one-model system. The submission that scored 0.846 rank-averages **five**. So
-the +0.121 board jump is *labels plus ensembling*, and nothing yet separates
-them. If the lexicon 5-fold also jumps, most of the credit belongs to
-ensembling, and every future single-fold gold comparison is understating what
-its ensemble will do — which changes how the remaining GPU budget should be
-spent.
+E037 fixed a cue-matching bug in `src/report_labeler.py` that touched **every
+finding and every language**: cues were anchored only at the start, so a cue
+matched the prefix of the term it was judging. Spanish *sin* ("without") negated
+*sinovitis* — 8 of 8 mentions, 6 expert-positive — and English *not* did the same
+to *noted*. 166 mention-decisions on the 58 gold studies were decided this way.
 
-After that, the ranked queue is `PATH.md` Phase C (DINOv2 to convergence, ~23
-GPU-h for five folds — the largest published lever, still never given a fair
-run) and Phase A (a third report reader, CPU only).
+**Every label artifact currently on Kaggle predates that fix.** The teacher gains
++0.0055 macro (not separated, CI [−0.0094, +0.0223]) and per-finding MCL +0.040,
+Synovitis +0.036, ACL −0.031. Whether that survives into the model is unmeasured.
 
-**Synovitis is the weakest finding at 0.616** and has inherited Medial
-Meniscus's old role as the biggest single drag on the macro. E029 flagged it as
-the one finding the fused teacher genuinely does not know, so it is a *label*
-problem before it is a modelling one.
+The rebuild order is: `eda/build_fused_labels.py` → push the dataset → retrain
+`21/27/28/29/30_train_v1fused` → `22_infer_v1fused` → submit.
 
-Do **not** re-push any `21/27/28/29/30_train_v1fused*` kernel — all five folds
-are done. ~6.9 h of the weekly 30 is spent, ~23 h remain.
+**Do not treat Synovitis as a label problem any more.** E037 established that
+this corpus barely reports it (Turkish 4.0%, Croatian 1.2%, Bulgarian 0.5%) and
+that the model already beats its teacher there (0.616 vs 0.520). The lever for
+Synovitis is imaging.
 
 ## 6. What the CPU rig has already settled
 

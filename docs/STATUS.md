@@ -5,7 +5,7 @@ kernels and 62 tagged claims, and the single most expensive mistakes in it came
 from **treating a weakly-known number as a well-known one**. So the organising
 axis here is not topic. It is *evidence strength*.
 
-Last updated 2026-08-23 (E036).
+Last updated 2026-08-23 (E037).
 
 ---
 
@@ -143,6 +143,7 @@ pattern matters more than any individual entry.
 | "gold-58 sits 0.044 below the board" (published) | **does not reproduce** — measured offset −0.001 | nothing; caught before use |
 | "gold OOF estimates the board directly, no correction" | **contradicted** — offset was +0.005 on one model and +0.054 on the next, same architecture and cache. Generalised from n=1. It still *ranks* correctly | nothing; the error was favourable, and it was flagged as a risk before the submission |
 | "the teacher bounds everything; raise it and the model follows" | **no longer supported** — the fused model is +0.0126 above its own teacher at the macro (not separated) and beats it outright on Fracture +0.239 and Baker's +0.165. True at 0.769/0.725; not true now | nothing yet; it would have mis-aimed the next phase at labels |
+| "Synovitis is the best remaining label lever" | **half wrong** — right that it is the weakest finding, wrong that reports can fix it. Radiologists in this corpus mostly do not report synovitis (tr 4.0%, hr 1.2%, bg 0.5%), and the model already beats its teacher there, 0.616 vs 0.520 | nothing; a day of CPU that also found the cue bug |
 | "DINOv2 had not flattened at epoch 34; run it to convergence" | **contradicted** — run to 40 epochs it peaks at **epoch 23** and decays, and is 0.074 behind resnet34 on gold. The plan's largest lever was chosen on noise from a truncated run | **~20 GPU-hours**, the most expensive error in the log |
 | "focal top-k pooling is worth +0.060" | **contradicted** — +0.060 was the model-to-teacher *headroom* on focal findings, not a gain; measured, top-k gives +0.006 with an interval eight times its width | nothing; the rig caught it for 8 min of CPU |
 
@@ -171,7 +172,7 @@ ensemble.
 ## 5. Claim ledger
 
 `docs/FINDINGS.md` tags every claim: **52 `VERIFIED`, 6 `UNVERIFIED`,
-9 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 36 numbered runs
+9 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 37 numbered runs
 with what changed, the runtime, the result and what it meant.
 
 ---

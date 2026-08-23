@@ -941,3 +941,29 @@ Contusion,tr,kemik iliği,1
 Contusion,tr,ödem~iliği,1
 Contusion,el,οίδημα~μυελ,0
 Contusion,hr,edem~srži,0
+# E037: Synovitis coverage was 27.6% on the 58 gold studies — the lowest of any
+# finding — and its teacher sat at chance. These are named pathology terms from
+# the MSK/MOAKS vocabulary, chosen from domain knowledge and committed BEFORE
+# measuring, so that the 58 stay a test rather than a tuning set. Bare "hoffa"
+# is deliberately excluded: it names normal anatomy present in most knee
+# reports, so it would buy coverage with mostly-negative signal.
+# Corpus-mined, not guessed. "synovium" appears in 120 corpus reports and in
+# exactly 1 that carries no other synovitis stem — the prefix term "synovial"
+# cannot reach it, so it was invisible. The rest of this block was chosen from
+# MOAKS vocabulary before measuring and moved NOTHING on the 58 gold studies:
+# the corpus simply does not use those words. Kept because they are specific
+# pathology terms that cost no precision, but they are unvalidated here.
+Synovitis,en,synovium,1
+Synovitis,es,sinovio,0
+Synovitis,de,synovium,0
+Synovitis,en,effusion-synovitis,0
+Synovitis,en,hoffitis,0
+Synovitis,en,fat pad edema,0
+Synovitis,en,fat pad oedema,0
+Synovitis,en,synovial enhancement,0
+Synovitis,en,synovial effusion,0
+Synovitis,es,hoffitis,0
+Synovitis,es,sinovitis-derrame,0
+Synovitis,tr,hoffit,0
+Synovitis,de,hoffitis,0
+Synovitis,fr,hoffite,0

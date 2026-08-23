@@ -1536,3 +1536,90 @@ nothing however uncorrelated it is.
   teacher at **0.520, chance, covering 36% of studies**, then Lateral OA and PF
   OA. That work is **CPU-only and costs no quota**, which is what is left of
   this week anyway.
+
+
+### E037 — a cue was negating the term it judged; Synovitis is still not fixable
+- **date**: 2026-08-23. CPU only, no quota.
+- **the task**: E035 named Synovitis the best remaining label lever — teacher at
+  **0.520, chance**, covering 36% of gold studies, model's second-weakest
+  finding. This is what came of trying to fix it.
+
+#### The bug, which is not a Synovitis bug at all
+`ReportLabeler._compile` anchored the **start** of a cue and not the end:
+
+```python
+re.compile(r"(?<![^\W\d_])(?:" + "|".join(parts) + r")", ...)   # no trailing anchor
+```
+
+So a cue matched the **prefix of the very term it was judging**. Spanish
+*sinovitis* begins with *sin* — "without" — and the cue negated the mention:
+**8 of 8 Spanish Synovitis mentions negated, 6 of them expert-positive.** That
+is the anti-correlation behind Synovitis scoring below chance: where the lexicon
+said *negative*, 5 of 7 studies were expert-**positive**.
+
+It was never language-specific. English *not* matched *noted*; *no* matched
+*nodular*. **166 mention-decisions across all 12 findings and 5 languages** were
+decided this way on the 58 gold studies alone.
+
+**The fix is not simply "anchor both ends".** `_compile` is shared with the
+finding *terms*, which need prefix matching for plurals and Turkish
+agglutination — anchoring those too drops mean coverage from **60.3% to 54.0%**
+and the macro to 0.7388. The anchor is now opt-in and set only for cues.
+
+| | teacher macro on the 58 | mean coverage |
+|---|---:|---:|
+| before | 0.7523 | 60.3% |
+| both ends anchored everywhere (**wrong**) | 0.7388 | 54.0% |
+| **cues only (shipped)** | **0.7578** | **60.3%** |
+
+Per finding: MCL **+0.040**, Synovitis **+0.036**, Effusion +0.022, Medial
+Meniscus +0.022, ACL **−0.031**.
+
+**Macro +0.0055, 95% CI [−0.0094, +0.0223] — not separated**, better in 73.4% of
+resamples. **The fix ships because a cue negating its own term is indefensible,
+not because the gain is established.** Four regression tests assert both halves:
+that "sinovitis" is no longer self-negated, and that "sin"/"not" still negate as
+whole words, and that terms still match inflected forms.
+
+#### Synovitis vocabulary: one honest negative and one small win
+- **Domain-guessed terms moved nothing.** Eleven MOAKS-vocabulary terms —
+  *effusion-synovitis*, *hoffitis*, *fat pad edema*, *synovial enhancement* —
+  committed before measuring, then measured once: **zero change**, on the 58 and
+  on coverage. The corpus does not use those words. Guessing vocabulary from
+  domain knowledge failed; this is recorded rather than quietly deleted.
+- **Corpus mining found what guessing missed.** Enrichment analysis over all
+  4,407 reports (unsupervised — no expert labels touched) surfaced **`synovium`**:
+  120 reports, exactly 1 without another synovitis stem. The prefix term
+  *synovial* cannot reach it, so it was invisible. Corpus-wide Synovitis
+  supervision goes **603 → 621 studies (13.7% → 14.1%)**. Zero on the 58, which
+  are a 1.3% sample and contain none of them.
+
+#### Why Synovitis stays broken, and it is not the lexicon's fault
+Mention rates for a synovitis stem across the corpus:
+
+| language | reports | mention synovitis |
+|---|---:|---:|
+| en | 1,735 | 20.6% |
+| es | 682 | 16.4% |
+| el | 321 | 9.3% |
+| de | 262 | 9.5% |
+| tr | 546 | **4.0%** |
+| nl | 153 | 3.9% |
+| hr | 330 | **1.2%** |
+| bg | 220 | **0.5%** |
+
+**Radiologists in this corpus mostly do not report synovitis.** 14.1% coverage
+is not a vocabulary gap that more terms will close.
+
+**And the imaging already knows better than the text.** E035 measured the model
+at **0.616** on Synovitis against a teacher at 0.520 — the model *beats* its
+teacher here, as it does on Fracture and Baker's, exactly where the reports are
+thinnest. Raising a 0.569 teacher has little room to help a 0.616 student.
+
+- **conclusion**: Synovitis is **not a label problem that can be fixed from the
+  reports.** The remaining lever for it is imaging, not text. E035's ranking of
+  Synovitis as the top label opportunity was right about *where* the weakness is
+  and wrong about *what fixes it*.
+- **next**: the cue fix touches every finding and every language, so the fused
+  labels should be rebuilt and the 5-fold retrained on them before anything else
+  is concluded from it. That is ~7 GPU-hours and this week's quota is spent.

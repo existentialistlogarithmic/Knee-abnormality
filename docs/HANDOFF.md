@@ -70,26 +70,51 @@ CPU is a separate allowance and is unaffected.
 
 ## 5. The next action
 
-**Rebuild the fused labels and retrain the 5-fold on them** (~7 GPU-h, next
-week's quota — this week's is spent at ~28.7 h of 30).
+**In flight:** the resnet34 5-fold is retraining on the E037-corrected labels
+(`21/27/28/29/30_train_v1fused`, ~7 GPU-h). When all five finish:
 
-E037 fixed a cue-matching bug in `src/report_labeler.py` that touched **every
-finding and every language**: cues were anchored only at the start, so a cue
-matched the prefix of the term it was judging. Spanish *sin* ("without") negated
-*sinovitis* — 8 of 8 mentions, 6 expert-positive — and English *not* did the same
-to *noted*. 166 mention-decisions on the 58 gold studies were decided this way.
+```bash
+bash eda/preflight.sh
+python eda/pool_gold_oof.py <new fused gold_oof_fold*.json> --vs <old ones>
+kaggle kernels push -p kaggle/22_infer_v1fused
+kaggle competitions submit rsna-knee-abnormality-detection \
+    -k achelijndiamantidis/knee-infer-v1fused -f submission.csv -v <N> -m "..."
+```
 
-**Every label artifact currently on Kaggle predates that fix.** The teacher gains
-+0.0055 macro (not separated, CI [−0.0094, +0.0223]) and per-finding MCL +0.040,
-Synovitis +0.036, ACL −0.031. Whether that survives into the model is unmeasured.
+That settles the only outstanding claim: whether **710 flipped labels** (2.1% of
+supervised slots, Synovitis 7.4%) move a board score of 0.846.
 
-The rebuild order is: `eda/build_fused_labels.py` → push the dataset → retrain
-`21/27/28/29/30_train_v1fused` → `22_infer_v1fused` → submit.
+**Forecast it with the corrected rule** (E038), not raw gold OOF:
 
-**Do not treat Synovitis as a label problem any more.** E037 established that
-this corpus barely reports it (Turkish 4.0%, Croatian 1.2%, Bulgarian 0.5%) and
-that the model already beats its teacher there (0.616 vs 0.520). The lever for
-Synovitis is imaging.
+> `board ≈ gold_OOF + 0.032 (ensembling) + 0.005`
+
+Gold OOF scores one model per study; a submission rank-averages five, so raw
+gold OOF understates any ensemble by the ensembling gain. Worst-case error
+0.049 → 0.017.
+
+**Closed, do not reopen without new evidence:**
+
+| lever | verdict |
+|---|---|
+| DINOv2 backbone (Phase C) | dead — peaks at epoch 23 and decays, 0.074 behind (E036) |
+| any blend with DINOv2 (Phase D) | dead — monotonic to w=1 at n=49 (E039) |
+| blend of the two label sets | dead — monotonic to w=1 (E033) |
+| focal top-k pooling | dead — +0.006 (E030) |
+| Synovitis via better report labels | dead — corpus barely reports it; model already beats teacher (E037) |
+| laterality mirroring | not broken — 97.8% resolve (E038) |
+
+**Still open, ranked:**
+1. **Pseudo-label the abstained slots.** 34.5% of slots are unsupervised and
+   masked out of the loss, and E035 shows the model beats its teacher exactly
+   where coverage is thinnest (Fracture 43% coverage / +0.239, Baker's +0.165,
+   Synovitis +0.097). Fill abstains with 5-fold OOF predictions, retrain.
+2. **Report-embedding auxiliary head.** Reports exist for 100% of training
+   studies and 0% of test, and are discarded after 12 binaries are extracted.
+   A multilingual sentence embedding is ~768 dense targets from an asset
+   already paid for.
+3. **Fold-disagreement shrinkage at inference.** Free, no training, no quota.
+4. **96 studies (2.2%) whose series disagree on laterality** get mirrored
+   inconsistently across planes. Fix at the next cache rebuild.
 
 ## 6. What the CPU rig has already settled
 

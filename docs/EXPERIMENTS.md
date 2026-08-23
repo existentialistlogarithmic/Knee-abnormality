@@ -1688,3 +1688,42 @@ n=58 gold, and worth fixing when the cache is next rebuilt.
 - **the point of recording a dead theory**: it was checked in ten minutes of CPU
   before anything was rebuilt on it. The 79% figure in the docstring is also now
   known to be wrong at the series level, which is how the theory got started.
+
+
+### E039 — Phase D closed, and the corrected labels are live
+- **date**: 2026-08-23
+
+**The DINOv2 blend, at 4-fold power (n=49) rather than E036's n=26:**
+
+| blend | gold macro |
+|---|---:|
+| dinov2 alone | 0.7139 |
+| w_resnet = 0.5 | 0.7675 |
+| w_resnet = 0.85 | 0.7846 |
+| w_resnet = 0.95 | 0.7873 |
+| **resnet34 alone** | **0.7883** |
+
+**Monotonic to w = 1. No interior optimum.** E036 saw a weak one at 0.85 and
+read it as "the decorrelation mechanism is real, the magnitude is not"; at
+n=49 it is gone, so it was noise. Best blend is **−0.0010, CI [−0.0038,
++0.0015]** — the same shape E033 found for the two label sets.
+
+**Phase D is closed with this family.** Two independent blend attempts, both
+monotonic toward using none of the second member. A blend needs members of
+comparable strength; 0.074 behind is too far, whatever the correlation.
+
+**The corrected labels are published.** `knee-phase1-fused` has a new version
+carrying the E037 cue fix: **710 polarity flips across 34,606 supervised slots
+(2.1%)** — Synovitis 7.4%, Effusion 3.9%, Lateral Meniscus 2.7%. Coverage is
+unchanged at 34.5% abstain, because the fix changes *polarity*, not reach.
+Every version before this one produced the 0.846 board result; Kaggle retains
+them, so that run stays reproducible.
+
+- **a method error worth recording**: the weekly GPU quota was probed by
+  *pushing a real kernel* (`35_train_dinov2f_fold4`) rather than by reasoning
+  from the reset date. It was accepted, so ~5 GPU-hours went to a fifth fold of
+  a family already measured dead. Kaggle has no cancel. A probe must not be a
+  job that costs something if it succeeds.
+- **next**: retrain the resnet34 5-fold on the corrected labels and submit.
+  ~7 GPU-h. That is the only outstanding claim: whether 710 flipped labels move
+  a board score of 0.846.

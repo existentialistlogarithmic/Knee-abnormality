@@ -5,7 +5,7 @@ kernels and 62 tagged claims, and the single most expensive mistakes in it came
 from **treating a weakly-known number as a well-known one**. So the organising
 axis here is not topic. It is *evidence strength*.
 
-Last updated 2026-08-22 (E034).
+Last updated 2026-08-23 (E036).
 
 ---
 
@@ -20,7 +20,11 @@ Last updated 2026-08-22 (E034).
 | imaging, resnet34 2.5D, 192px, 1 fold | 0.725 | the previous standing result |
 | imaging, 288px, effective batch 4 | 0.668 | confounded run |
 | imaging, 288px, effective batch 16 | 0.688 | the confound corrected; still behind 192px |
+| imaging, 192px, 5-fold, lexicon labels | 0.757 | the control (E036) |
 | **imaging, 192px, 5-fold, FUSED labels** | **0.846** | **the standing result** (E034) |
+
+**The jump decomposes on ground truth: ensembling +0.032, labels +0.089.**
+Labels are the dominant lever by 3:1 (E036).
 
 **Leaderboard position: 0.846**, up from 0.725 on 2026-08-22. Field top 0.952;
 top-200 cut 0.917.
@@ -139,6 +143,7 @@ pattern matters more than any individual entry.
 | "gold-58 sits 0.044 below the board" (published) | **does not reproduce** — measured offset −0.001 | nothing; caught before use |
 | "gold OOF estimates the board directly, no correction" | **contradicted** — offset was +0.005 on one model and +0.054 on the next, same architecture and cache. Generalised from n=1. It still *ranks* correctly | nothing; the error was favourable, and it was flagged as a risk before the submission |
 | "the teacher bounds everything; raise it and the model follows" | **no longer supported** — the fused model is +0.0126 above its own teacher at the macro (not separated) and beats it outright on Fracture +0.239 and Baker's +0.165. True at 0.769/0.725; not true now | nothing yet; it would have mis-aimed the next phase at labels |
+| "DINOv2 had not flattened at epoch 34; run it to convergence" | **contradicted** — run to 40 epochs it peaks at **epoch 23** and decays, and is 0.074 behind resnet34 on gold. The plan's largest lever was chosen on noise from a truncated run | **~20 GPU-hours**, the most expensive error in the log |
 | "focal top-k pooling is worth +0.060" | **contradicted** — +0.060 was the model-to-teacher *headroom* on focal findings, not a gain; measured, top-k gives +0.006 with an interval eight times its width | nothing; the rig caught it for 8 min of CPU |
 
 The common shape: **a small number of observations read as a trend.** The
@@ -165,8 +170,8 @@ ensemble.
 
 ## 5. Claim ledger
 
-`docs/FINDINGS.md` tags every claim: **51 `VERIFIED`, 7 `UNVERIFIED`,
-8 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 35 numbered runs
+`docs/FINDINGS.md` tags every claim: **52 `VERIFIED`, 6 `UNVERIFIED`,
+9 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 36 numbered runs
 with what changed, the runtime, the result and what it meant.
 
 ---

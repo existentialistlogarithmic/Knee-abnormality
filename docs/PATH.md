@@ -62,14 +62,20 @@ both pooling changes came back unseparated, and the focal-k "+0.060" this file
 previously carried was a *headroom* figure, never a measured gain. The rig stays
 the gate: nothing goes to GPU that has not won here first.
 
-### Phase C — the backbone (≈50 GPU-h)
-DINOv2 reached 0.7041 at epoch 34 **and had not converged** — the curve was
-still climbing when the clock stopped. Published evidence puts adaptation at
-**+0.09**, roughly five times what resolution is worth. Run it to convergence,
-five folds. This is the single largest published lever and it has not had a fair
-run here.
+### Phase C — the backbone — **RUN, AND IT FAILED (E036)**
+This phase claimed DINOv2 "had not converged — the curve was still climbing when
+the clock stopped". Run properly to 40 epochs on fused labels, it **peaks at
+epoch 23 and decays**: fold 0 loses 0.019 of val and 0.072 of gold by epoch 39.
+The "still climbing" reading was noise on a truncated run.
 
-### Phase D — ensemble (≈100 GPU-h)
+DINOv2 is **0.074 behind resnet34** on gold (0.7151 vs 0.7888), and blending the
+two families is worth **+0.0022, CI [−0.012, +0.016] — not separated**. Cost:
+~20 GPU-hours, the most expensive error in this project's log.
+
+**Do not restart this without a new reason.** A different ViT, or RadImageNet
+pretraining, is a different claim and would need its own evidence.
+
+### Phase D — ensemble (≈100 GPU-h) — **blocked by Phase C's failure**
 Three independent families — a CNN, a ViT, and one more — five folds each, rank
 blended. Published gain **+0.02 to +0.05**. Decode once, score N times, so it
 costs almost nothing at inference.

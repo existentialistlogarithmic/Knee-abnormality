@@ -1456,3 +1456,83 @@ The direction of the finding survives; the magnitudes do not.
   resnet34 family) then costs nothing at training time. E033 showed blending two
   *label sets* fails; blending two *architectures* is the version with published
   support behind it.
+
+
+### E036 — the control attributes the jump, and Phase C's premise is contradicted
+- **date**: 2026-08-23
+
+#### Part 1 — the control, and it is good news
+
+| system | board |
+|---|---:|
+| lexicon labels, 192px, **1 fold** | 0.725 |
+| lexicon labels, 192px, **5-fold rank-mean** | **0.757** |
+| fused labels, 192px, **5-fold rank-mean** | **0.846** |
+
+The +0.121 from E034 decomposes cleanly, on ground truth, with architecture and
+cache held fixed:
+
+| component | delta | share |
+|---|---:|---:|
+| **ensembling** (1 fold → 5 folds) | **+0.032** | 27% |
+| **labels** (lexicon → fused) | **+0.089** | 73% |
+
+**Labels are the dominant lever in this competition, by 3:1**, and E032's
+offline +0.0717 was measuring the smaller of the two components while the board
+saw both. The attribution that E034 flagged as unearned is now earned.
+
+#### Part 2 — DINOv2 does not work, and the reason it was tried was wrong
+
+`PATH.md` Phase C rested on: *"DINOv2 reached 0.7041 at epoch 34 and had NOT
+flattened — that number is where the clock stopped, not where the backbone
+converges."* Run properly to 40 epochs on fused labels, fresh from pretrained:
+
+| | fold 0 | fold 1 |
+|---|---:|---:|
+| best val (report labels) | 0.7099 @ **epoch 23** | 0.7130 @ **epoch 32** |
+| val at epoch 39 | 0.6913 | 0.7071 |
+| gold at epoch 30 → 39 | 0.6664 → **0.5948** | 0.7329 → 0.7171 |
+| runtime | 298 min | 272 min |
+
+**It peaks and then decays.** Fold 0 tops out at epoch 23 and loses 0.019 of val
+and 0.072 of gold by epoch 39. The "still climbing at 34" reading was noise on a
+truncated run, and **the single largest published lever in the plan was chosen
+on it.** That is the eighth claim in this project overturned by a measurement,
+and the most expensive: ~20 GPU-hours.
+
+Against the resnet34 fused models on the same studies: **0.7151 vs 0.7888
+gold** — DINOv2 is **0.074 worse alone**.
+
+#### Part 3 — and the blend does not rescue it
+
+Rank-blending the two architectures on gold OOF, n=26 (folds 0+1 of each):
+
+| blend | gold macro |
+|---|---:|
+| dinov2 alone | 0.7151 |
+| w_resnet = 0.5 | 0.7635 |
+| w_resnet = 0.7 | 0.7893 |
+| **w_resnet = 0.85** | **0.7910** |
+| **resnet34 alone** | **0.7888** |
+
+**+0.0022 at the best weight, 95% CI [−0.012, +0.016] — not separated.**
+
+Unlike E033 there *is* a weak interior optimum, which is what a genuinely
+decorrelated second family should produce — so the mechanism is real and the
+magnitude is not. **Even the optimistic end of that interval, +0.016, does not
+approach the +0.054 needed for 0.90.** Phase D's published +0.02–0.05 assumed
+members of comparable strength; a member 0.074 behind contributes almost
+nothing however uncorrelated it is.
+
+- **folds 2 and 3 could not be stopped.** Kaggle exposes no cancel through the
+  API or CLI — only `delete`, which destroys the kernel and its history. They
+  ran to completion, taking the week's spend to **~28.7 h of 30**.
+- **what this costs and what it buys**: ~20 GPU-hours for a negative result on
+  the plan's largest lever, and a 4-fold DINOv2 family that can be blend-tested
+  at better power than n=26 before being abandoned or kept as a small
+  contributor.
+- **next**: the lever that actually moved the board is **labels, +0.089**, and
+  E035 already located the remaining label headroom precisely — Synovitis with a
+  teacher at **0.520, chance, covering 36% of studies**, then Lateral OA and PF
+  OA. That work is **CPU-only and costs no quota**, which is what is left of
+  this week anyway.

@@ -1388,3 +1388,71 @@ The direction of the finding survives; the magnitudes do not.
   models already exist, it costs 0.8 h and one of five daily submissions, and it
   separates the label effect from the ensemble effect on ground truth. Without
   it, "+0.121 from better labels" is an attribution nobody has earned.
+
+
+### E035 — the teacher is no longer the ceiling, and the gold set has run out of resolution
+- **date**: 2026-08-22
+- **what**: a diagnostic, not a run. Zero quota. Scores the **fused teacher**
+  and the **fused 5-fold model** on the same 58 expert studies, per finding,
+  with a 2,000-sample paired bootstrap, to split the remaining gap into work
+  that is recoverable by modelling and work that is not.
+
+| finding | teacher | model | model − teacher | 95% CI | pos | teacher spoke |
+|---|---:|---:|---:|---|---:|---:|
+| MCL | 0.884 | 0.628 | **−0.256** | **[−0.456, −0.069]** | 9 | 86% |
+| PF OA | 0.765 | 0.658 | −0.107 | [−0.292, +0.074] | 21 | 66% |
+| Medial Meniscus | 0.889 | 0.786 | −0.103 | [−0.264, +0.042] | 26 | 88% |
+| Lateral Meniscus | 0.817 | 0.753 | −0.064 | [−0.239, +0.106] | 23 | 81% |
+| ACL | 0.863 | 0.812 | −0.050 | [−0.196, +0.090] | 24 | 91% |
+| Medial OA | 0.935 | 0.929 | −0.006 | [−0.081, +0.067] | 15 | 53% |
+| Lateral OA | 0.708 | 0.721 | +0.013 | [−0.189, +0.221] | 11 | 47% |
+| Contusion | 0.773 | 0.846 | +0.074 | [−0.066, +0.218] | 19 | 72% |
+| Synovitis | **0.520** | 0.616 | +0.097 | [−0.060, +0.261] | 27 | 36% |
+| Effusion | 0.750 | 0.906 | +0.156 | [−0.004, +0.312] | 35 | 97% |
+| Baker's | 0.799 | 0.964 | **+0.165** | **[+0.026, +0.316]** | 12 | 78% |
+| Fracture | 0.644 | 0.883 | **+0.239** | **[+0.037, +0.434]** | 18 | 43% |
+| **MACRO** | **0.7788** | **0.7918** | **+0.0126** | **[−0.042, +0.066]** | | |
+
+- **"The teacher bounds everything" is no longer supported.** That claim runs
+  through `PATH.md` Phase A and `STATUS.md`, and it was true when a 0.769
+  teacher produced a 0.725 model. The fused model now scores **+0.0126 above its
+  own teacher at the macro** — **not separated**, interval spanning zero, so the
+  honest statement is *the model is no longer measurably behind its teacher*,
+  not that it has beaten it. Either way, "raise the teacher and the model
+  follows" has stopped being the obviously correct next move.
+- **The model beats the teacher outright on two findings**: Fracture **+0.239**
+  and Baker's **+0.165**, both intervals excluding zero. On Fracture the teacher
+  is at 0.644 and speaks for only 43% of studies — the reports barely carry it
+  and **the pixels do**. This is direct evidence that imaging supervision from
+  noisy labels can exceed those labels, which the label-ceiling framing did not
+  anticipate.
+- **Exactly one recoverable modelling loss separates: MCL, −0.256.** Recovering
+  it in full is worth **+0.021 macro** — and it rests on **9 positives**, so
+  even it is fragile. The menisci, ACL and PF OA all point down, sum to another
+  +0.027 if real, and **not one of them separates**.
+- **and that is the actual finding here: the gold set is out of resolution.**
+  Per-finding intervals at n=58 are **±0.2**. Nine of twelve findings cannot be
+  told apart from their teacher at all. `FINDINGS.md` §13 measured the *macro*
+  limits by simulation; this is the per-finding version, and it is far worse
+  because each finding sees only its own 9–35 positives.
+
+  **The consequence is strategic.** The board now carries ~1,300 studies and
+  allows **5 submissions a day** (§2.10, corrected 2026-08-22). Gold-58 has been
+  the development instrument because submissions were believed to be scarce.
+  They are not, and for per-finding questions the board has ~20x the sample. The
+  gold set should be demoted to what it is still good at — **ranking whole
+  models cheaply before spending a submission** — and per-finding diagnosis
+  should move to the board.
+- **where the remaining headroom actually is**, given the above:
+  - **Synovitis**: teacher at **0.520 — chance** — speaking for 36% of studies.
+    Not a modelling problem; the reports do not carry it. A third reader is the
+    only lever, and it is CPU-only.
+  - **Lateral OA**: teacher 0.708 at 47% coverage. Same shape, smaller.
+  - **MCL**: the one confirmed modelling loss.
+  - **Everything else**: below the resolution of the instrument being used.
+- **next**: not more gold-set optimisation. `PATH.md` Phase C — DINOv2 to
+  convergence, five folds, ~23 GPU-h — is the largest untried lever and costs
+  exactly the remaining weekly quota. Phase D (rank-blending it with the
+  resnet34 family) then costs nothing at training time. E033 showed blending two
+  *label sets* fails; blending two *architectures* is the version with published
+  support behind it.

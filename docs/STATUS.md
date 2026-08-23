@@ -138,6 +138,7 @@ pattern matters more than any individual entry.
 | "the 288px curve is still climbing" | **contradicted** — 30 more epochs peaked at 0.7280 and decayed to 0.706 | 3.59 GPU-hours |
 | "gold-58 sits 0.044 below the board" (published) | **does not reproduce** — measured offset −0.001 | nothing; caught before use |
 | "gold OOF estimates the board directly, no correction" | **contradicted** — offset was +0.005 on one model and +0.054 on the next, same architecture and cache. Generalised from n=1. It still *ranks* correctly | nothing; the error was favourable, and it was flagged as a risk before the submission |
+| "the teacher bounds everything; raise it and the model follows" | **no longer supported** — the fused model is +0.0126 above its own teacher at the macro (not separated) and beats it outright on Fracture +0.239 and Baker's +0.165. True at 0.769/0.725; not true now | nothing yet; it would have mis-aimed the next phase at labels |
 | "focal top-k pooling is worth +0.060" | **contradicted** — +0.060 was the model-to-teacher *headroom* on focal findings, not a gain; measured, top-k gives +0.006 with an interval eight times its width | nothing; the rig caught it for 8 min of CPU |
 
 The common shape: **a small number of observations read as a trend.** The
@@ -165,7 +166,7 @@ ensemble.
 ## 5. Claim ledger
 
 `docs/FINDINGS.md` tags every claim: **51 `VERIFIED`, 7 `UNVERIFIED`,
-8 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 34 numbered runs
+8 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 35 numbered runs
 with what changed, the runtime, the result and what it meant.
 
 ---

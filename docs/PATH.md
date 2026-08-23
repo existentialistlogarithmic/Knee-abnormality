@@ -36,11 +36,24 @@ and not the two pooling changes.
 
 ## 2. The ranked plan
 
-### Phase A — labels (CPU only, no quota)
-The teacher bounds everything: a 0.725 model came from a 0.769 teacher. The
-union of two readers is 0.8145. Leading public systems use **three independent
-report readers**, not two. A second open-weights model reading into the same
-closed ladder is ~4 h of CPU and the union rule already exists.
+### Phase A — labels (CPU only, no quota) — **narrowed by E035**
+"The teacher bounds everything" was true at 0.769 teacher / 0.725 model. It is
+no longer: the fused model scores **+0.0126 above its own teacher** at the macro
+(not separated, CI [−0.042, +0.066]) and beats it outright on **Fracture
++0.239** and **Baker's +0.165**, where the reports barely carry the finding and
+the pixels do.
+
+So a third reader is no longer a general lever — it is a **targeted** one, and
+E035 says exactly where:
+
+| finding | teacher | coverage | why a reader helps |
+|---|---:|---:|---|
+| **Synovitis** | **0.520 — chance** | 36% | reports do not carry it at all |
+| Lateral OA | 0.708 | 47% | thin coverage |
+| PF OA | 0.765 | 66% | thin coverage |
+
+Synovitis is the model's second-weakest finding (0.616) and its teacher is at
+chance. No amount of imaging work fixes that one. ~4 h of CPU, no quota.
 
 ### Phase B — decide the architecture on the rig (CPU, minutes) — **done**
 `eda/head_lab.py` answered focal-k, per-finding pooling and fused-vs-lexicon as

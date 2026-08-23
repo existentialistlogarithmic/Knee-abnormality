@@ -136,3 +136,56 @@ weeks on 30 GPU-hours a week is not a realistic alternative to it.
 The one thing that will not get there is optimism about the numbers. This
 project has already overturned six of its own confident claims, and every one
 was caught by a measurement rather than by reasoning.
+
+---
+
+## 4. What 0.94 actually requires, as arithmetic
+
+The metric is a **macro average over 12 findings**, so a target score is not a
+single goal — it is a **floor every finding has to clear**. Standing system:
+board 0.846, gold macro 0.7918 (E032), gold-to-board offset +0.054 (E038).
+
+**The decisive fact: the weak findings cap everything.**
+
+| if the strongest findings were PERFECT (1.000) and the weakest never moved | macro caps at | board |
+|---|---:|---:|
+| top 8 perfect, weakest 4 unchanged | 0.885 | **~0.939** |
+| top 7 perfect, weakest 5 unchanged | 0.865 | ~0.919 |
+| top 6 perfect, weakest 6 unchanged | 0.847 | ~0.901 |
+
+**Board 0.94 is almost exactly the "eight findings at a literal 1.000" ceiling.**
+No amount of work on the strong half reaches it. There is no subset of easy
+wins — E026 said this for 0.90 and it is far more binding at 0.94.
+
+**So the goal, stated correctly: no finding below ~0.87.**
+
+| finding | now | needs | gap | teacher | kind of problem |
+|---|---:|---:|---:|---:|---|
+| Synovitis | 0.616 | 0.870 | **+0.254** | 0.520 | teacher below target too |
+| MCL | 0.628 | 0.870 | **+0.242** | **0.884** | **modelling — the teacher already knows it** |
+| PF OA | 0.658 | 0.870 | +0.212 | 0.765 | teacher below target too |
+| Lateral OA | 0.721 | 0.870 | +0.149 | 0.708 | teacher below target too |
+| Lateral Meniscus | 0.753 | 0.870 | +0.117 | 0.817 | teacher below target too |
+| Medial Meniscus | 0.786 | 0.870 | +0.084 | **0.889** | **modelling — the teacher already knows it** |
+| ACL | 0.812 | 0.870 | +0.058 | 0.863 | teacher below target too |
+
+**Only two of the seven gaps are recoverable from supervision that already
+exists** — MCL and Medial Meniscus, where the teacher scores above the target
+and the model is throwing it away. Everything else needs the *teacher itself*
+lifted past 0.87, and E035/E037 measured why that is hard: Synovitis's teacher
+is at chance because the corpus barely reports it, and Lateral OA's speaks for
+47% of studies.
+
+### What this means for the plan
+
+- **0.90** needs every finding at ~0.80. Reachable: it is mostly MCL, Medial
+  Meniscus and PF OA, and two of those three are modelling losses.
+- **0.94** needs every finding at ~0.87, including Synovitis, whose *labels* top
+  out near 0.52. That is not a training-budget problem and no number of Colab
+  folds solves it.
+- **The only documented route to that band is §3** — pooled community
+  checkpoints and label sets, properly credited. The strongest public notebook
+  is a rank blend of twenty DINOv2 checkpoints plus a DINOv3 and two RadImageNet
+  stages, crediting ten competitors by name. That is hundreds of GPU-hours of
+  *other people's* compute and, more importantly, *other people's label sets*,
+  which is exactly the constraint above.

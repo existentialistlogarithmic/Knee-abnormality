@@ -70,8 +70,18 @@ CPU is a separate allowance and is unaffected.
 
 ## 5. The next action
 
-**In flight:** the resnet34 5-fold is retraining on the E037-corrected labels
-(`21/27/28/29/30_train_v1fused`, ~7 GPU-h). When all five finish:
+**BLOCKED on the weekly GPU quota.** The retrain on the E037-corrected labels
+got **2 of 5 folds** through (folds 0 and 1, 2026-08-23) before the 30 h ran
+out. Folds 2, 3 and 4 still hold their 2026-08-22 runs on the OLD labels.
+
+**Do not pool or submit the five as they stand** — two label sets inside one
+ensemble is a confound and the board number would answer nothing.
+
+Folds 0-1 alone, paired against the same folds on the old labels, give
+**+0.0096, CI [−0.032, +0.057] — not separated** (E040). Expected: 2.1% of
+slots flipped.
+
+When the quota resets, push `28/29/30_train_v1fused_fold{2,3,4}`, then:
 
 ```bash
 bash eda/preflight.sh

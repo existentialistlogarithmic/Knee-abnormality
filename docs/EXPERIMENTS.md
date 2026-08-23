@@ -1727,3 +1727,36 @@ them, so that run stays reproducible.
 - **next**: retrain the resnet34 5-fold on the corrected labels and submit.
   ~7 GPU-h. That is the only outstanding claim: whether 710 flipped labels move
   a board score of 0.846.
+
+
+### E040 — the corrected labels move the model +0.0096, not separated
+- **date**: 2026-08-23
+- **what happened**: the retrain on the E037-corrected labels got **2 of 5
+  folds** through before the weekly GPU quota ran out. Folds 0 and 1 ran on the
+  corrected labels (2026-08-23); folds 2, 3 and 4 still hold their 2026-08-22
+  runs on the old ones.
+- **so the 5-fold cannot be pooled or submitted.** Mixing two label sets inside
+  one ensemble is a confound, and the resulting board number would answer no
+  question. This is recorded because pooling them was the obvious next command
+  and it would have been wrong.
+- **what is valid**: folds 0 and 1 against *the same folds* on the old labels —
+  one variable, same splits, same architecture, same cache.
+
+| | gold macro, n=26 |
+|---|---:|
+| corrected labels (E037 cue fix) | — |
+| old labels | — |
+| **paired difference** | **+0.0096, 95% CI [−0.032, +0.057]** |
+
+  **NOT SEPARATED.** 710 flipped labels — 2.1% of supervised slots — move the
+  model by about +0.01 on 26 studies, and the instrument cannot resolve that.
+- **this was the predicted outcome**, stated before the run: a 2% label change
+  was expected to land under the noise floor. It did. The fix ships on
+  correctness grounds — a cue must not negate the term it judges — and its
+  effect on the board remains unmeasured and probably small.
+- **budget**: the week's 30 h is spent. ~5 h of it went to the DINOv2 fold-4
+  quota probe (E039), which is the difference between finishing this retrain and
+  not.
+- **next**: folds 2–4 on the corrected labels when the quota resets, then pool
+  all five, then submit. Until then the standing board result remains **0.846**
+  from the pre-fix labels.

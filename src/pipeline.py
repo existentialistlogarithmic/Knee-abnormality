@@ -374,6 +374,43 @@ LINEAGES = [
         infer_directory="20_infer_dinov2_long",
     ),
     Lineage(
+        # PATH.md Phase C. The largest untried lever: DINOv2 reached 0.7041 at
+        # epoch 34 and had NOT flattened — that number is where the clock
+        # stopped, not where the backbone converges. Published evidence puts
+        # backbone adaptation at +0.09, roughly five times what resolution was
+        # worth, and it has never had a fair run here.
+        #
+        # Fresh runs, NOT resumed from knee-train-dinov2: that checkpoint was
+        # trained on lexicon labels, and inheriting it would confound the
+        # backbone question with the label question that E032 just settled.
+        #
+        # These exist to be rank-blended with the resnet34 family (Phase D).
+        # E033 measured that blending two LABEL SETS on one backbone fails —
+        # worse than its better half at every weight. Blending two
+        # ARCHITECTURES is the version with published support, and this is the
+        # second architecture.
+        name="dinov2fused",
+        cache=CACHE_V1,
+        labels=FUSED_DATASET,
+        train=TrainConfig(
+            backbone="vit_small_patch14_dinov2.lvd142m",
+            epochs=40, batch=6, lr=1e-4, accum=3, input_norm=True,
+            note="Identical to the dinov2long configuration except that it\n"
+                 "starts from pretrained weights rather than resuming, and is\n"
+                 "supervised by the fused labels. 40 epochs is what the budget\n"
+                 "affords, not where the curve was shown to flatten.",
+        ),
+        trainers=(
+            Trainer(0, "knee-train-dinov2f", "31_train_dinov2f_fold0"),
+            Trainer(1, "knee-train-dinov2f-fold1", "32_train_dinov2f_fold1"),
+            Trainer(2, "knee-train-dinov2f-fold2", "33_train_dinov2f_fold2"),
+            Trainer(3, "knee-train-dinov2f-fold3", "34_train_dinov2f_fold3"),
+            Trainer(4, "knee-train-dinov2f-fold4", "35_train_dinov2f_fold4"),
+        ),
+        infer_slug="knee-infer-dinov2f",
+        infer_directory="36_infer_dinov2f",
+    ),
+    Lineage(
         # The change the gold measurement actually asked for. Against the same
         # 58 expert-labelled studies this configuration BEATS its own teacher on
         # every diffuse finding and LOSES to it on every focal one — focal 0.632

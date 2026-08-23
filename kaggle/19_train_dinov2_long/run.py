@@ -512,6 +512,9 @@ def main() -> int:
                         help="directory holding soft_labels.parquet (local runs)")
     parser.add_argument("--headers", default=None,
                         help="directory holding series_headers.parquet (local runs)")
+    parser.add_argument("--train-csv", default=None,
+                        help="competition train.csv. Only needed off Kaggle, "
+                             "where there is no /kaggle/input to search.")
     parser.add_argument("--out", default="/kaggle/working")
     parser.add_argument("--time-budget", type=float, default=RUN_TIME_BUDGET)
     args, _unknown = parser.parse_known_args()
@@ -543,7 +546,11 @@ def main() -> int:
     # Study set, targets, masks and the fold split all come from the shared
     # cohort builder. It is shared rather than copied because an out-of-fold
     # score is only out-of-fold if every kernel cuts the folds identically.
-    cohort = build_cohort(cache_dirs, artifacts, headers_dir, find_marker("train.csv"),
+    # Off Kaggle there is no /kaggle/input to search, so the path is passed in.
+    # Every other input already had an override; this one did not, and it was
+    # the single thing stopping the generated trainer running anywhere else.
+    train_csv = Path(args.train_csv) if args.train_csv else find_marker("train.csv")
+    cohort = build_cohort(cache_dirs, artifacts, headers_dir, train_csv,
                           FINDINGS, gold_weight=GOLD_WEIGHT,
                           abstain_masks_loss=ABSTAIN_MASKS_LOSS,
                           min_studies=args.min_studies)

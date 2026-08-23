@@ -1623,3 +1623,68 @@ thinnest. Raising a 0.569 teacher has little room to help a 0.616 student.
 - **next**: the cue fix touches every finding and every language, so the fused
   labels should be rebuilt and the 5-fold retrained on them before anything else
   is concluded from it. That is ~7 GPU-hours and this week's quota is spent.
+
+
+### E038 — why gold OOF mis-forecasts, and a laterality theory that died
+- **date**: 2026-08-23. CPU only, no quota.
+
+#### The forecaster is repairable, and the control is what repairs it
+E034 recorded the gold-to-board offset as **contradicted**: +0.005 on one model,
++0.054 on the next. E036's control supplies the missing point and the mechanism.
+
+**Gold OOF always scores ONE model per study** — the single fold that held it
+out. A submission **rank-averages five**. Gold OOF is structurally blind to
+ensembling, which is why its offset grew:
+
+| system | gold OOF | board | offset |
+|---|---:|---:|---:|
+| lexicon, 1 fold | 0.7201 | 0.725 | +0.005 |
+| lexicon, **5-fold** | 0.7201 | 0.757 | **+0.037** |
+| fused, 5-fold | 0.7918 | 0.846 | +0.054 |
+
+The lexicon gold OOF is **the same number** for the 1-fold and 5-fold systems —
+0.7201 — while the board moved +0.032. The offset grew by exactly the ensembling
+gain. That is not a coincidence, it is the definition of what gold OOF cannot
+see.
+
+**Corrected: `board ≈ gold_OOF + ensembling_gain + 0.005`**, with
+`ensembling_gain = +0.032` measured directly on the board.
+
+| system | uncorrected error | corrected error |
+|---|---:|---:|
+| lexicon, 1 fold | +0.000 | +0.000 |
+| lexicon, 5-fold | **−0.032** | +0.000 |
+| fused, 5-fold | **−0.049** | **−0.017** |
+
+Two of three points are fitted by construction, so only the fused row is a real
+test: **worst-case error 0.049 → 0.017**. Still not a precision instrument, and
+it now has a *stated mechanism* rather than an empirical constant, which is why
+it is worth more than the old one-point fit. The honest use remains: rank
+models, and forecast only with the interval attached.
+
+#### A laterality theory, tested and refused
+The cache build mirrors right knees so medial is always the same side, and the
+header table looked alarming — **more than half of all series carry no
+laterality tag** (7,272 blank, 5,105 NaN, against 11,914 R/L), where the
+docstring claims 79%. If that propagated to studies it would scramble
+medial-versus-lateral, which is exactly where the model loses most to its
+teacher (MCL −0.256, the menisci, PF OA).
+
+**It does not propagate.** Resolved per *study*, using the sibling-series
+fallback the builder already implements:
+
+| | studies | share |
+|---|---:|---:|
+| laterality resolved | 4,314 | **97.8%** |
+| no series in the study carries it | **0** | 0.0% |
+| **series within a study disagree** | **96** | **2.2%** |
+
+The theory is dead: MCL's deficit is not a mirroring artefact. **The 2.2% that
+disagree are a real if small defect** — a study whose sagittal and coronal
+series report opposite sides gets mirrored inconsistently across planes, so its
+volume is internally incoherent. 96 studies is too few to explain anything at
+n=58 gold, and worth fixing when the cache is next rebuilt.
+
+- **the point of recording a dead theory**: it was checked in ten minutes of CPU
+  before anything was rebuilt on it. The 79% figure in the docstring is also now
+  known to be wrong at the series level, which is how the theory got started.

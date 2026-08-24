@@ -70,61 +70,31 @@ CPU is a separate allowance and is unaffected.
 
 ## 5. The next action
 
-**BLOCKED on the weekly GPU quota.** The retrain on the E037-corrected labels
-got **2 of 5 folds** through (folds 0 and 1, 2026-08-23) before the 30 h ran
-out. Folds 2, 3 and 4 still hold their 2026-08-22 runs on the OLD labels.
+**Train the `v1public` lineage** — `kaggle/37..41_train_v1pub_fold{0..4}`, ~7
+GPU-h — the moment the quota resets (~2026-08-29). Then `42_infer_v1pub` and
+submit.
 
-**Do not pool or submit the five as they stand** — two label sets inside one
-ensemble is a confound and the board number would answer nothing.
+E041 found that a **publicly shared label set beats this project's own by
++0.114** on the 58 expert studies (0.8927 vs 0.7827) at **100% slot coverage
+against 65.5%**. It clears the 0.870 per-finding floor that 0.94 needs on **8 of
+12** findings where ours clears 3, and lifts **Synovitis from 0.520 — chance —
+to 0.790**. Source: `stevenleehans/rsna-knee-llm-report-labels`, repackaged with
+attribution as `achelijndiamantidis/knee-phase1-public`. The rules permit freely
+and publicly available external data.
 
-Folds 0-1 alone, paired against the same folds on the old labels, give
-**+0.0096, CI [−0.032, +0.057] — not separated** (E040). Expected: 2.1% of
-slots flipped.
+Labels were measured as the dominant lever (+0.089 of the +0.121 board move,
+E036), and this is a far larger label improvement than the one that produced it.
 
-When the quota resets, push `28/29/30_train_v1fused_fold{2,3,4}`, then:
+**Two changes arrive together** and one run cannot separate them: better targets,
+and ~53% more of them (100% coverage means `ABSTAIN_MASKS_LOSS` masks nothing).
+Say so when reporting the result.
 
-```bash
-bash eda/preflight.sh
-python eda/pool_gold_oof.py <new fused gold_oof_fold*.json> --vs <old ones>
-kaggle kernels push -p kaggle/22_infer_v1fused
-kaggle competitions submit rsna-knee-abnormality-detection \
-    -k achelijndiamantidis/knee-infer-v1fused -f submission.csv -v <N> -m "..."
-```
+**Do NOT blend our labels into the public ones** — measured worse (0.8717 vs
+0.8927), the same weak-member effect as E033 and E039.
 
-That settles the only outstanding claim: whether **710 flipped labels** (2.1% of
-supervised slots, Synovitis 7.4%) move a board score of 0.846.
-
-**Forecast it with the corrected rule** (E038), not raw gold OOF:
-
-> `board ≈ gold_OOF + 0.032 (ensembling) + 0.005`
-
-Gold OOF scores one model per study; a submission rank-averages five, so raw
-gold OOF understates any ensemble by the ensembling gain. Worst-case error
-0.049 → 0.017.
-
-**Closed, do not reopen without new evidence:**
-
-| lever | verdict |
-|---|---|
-| DINOv2 backbone (Phase C) | dead — peaks at epoch 23 and decays, 0.074 behind (E036) |
-| any blend with DINOv2 (Phase D) | dead — monotonic to w=1 at n=49 (E039) |
-| blend of the two label sets | dead — monotonic to w=1 (E033) |
-| focal top-k pooling | dead — +0.006 (E030) |
-| Synovitis via better report labels | dead — corpus barely reports it; model already beats teacher (E037) |
-| laterality mirroring | not broken — 97.8% resolve (E038) |
-
-**Still open, ranked:**
-1. **Pseudo-label the abstained slots.** 34.5% of slots are unsupervised and
-   masked out of the loss, and E035 shows the model beats its teacher exactly
-   where coverage is thinnest (Fracture 43% coverage / +0.239, Baker's +0.165,
-   Synovitis +0.097). Fill abstains with 5-fold OOF predictions, retrain.
-2. **Report-embedding auxiliary head.** Reports exist for 100% of training
-   studies and 0% of test, and are discarded after 12 binaries are extracted.
-   A multilingual sentence embedding is ~768 dense targets from an asset
-   already paid for.
-3. **Fold-disagreement shrinkage at inference.** Free, no training, no quota.
-4. **96 studies (2.2%) whose series disagree on laterality** get mirrored
-   inconsistently across planes. Fix at the next cache rebuild.
+The stale `v1fused` retrain (folds 2-4 still on old labels) is now **lower
+priority than this** and arguably not worth the quota: it was measured at
++0.0096, not separated, on a label set this supersedes.
 
 ## 6. What the CPU rig has already settled
 

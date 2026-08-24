@@ -1,0 +1,25 @@
+{
+  "title": "Knee \u2014 public LLM report labels",
+  "id": "achelijndiamantidis/knee-phase1-public",
+  "licenses": [
+    {
+      "name": "other"
+    }
+  ],
+  "description": "**Not my labels.** The twelve soft targets here are a straight repackaging of `llm_labels_v4_blend.csv` from the publicly shared Kaggle dataset **`stevenleehans/rsna-knee-llm-report-labels`** (author: stevenleehans), into the column schema this pipeline's training kernels expect. All credit for the labels themselves belongs to that author.\n\nRepackaging only: value columns are copied unchanged, a `__channel` column is added (always `asserted`, since the source covers every slot) and a `__weight` of 1.0. No rescaling, no thresholding, no per-finding selection.\n\n**Why:** measured on the 58 expert-labelled studies with this project's convention, the source scores macro AUC **0.8927** against this project's own two-reader fused labels at **0.7827** \u2014 +0.114 \u2014 and covers **100%** of study-by-finding slots against 65.5%. It clears the 0.870 per-finding floor on 8 of 12 findings where this project's own teacher clears 3, and lifts Synovitis from 0.520 (chance) to 0.790.\n\nRank-unioning it with this project's own labels makes it **worse** (0.8717), so the source is used alone rather than blended.\n\n**Rules:** the competition permits freely and publicly available external data (Code Requirements page), and sharing code made available to all participants on the forums. This dataset is private and keyed by competition StudyInstanceUIDs; competition-derived data may not be redistributed.\n\nAlso carries `series_headers.parquet` unchanged, because the training kernels mount exactly one dataset for both labels and headers.",
+  "keywords": [
+    "healthcare",
+    "nlp",
+    "medicine"
+  ],
+  "resources": [
+    {
+      "path": "soft_labels.parquet",
+      "description": "4,407 training studies x 12 findings. Repackaged from stevenleehans/rsna-knee-llm-report-labels (llm_labels_v4_blend.csv). 100% slot coverage."
+    },
+    {
+      "path": "series_headers.parquet",
+      "description": "DICOM header aggregates for scanner-fingerprint fold grouping. Unchanged from knee-phase1-fused."
+    }
+  ]
+}

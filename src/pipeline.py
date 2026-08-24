@@ -51,6 +51,18 @@ ARTIFACTS_DATASET = f"{ACCOUNT}/knee-phase1-artifacts"
 # one above, so every run already made stays comparable — replacing the
 # labels in place would silently change what every earlier number meant.
 FUSED_DATASET = f"{ACCOUNT}/knee-phase1-fused"
+PUBLIC_DATASET = f"{ACCOUNT}/knee-phase1-public"
+"""Publicly shared LLM report labels, repackaged into this pipeline's schema.
+
+NOT this project's labels. Source: `stevenleehans/rsna-knee-llm-report-labels`,
+file `llm_labels_v4_blend.csv`, shared publicly on Kaggle. Credit to that
+author. The competition permits freely and publicly available external data.
+
+Measured on the 58 expert studies with this project's convention (E041):
+macro **0.8927** against this project's own fused labels at **0.7827**, and
+**100%** slot coverage against 65.5%. Rank-unioning the two makes it *worse*
+(0.8717), so it is used alone.
+"""
 T4 = "NvidiaTeslaT4"
 
 
@@ -346,6 +358,33 @@ LINEAGES = [
         ),
         infer_slug="knee-infer-v1fused",
         infer_directory="22_infer_v1fused",
+    ),
+    Lineage(
+        # The public-label lineage. Identical to v1fused in every constant —
+        # same cache, same geometry, same 0.725-era hyperparameters — so the
+        # labels remain the single variable, exactly as E032 established them
+        # to be the dominant lever (+0.089 of the +0.121 board move, E036).
+        #
+        # The teacher this mounts is 0.114 better than the one that produced
+        # 0.846, and covers every slot rather than 65.5%, so ABSTAIN_MASKS_LOSS
+        # now masks nothing and the model sees ~53% more supervised targets.
+        name="v1public",
+        cache=CACHE_V1,
+        labels=PUBLIC_DATASET,
+        train=TrainConfig(
+            backbone="resnet34", epochs=24, batch=16, lr=6e-4,
+            note="Identical to the 0.846 configuration. The labels are the\n"
+                 "single variable, and they are not this project's own.",
+        ),
+        trainers=(
+            Trainer(0, "knee-train-v1pub", "37_train_v1pub_fold0"),
+            Trainer(1, "knee-train-v1pub-fold1", "38_train_v1pub_fold1"),
+            Trainer(2, "knee-train-v1pub-fold2", "39_train_v1pub_fold2"),
+            Trainer(3, "knee-train-v1pub-fold3", "40_train_v1pub_fold3"),
+            Trainer(4, "knee-train-v1pub-fold4", "41_train_v1pub_fold4"),
+        ),
+        infer_slug="knee-infer-v1pub",
+        infer_directory="42_infer_v1pub",
     ),
     Lineage(
         # DINOv2 reached 0.6878 in 16 epochs and NEVER FLATTENED — it climbed

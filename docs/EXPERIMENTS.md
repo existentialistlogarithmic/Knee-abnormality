@@ -1760,3 +1760,83 @@ them, so that run stays reproducible.
 - **next**: folds 2–4 on the corrected labels when the quota resets, then pool
   all five, then submit. Until then the standing board result remains **0.846**
   from the pre-fix labels.
+
+
+### E041 — a publicly shared label set beats this project's own by +0.114
+- **date**: 2026-08-24. CPU only, no quota.
+- **why this was run**: `PATH.md` §4 established that board 0.94 requires **no
+  finding below ~0.870**, and that only two of the seven gaps were recoverable
+  from supervision this project already had. The other five needed the *teacher*
+  lifted past 0.87, and E037 measured why that was hard from our own reports.
+  §3 named the alternative — publicly shared label sets — so it was surveyed.
+
+**What is public.** Kaggle carries several openly shared LLM report-label
+datasets for this competition, with four-figure download counts. Scored on the
+same 58 expert studies with this project's own convention:
+
+| label set | macro on gold 58 | coverage |
+|---|---:|---:|
+| **`stevenleehans/…llm-report-labels` → `llm_labels_v4_blend.csv`** | **0.8927** | **100%** |
+| same author, `llm_labels_v2.csv` | 0.8873 | 100% |
+| same author, `llm_labels_full.csv` | 0.8780 | 100% |
+| `pilkwang/rsna-knee-llm-labels` | 0.8658 | 98.3% |
+| `lixin73/…-sol56` (GPT-5.6) | 0.8352 | 100% |
+| **this project's fused lexicon + Qwen** | **0.7827** | 65.5% |
+
+**+0.114 over the labels this project spent weeks building**, at 100% slot
+coverage against 65.5%.
+
+**Per finding, against the 0.870 floor that 0.94 requires:**
+
+| finding | ours | public | delta |
+|---|---:|---:|---:|
+| **Synovitis** | 0.520 | **0.790** | **+0.270** |
+| Fracture | 0.644 | 0.793 | +0.149 |
+| Baker's | 0.799 | 0.944 | +0.145 |
+| PF OA | 0.765 | 0.902 | +0.137 |
+| Effusion | 0.750 | 0.877 | +0.127 |
+| Lateral OA | 0.708 | 0.833 | +0.125 |
+| ACL | 0.863 | 0.987 | +0.124 |
+| Contusion | 0.773 | 0.860 | +0.087 |
+| MCL | 0.884 | 0.968 | +0.084 |
+| Lateral Meniscus | 0.817 | 0.879 | +0.062 |
+| Medial Meniscus | 0.889 | 0.948 | +0.059 |
+| Medial OA | 0.935 | 0.932 | −0.003 |
+
+**Findings clearing the 0.870 floor: 8 of 12, against 3 of 12 for ours.**
+Synovitis — which E037 concluded was unfixable from these reports, and which
+that entry called "not a label problem that can be fixed" — goes from **chance
+to 0.790**. That conclusion was right about *this project's* reader and wrong as
+a statement about the reports.
+
+**Blending ours in makes it worse**, parameter-free rank union:
+
+| combination | macro |
+|---|---:|
+| public v4 + `pilkwang` | 0.8939 |
+| **public v4 alone** | **0.8927** |
+| public v4 + ours | **0.8717** |
+
+The same shape as E033 and E039: a member 0.11 behind drags the union down. The
++0.0012 from adding `pilkwang` is not worth a second dependency. **Use the
+source alone.**
+
+- **published as** `achelijndiamantidis/knee-phase1-public`, a straight
+  repackaging into this pipeline's column schema — values copied unchanged, no
+  rescaling, no thresholding, no per-finding selection. **The labels are not
+  mine and the dataset description credits the author.** The rules permit it:
+  *"Freely and publicly available external data and pre-trained models are
+  allowed."*
+- **wired as the `v1public` lineage**, byte-identical to the 0.846 trainer in
+  every constant, so the labels stay the single variable. One consequence worth
+  naming: at 100% coverage `ABSTAIN_MASKS_LOSS` now masks nothing, so the model
+  sees **~53% more supervised targets** as well as better ones. Those two
+  changes arrive together and this run cannot separate them.
+- **what this costs the project, honestly**: the two-reader label pipeline —
+  lexicon plus Qwen, the fusion rule, E023 through E032, the work that delivered
+  +0.089 of the +0.121 board move — is superseded by a file someone published in
+  early August. That is the mechanism `PATH.md` §3 described for how the top of
+  this leaderboard is at 0.95, now measured rather than cited.
+- **next**: train the five `v1public` folds when the quota resets (~2026-08-29,
+  ~7 GPU-h), pool against the 0.846 system's gold OOF, and submit. Forecast with
+  E038: `board ≈ gold_OOF + 0.032 + 0.005`.

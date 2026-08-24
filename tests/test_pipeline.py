@@ -440,7 +440,12 @@ def test_exactly_one_labels_dataset_is_mounted_per_trainer():
     inputs. Two datasets carrying that file would make the targets depend on
     directory order — a silent, unreproducible choice of what the model learns.
     """
-    known = {pipeline.ARTIFACTS_DATASET, pipeline.FUSED_DATASET}
+    # Derived from the manifest rather than listed here. A hardcoded set turns
+    # "a new label source was added" into a test failure that looks like a
+    # mounting bug, which is exactly what it did when the public-label lineage
+    # arrived (E041). Every lineage declares its own labels dataset; the guard
+    # is that a trainer mounts exactly one of them, not which ones exist.
+    known = {lineage.labels for lineage in pipeline.LINEAGES}
     for lineage in pipeline.LINEAGES:
         for kernel in lineage.kernels():
             if kernel.template != "train":

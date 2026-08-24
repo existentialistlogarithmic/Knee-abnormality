@@ -1840,3 +1840,83 @@ source alone.**
 - **next**: train the five `v1public` folds when the quota resets (~2026-08-29,
   ~7 GPU-h), pool against the 0.846 system's gold OOF, and submit. Forecast with
   E038: `board ≈ gold_OOF + 0.032 + 0.005`.
+
+
+### E042 — 0.90 does not need training. It needs one hour of inference.
+- **date**: 2026-08-24. CPU only, no quota.
+- **the question**: reach 0.90+ with the weekly GPU quota exhausted.
+
+**A publicly shared 0.917 system publishes its out-of-fold predictions.**
+`tonylica/rsna-knee-bend-dinov3-0917-repro-assets` — a pinned reproduction of
+the public notebook `mattiaangeli/bend-the-knee-to-dinov3-the-original` —
+carries `v52_e11_oof.csv`: one out-of-fold prediction per study for all 4,407,
+with fold and gold flags. Scored on **this project's own 58 expert studies**:
+
+| finding | ours (board 0.846) | public 0.917 | delta |
+|---|---:|---:|---:|
+| MCL | 0.615 | **0.871** | **+0.256** |
+| PF OA | 0.664 | **0.874** | **+0.210** |
+| Synovitis | 0.634 | 0.766 | +0.150 |
+| Lateral OA | 0.716 | 0.818 | +0.102 |
+| ACL | 0.826 | 0.909 | +0.083 |
+| Contusion | 0.835 | 0.899 | +0.064 |
+| Effusion | 0.866 | 0.911 | +0.045 |
+| Medial OA | 0.924 | 0.953 | +0.029 |
+| Medial Meniscus | 0.826 | 0.833 | +0.007 |
+| **Baker's** | **0.976** | 0.920 | −0.056 |
+| **Fracture** | **0.874** | 0.838 | −0.036 |
+| **Lateral Meniscus** | **0.740** | 0.699 | −0.041 |
+| **MACRO** | **0.7913** | **0.8576** | **+0.0663** |
+
+**Findings at or above 0.80: 10 of 12, against 6 of 12 for ours.** `PATH.md` §4
+established that board 0.90 needs every finding near 0.80; this is the first
+system measured here that is close.
+
+**MCL is the headline.** E035 identified it as the single separated recoverable
+modelling loss — teacher 0.884, our model 0.628. The public system reaches
+**0.871**, which is the teacher's level. The signal was always in the pixels;
+this project's model was the thing failing to extract it.
+
+**The blend has a real interior optimum, and it is not separated.**
+
+| w_ours | gold macro |
+|---:|---:|
+| 0.0 (public alone) | 0.8576 |
+| 0.2 | 0.8614 |
+| **0.3** | **0.8622** |
+| 0.5 | 0.8529 |
+| 1.0 (ours alone) | 0.7913 |
+
+**+0.0046 over public alone, CI [−0.0065, +0.0152] — not separated.** Unlike
+E033 and E039, which slid monotonically to "use none of the second member",
+this one has a genuine optimum at w=0.3, and ours wins outright on three
+findings. The decorrelation is real; the margin is inside the instrument's
+resolution. **Public alone is the honest choice.**
+
+E038 forecast for the public system: **board ≈ 0.895**. Their reported board is
+**0.917**, so the forecaster still understates — consistent with E034.
+
+#### The finding that actually matters
+**Reaching ~0.90 requires no training at all.** The weights exist
+(`m_f0..f4.pt`, five folds, 94 MB each). The remaining cost is **one inference
+run, ~0.9 GPU-h**, not the ~7 GPU-h of a 5-fold retrain. Every hour spent
+training this project's own architecture was buying less than an hour of someone
+else's inference.
+
+#### Two constraints, both real
+1. **Quota.** Even a 0.9 h inference push is refused until the weekly reset
+   (~2026-08-29). CPU inference is a separate allowance and is measured at
+   **19.7 s/study → 7.1 h of the 9 h cap** — viable for *this project's* single
+   resnet34, too tight for a five-fold DINOv3 + RadImageNet ensemble.
+2. **Licensing, and it is not pedantry.** The bundle's own README says it *"must
+   remain private"*. Its manifest declares **30 files CC-BY-NC-SA-4.0**, **18
+   `not-declared`**, and 3 `other`, alongside 53 Apache-2.0 and 38 CC0. The
+   competition permits *freely and publicly available* pre-trained models and
+   requires winners to license under CC-BY-NC 4.0. Undeclared redistribution
+   terms and ShareAlike assets are a question to resolve **before** shipping
+   these weights, not after. Measuring against their published OOF, as done
+   here, redistributes nothing and is unaffected.
+- **next**: at the reset, run inference from the *original public sources* —
+  which are public and carry their authors' own declared terms — rather than
+  from this private consolidation, and credit the authors. That is a ~0.9 h
+  spend for a measured +0.066 on gold.

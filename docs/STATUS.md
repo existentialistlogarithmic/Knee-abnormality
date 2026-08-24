@@ -5,7 +5,7 @@ kernels and 62 tagged claims, and the single most expensive mistakes in it came
 from **treating a weakly-known number as a well-known one**. So the organising
 axis here is not topic. It is *evidence strength*.
 
-Last updated 2026-08-24 (E041).
+Last updated 2026-08-24 (E042).
 
 ---
 
@@ -173,7 +173,7 @@ ensemble.
 ## 5. Claim ledger
 
 `docs/FINDINGS.md` tags every claim: **52 `VERIFIED`, 6 `UNVERIFIED`,
-9 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 41 numbered runs
+9 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 42 numbered runs
 with what changed, the runtime, the result and what it meant.
 
 ---

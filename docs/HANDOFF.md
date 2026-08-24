@@ -70,31 +70,39 @@ CPU is a separate allowance and is unaffected.
 
 ## 5. The next action
 
-**Train the `v1public` lineage** — `kaggle/37..41_train_v1pub_fold{0..4}`, ~7
-GPU-h — the moment the quota resets (~2026-08-29). Then `42_infer_v1pub` and
-submit.
+**At the quota reset (~2026-08-29), spend ~0.9 GPU-h on INFERENCE, not ~7 on
+training.**
 
-E041 found that a **publicly shared label set beats this project's own by
-+0.114** on the 58 expert studies (0.8927 vs 0.7827) at **100% slot coverage
-against 65.5%**. It clears the 0.870 per-finding floor that 0.94 needs on **8 of
-12** findings where ours clears 3, and lifts **Synovitis from 0.520 — chance —
-to 0.790**. Source: `stevenleehans/rsna-knee-llm-report-labels`, repackaged with
-attribution as `achelijndiamantidis/knee-phase1-public`. The rules permit freely
-and publicly available external data.
+E042 measured a publicly shared 0.917 system's out-of-fold predictions on this
+project's own 58 expert studies: **0.8576 against our 0.7913**, with **10 of 12
+findings at or above 0.80** where ours manages 6. `PATH.md` §4 says board 0.90
+needs every finding near 0.80. Their weights already exist — five folds — so the
+remaining cost is one inference run.
 
-Labels were measured as the dominant lever (+0.089 of the +0.121 board move,
-E036), and this is a far larger label improvement than the one that produced it.
+**MCL is the proof.** E035 called it the one separated recoverable modelling
+loss (teacher 0.884, our model 0.628). The public system reaches **0.871**. The
+signal was in the pixels all along.
 
-**Two changes arrive together** and one run cannot separate them: better targets,
-and ~53% more of them (100% coverage means `ABSTAIN_MASKS_LOSS` masks nothing).
-Say so when reporting the result.
+**Blending ours in is +0.0046, CI [−0.0065, +0.0152] — not separated.** It has a
+genuine interior optimum at w_ours=0.3, unlike E033/E039, and ours wins on
+Baker's, Fracture and Lateral Meniscus. But the margin is inside the
+instrument. **Use the public system alone.**
 
-**Do NOT blend our labels into the public ones** — measured worse (0.8717 vs
-0.8927), the same weak-member effect as E033 and E039.
+### Two things to settle first
+1. **Licensing.** The 0.917 *bundle* says it must remain private: 30 files
+   CC-BY-NC-SA-4.0, 18 `not-declared`, 3 `other`. Run inference from the
+   **original public sources** instead, credit the authors, and check the terms
+   before shipping. Measuring against published OOF (E042) redistributes nothing.
+2. **Accounts.** `FINDINGS.md` §2.15, verbatim from the rules: *"You cannot sign
+   up to Kaggle from multiple accounts and therefore you cannot enter or submit
+   from multiple accounts."* A second account's token is not an option. **Teams
+   are** — max 5, merger deadline 2026-10-15, each member runs their own account
+   and shares checkpoints as a dataset, never credentials.
 
-The stale `v1fused` retrain (folds 2-4 still on old labels) is now **lower
-priority than this** and arguably not worth the quota: it was measured at
-+0.0096, not separated, on a label set this supersedes.
+### If quota is still the blocker
+- `colab/train_fold_on_colab.ipynb` runs the generated trainer on a free T4.
+- CPU inference is a **separate** allowance: 19.7 s/study → 7.1 h of the 9 h cap.
+  Enough for this project's single resnet34, too tight for a 5-fold DINOv3.
 
 ## 6. What the CPU rig has already settled
 

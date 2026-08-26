@@ -89,10 +89,17 @@ Baker's, Fracture and Lateral Meniscus. But the margin is inside the
 instrument. **Use the public system alone.**
 
 ### Two things to settle first
-1. **Licensing.** The 0.917 *bundle* says it must remain private: 30 files
-   CC-BY-NC-SA-4.0, 18 `not-declared`, 3 `other`. Run inference from the
-   **original public sources** instead, credit the authors, and check the terms
-   before shipping. Measuring against published OOF (E042) redistributes nothing.
+1. ~~**Licensing.**~~ **CLEARED (E043).** The bundle is twelve separately
+   licensed sources, and the weights that matter are **CC0-1.0** — public
+   domain, no restrictions: `mattiaangeli/knee-mri-fold-weights` (the five fold
+   checkpoints) and `pilkwang/rsna-knee-weights` (twenty more). **2,350 MB is
+   CC0/Apache; only 479 MB is restricted.** The label set from E041 is CC0 too,
+   so that work is retroactively clean.
+   Pull from those **public datasets directly**, not the private consolidation.
+   Still constrained: the RadImageNet heads (CC-BY-NC-SA-4.0 — NC matches this
+   competition's own CC-BY-NC winner licence, so ShareAlike is the only real
+   question) and the two `sofiaanjenje` notebook outputs (**`not-declared` — no
+   grant, avoid**).
 2. **Accounts.** `FINDINGS.md` §2.15, verbatim from the rules: *"You cannot sign
    up to Kaggle from multiple accounts and therefore you cannot enter or submit
    from multiple accounts."* A second account's token is not an option. **Teams

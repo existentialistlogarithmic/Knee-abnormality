@@ -1920,3 +1920,68 @@ else's inference.
   which are public and carry their authors' own declared terms — rather than
   from this private consolidation, and credit the authors. That is a ~0.9 h
   spend for a measured +0.066 on gold.
+
+
+### E043 — the licensing clears: the weights that matter are CC0
+- **date**: 2026-08-26. CPU only, no quota.
+- **why**: E042 parked the public-weights route behind a licensing question — the
+  bundle's README says it *"must remain private"* and its manifest showed 30
+  files CC-BY-NC-SA-4.0, 18 `not-declared`. That was the stated blocker, so the
+  manifest's per-source records were read properly rather than left as a worry.
+
+**The bundle is a consolidation of twelve separately-licensed sources**, not one
+artifact:
+
+| licence | source | files | MB |
+|---|---|---:|---:|
+| **CC0-1.0** | `pilkwang/rsna-knee-weights` | 23 | **1,787** |
+| **CC0-1.0** | `mattiaangeli/knee-mri-fold-weights` | 6 | **473** |
+| **CC0-1.0** | `stevenleehans/rsna-knee-llm-report-labels` | 3 | 1.7 |
+| **CC0-1.0** | `pilkwang/rsna-knee-llm-labels` | 2 | 1.0 |
+| apache-2.0 | `pilkwang/…notebooks-figures` | 52 | 88 |
+| CC-BY-NC-SA-4.0 | `marwanmath/resnet-50-radimagenet-marwan` | 1 | 94 |
+| CC-BY-NC-SA-4.0 | `antoinegg1/…e11-diverse-heads-v20` | 9 | 65 |
+| CC-BY-NC-SA-4.0 | `antoinegg1/…e9-radimagenet-heads-v15` | 9 | 65 |
+| CC-BY-NC-SA-4.0 | `mattiaangeli/…radimagenet-foldsv1-heads` | 7 | 64 |
+| **not-declared** | `sofiaanjenje/rsna-knee-e11-train` | 8 | 65 |
+| **not-declared** | `sofiaanjenje/rsna-knee-e13-train` | 8 | 65 |
+| other | `prvsiyan/…v52-radimagenet-heads` | 2 | 64 |
+
+**CC0 or Apache: 2,350 MB. Restricted or undeclared: 479 MB.**
+
+**The model weights are almost entirely CC0** — public domain dedication, no
+attribution required, no restrictions:
+
+- `knee-mri-fold-weights/m_f0..f4.pt` — **the five fold checkpoints**, 94 MB each
+- `rsna-knee-weights/m_*.pt` — **twenty more checkpoints**, 89 MB each
+
+Only the **RadImageNet heads** (CC-BY-NC-SA-4.0) and the two `sofiaanjenje`
+notebook outputs (`not-declared`) are constrained. So a **CC0-only ensemble of
+25 checkpoints** is available with no licensing question at all.
+
+**And E041 is retroactively clean.** The label set that beat this project's own
+by +0.114 — `stevenleehans/rsna-knee-llm-report-labels` — is **CC0-1.0**. It was
+repackaged with attribution anyway, which CC0 does not require but which remains
+the right thing to do.
+
+**Reading the three tiers:**
+1. **CC0** — use freely. Attribution is still given here as a courtesy.
+2. **CC-BY-NC-SA-4.0** — non-commercial matches this competition's own
+   **CC-BY-NC 4.0** winner licence, so NC is not the obstacle it first looked
+   like; ShareAlike on derivatives is the part to read before shipping.
+3. **`not-declared`** — no grant of any kind. **Avoid.** An undeclared licence
+   is not a permissive one, and this is the tier the bundle's "keep it private"
+   warning is really about.
+
+- **what this changes**: E042's ~0.9 GPU-h inference plan is unblocked for the
+  CC0 subset, which is where the fold weights live. Reproducing *exactly* 0.917
+  needs the RadImageNet heads and therefore a ShareAlike decision; a CC0-only
+  ensemble does not.
+- **note on the OOF measured in E042**: `v52_e11_oof.csv` comes from
+  `sofiaanjenje/rsna-knee-e11-train`, the `not-declared` tier. Reading published
+  predictions to *measure* against this project's own gold set redistributes
+  nothing and ships nothing. Using that file's weights in a submission is a
+  different act and is not cleared.
+- **next**: at the quota reset, run inference from the CC0 sources directly —
+  `mattiaangeli/knee-mri-fold-weights` and `pilkwang/rsna-knee-weights`, both
+  public Kaggle datasets — rather than from this private consolidation.

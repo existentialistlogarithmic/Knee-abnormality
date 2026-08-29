@@ -2052,3 +2052,65 @@ of the reports, and this is the second measurement to say so.
   (`llm_labels_v4_blend.csv`), shared publicly under **CC0-1.0** and repackaged
   with attribution as `knee-phase1-public` (E041, E043). None of this +0.1067 is
   this project's own label work.
+
+
+### E045 — 0.923 on the board, and the forecaster held to +0.012
+- **date**: 2026-08-29
+- **what**: `knee-infer-v1pub` v1 — the five `v1public` folds, rank-mean, ~1 h.
+
+| submission | date | board |
+|---|---|---:|
+| constant priors | 08-18 | 0.500 |
+| scanner metadata, no pixels | 08-18 | 0.531 |
+| imaging 192px, 1 fold, lexicon labels | 08-19 | 0.725 |
+| imaging 288px, effective batch 16 | 08-19 | 0.688 |
+| lexicon labels, 5-fold (the control) | 08-23 | 0.757 |
+| fused labels, 5-fold | 08-22 | 0.846 |
+| **public CC0 labels, 5-fold** | **08-29** | **0.923** |
+
+**+0.077 today. +0.198 from this project's first imaging model.** Field top
+0.952, top-200 cut 0.917 — **0.923 clears the top-200 cut**.
+
+**The forecaster held.** E038's corrected rule — `board ≈ gold_OOF + 0.032
+(ensembling) + 0.005` — predicted **0.935** against an actual **0.923**, an
+error of **+0.012**. Its previous test (E034) missed by −0.059 in the other
+direction, so this is the first forecast it has made that was close, and the
+first time it has *overstated* rather than understated.
+
+**The raw gold-to-board offset is still unstable and still positive:**
+
+| model | gold OOF | board | offset |
+|---|---:|---:|---:|
+| lexicon, 192px, 1 fold | 0.7201 | 0.725 | +0.005 |
+| fused, 5-fold | 0.7918 | 0.846 | +0.054 |
+| **public, 5-fold** | **0.8980** | **0.923** | **+0.025** |
+
+Three points, offsets +0.005 / +0.054 / +0.025. The correction narrows the
+spread but does not remove it, and `FINDINGS.md` §14.5 stands: **gold OOF ranks
+models; it does not forecast a score.** It ranked all three correctly.
+
+- **what produced the +0.198 overall**, decomposed on ground truth where it
+  could be:
+
+  | lever | delta | how measured |
+  |---|---:|---|
+  | ensembling 1 fold → 5 | +0.032 | E036 control, board |
+  | this project's fused labels | +0.089 | E036, board |
+  | **public CC0 labels** | **+0.077** | here, board |
+
+  **Labels account for +0.166 of +0.198. Everything else — architecture,
+  resolution, pooling, backbone — accounts for the rest.** Every architectural
+  lever this project tried (288px, DINOv2, focal top-k, per-finding pooling,
+  cross-family blending) measured zero or negative. That is the whole story of
+  this competition as this project has experienced it.
+- **the honest accounting of whose work this is**: the +0.077 came from a label
+  file published by **stevenleehans** under CC0-1.0, found by surveying what the
+  community had shared, not built here. `PATH.md` §3 predicted this mechanism
+  before it was used and is now confirmed by measurement.
+- **still unseparated**: better labels and 53% more supervised slots arrived
+  together (E044) and this submission cannot tell them apart either.
+- **next**: 0.94 needs **+0.017**. `PATH.md` §4 says that means no finding below
+  ~0.870, and **Synovitis at 0.779** is the one still short — every other finding
+  now clears 0.80 and eight clear 0.870. Two routes remain, both untried: the
+  CC0 public *weights* (E042/E043, ~0.9 GPU-h, measured 0.8576 gold as a
+  standalone system) and blending them with this one.

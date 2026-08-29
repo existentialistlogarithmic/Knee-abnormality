@@ -5,7 +5,7 @@ kernels and 62 tagged claims, and the single most expensive mistakes in it came
 from **treating a weakly-known number as a well-known one**. So the organising
 axis here is not topic. It is *evidence strength*.
 
-Last updated 2026-08-26 (E043).
+Last updated 2026-08-29 (E045).
 
 ---
 
@@ -21,12 +21,14 @@ Last updated 2026-08-26 (E043).
 | imaging, 288px, effective batch 4 | 0.668 | confounded run |
 | imaging, 288px, effective batch 16 | 0.688 | the confound corrected; still behind 192px |
 | imaging, 192px, 5-fold, lexicon labels | 0.757 | the control (E036) |
-| **imaging, 192px, 5-fold, FUSED labels** | **0.846** | **the standing result** (E034) |
+| imaging, 192px, 5-fold, FUSED labels | 0.846 | E034 |
+| **imaging, 192px, 5-fold, PUBLIC CC0 labels** | **0.923** | **the standing result** (E045) |
 
 **The jump decomposes on ground truth: ensembling +0.032, labels +0.089.**
 Labels are the dominant lever by 3:1 (E036).
 
-**Leaderboard position: 0.846**, up from 0.725 on 2026-08-22. Field top 0.952;
+**Leaderboard position: 0.923**, up from 0.846 on 2026-08-29 and from 0.725 on
+2026-08-22. **This clears the top-200 cut of 0.917.** Field top 0.952;
 top-200 cut 0.917.
 
 **Gold OOF is not a calibrated predictor of the board.** E026 measured the
@@ -173,7 +175,7 @@ ensemble.
 ## 5. Claim ledger
 
 `docs/FINDINGS.md` tags every claim: **52 `VERIFIED`, 6 `UNVERIFIED`,
-9 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 43 numbered runs
+9 `CONTRADICTED`, 1 `CORRECTED`.** `docs/EXPERIMENTS.md` holds 45 numbered runs
 with what changed, the runtime, the result and what it meant.
 
 ---

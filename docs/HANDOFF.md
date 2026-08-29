@@ -1,7 +1,7 @@
 # HANDOFF — read this first
 
 The session entry point. Everything here is either a live instruction or a
-pointer to the file that holds the detail. Last updated **2026-08-22**.
+pointer to the file that holds the detail. Last updated **2026-08-29**.
 
 Read order: **this file**, then `docs/STATUS.md` (what is known, by evidence
 strength), then `docs/PATH.md` (what is left and what it is worth).
@@ -39,17 +39,24 @@ package is installed. Check `which kaggle` instead.
 
 ## 3. Where the work stands
 
-**0.846 on the leaderboard** as of 2026-08-22, up from 0.725 — the fused-label
-5-fold rank-mean (E034). Field top 0.952, top-200 cut 0.917, 1,866 teams, final
-submission 2026-10-22. Full picture in `STATUS.md`; the costed plan in
-`PATH.md`.
+**0.923 on the leaderboard** as of 2026-08-29 (E045), up from 0.846 and from
+0.725. **This clears the top-200 cut of 0.917.** Field top 0.952, 1,866 teams,
+final submission 2026-10-22.
 
-**The board allows 5 submissions a day, not 2.** Four files in this repo said 2
-and were wrong; corrected 2026-08-22 after a live submit reported "4 remaining".
+The standing system is `v1public`: resnet34 2.5D at 192px, five folds,
+rank-mean, trained on **publicly shared CC0 report labels**
+(`stevenleehans/rsna-knee-llm-report-labels`, repackaged with attribution as
+`knee-phase1-public`). Gold OOF 0.8980.
 
-**Gold OOF ranks models; it does not forecast a score.** The offset to the board
-was +0.005 on one model and +0.054 on the next, same architecture and cache. Use
-it to choose between models, never to predict where a submission will land.
+**Labels are the whole story.** Decomposed on ground truth, of the +0.198 from
+this project's first imaging model: ensembling +0.032, this project's fused
+labels +0.089, public CC0 labels +0.077 — **+0.166 of +0.198 is labels.** Every
+architectural lever tried (288px, DINOv2, focal top-k, per-finding pooling, two
+blend families) measured zero or negative.
+
+**Gold OOF ranks models; it does not forecast a score.** Offsets to the board
+have been +0.005, +0.054, +0.025. E038's correction (`board ≈ gold_OOF + 0.032 +
+0.005`) got its first close call here — predicted 0.935, actual 0.923.
 
 ## 4. Quota state
 
@@ -70,46 +77,27 @@ CPU is a separate allowance and is unaffected.
 
 ## 5. The next action
 
-**At the quota reset (~2026-08-29), spend ~0.9 GPU-h on INFERENCE, not ~7 on
-training.**
+**0.94 needs +0.017.** `PATH.md` §4 says that means no finding below ~0.870.
+After E044 only **Synovitis (0.779)** is below 0.80; eight of twelve clear 0.870.
 
-E042 measured a publicly shared 0.917 system's out-of-fold predictions on this
-project's own 58 expert studies: **0.8576 against our 0.7913**, with **10 of 12
-findings at or above 0.80** where ours manages 6. `PATH.md` §4 says board 0.90
-needs every finding near 0.80. Their weights already exist — five folds — so the
-remaining cost is one inference run.
+Two untried routes, both cheap:
 
-**MCL is the proof.** E035 called it the one separated recoverable modelling
-loss (teacher 0.884, our model 0.628). The public system reaches **0.871**. The
-signal was in the pixels all along.
+1. **CC0 public weights, ~0.9 GPU-h.** E042 measured that system's OOF at
+   **0.8576** standalone on our 58; E043 cleared the licensing — the fold
+   checkpoints are **CC0-1.0** in `mattiaangeli/knee-mri-fold-weights` and
+   `pilkwang/rsna-knee-weights`. Pull from those public datasets, **never** from
+   `tonylica/…repro-assets` (a private consolidation with `not-declared` files).
+   Needs a new inference kernel wired in `src/pipeline.py`.
+2. **Blend that system with this one.** E042 measured +0.0046 against the
+   *0.846* system, not separated — but this system is 0.107 stronger, so the
+   blend is worth re-measuring on gold before spending a submission.
 
-**Blending ours in is +0.0046, CI [−0.0065, +0.0152] — not separated.** It has a
-genuine interior optimum at w_ours=0.3, unlike E033/E039, and ours wins on
-Baker's, Fracture and Lateral Meniscus. But the margin is inside the
-instrument. **Use the public system alone.**
+**Not worth quota**: the stale `v1fused` retrain (folds 2–4 on old labels),
+superseded twice over.
 
-### Two things to settle first
-1. ~~**Licensing.**~~ **CLEARED (E043).** The bundle is twelve separately
-   licensed sources, and the weights that matter are **CC0-1.0** — public
-   domain, no restrictions: `mattiaangeli/knee-mri-fold-weights` (the five fold
-   checkpoints) and `pilkwang/rsna-knee-weights` (twenty more). **2,350 MB is
-   CC0/Apache; only 479 MB is restricted.** The label set from E041 is CC0 too,
-   so that work is retroactively clean.
-   Pull from those **public datasets directly**, not the private consolidation.
-   Still constrained: the RadImageNet heads (CC-BY-NC-SA-4.0 — NC matches this
-   competition's own CC-BY-NC winner licence, so ShareAlike is the only real
-   question) and the two `sofiaanjenje` notebook outputs (**`not-declared` — no
-   grant, avoid**).
-2. **Accounts.** `FINDINGS.md` §2.15, verbatim from the rules: *"You cannot sign
-   up to Kaggle from multiple accounts and therefore you cannot enter or submit
-   from multiple accounts."* A second account's token is not an option. **Teams
-   are** — max 5, merger deadline 2026-10-15, each member runs their own account
-   and shares checkpoints as a dataset, never credentials.
-
-### If quota is still the blocker
-- `colab/train_fold_on_colab.ipynb` runs the generated trainer on a free T4.
-- CPU inference is a **separate** allowance: 19.7 s/study → 7.1 h of the 9 h cap.
-  Enough for this project's single resnet34, too tight for a 5-fold DINOv3.
+**Still unseparated (E044)**: better labels and ~53% more supervised slots
+arrived together. A masked-coverage run (~7 GPU-h) would tell them apart. It is
+a question about *why*, not a route to a higher score.
 
 ## 6. What the CPU rig has already settled
 

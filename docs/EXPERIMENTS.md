@@ -1985,3 +1985,70 @@ the right thing to do.
 - **next**: at the quota reset, run inference from the CC0 sources directly —
   `mattiaangeli/knee-mri-fold-weights` and `pilkwang/rsna-knee-weights`, both
   public Kaggle datasets — rather than from this private consolidation.
+
+
+### E044 — the public labels take gold OOF from 0.7913 to 0.8980
+- **date**: 2026-08-29. Quota reset between 2026-08-28 12:42 UTC (refused) and
+  2026-08-29 00:39 UTC (accepted).
+- **what changed**: the label dataset, and nothing else. The `v1public` lineage
+  is byte-identical to the 0.846 trainer in every constant — same cache, same
+  192px geometry, same resnet34, 24 epochs, batch 16, LR 6e-4. Five folds,
+  ~7 GPU-h.
+
+**Paired on all 58 gold studies against the 0.846 system:**
+
+| | gold macro | 95% CI |
+|---|---:|---|
+| **v1public (public CC0 labels)** | **0.8980** | [0.869, 0.925] |
+| v1fused (this project's labels) | 0.7913 | [0.755, 0.828] |
+| **paired difference** | **+0.1067** | **[+0.077, +0.140]** |
+
+**Separated by a wide margin** — the widest this project has measured, and about
+15× the interval's distance from zero compared with E032's +0.0717.
+
+**Per finding, against the 0.870 floor `PATH.md` §4 says board 0.94 needs:**
+
+| finding | v1fused | v1public | delta | ≥0.870 |
+|---|---:|---:|---:|:--:|
+| MCL | 0.615 | **0.882** | **+0.267** | ✓ |
+| Synovitis | 0.634 | 0.779 | +0.145 | |
+| PF OA | 0.664 | 0.858 | +0.194 | |
+| Lateral OA | 0.716 | 0.822 | +0.106 | |
+| Lateral Meniscus | 0.740 | 0.851 | +0.111 | |
+| ACL | 0.826 | **0.962** | +0.136 | ✓ |
+| Medial Meniscus | 0.826 | **0.929** | +0.103 | ✓ |
+| Contusion | 0.835 | **0.915** | +0.080 | ✓ |
+| Effusion | 0.866 | **0.929** | +0.063 | ✓ |
+| Fracture | 0.874 | **0.885** | +0.011 | ✓ |
+| Medial OA | 0.924 | **0.980** | +0.056 | ✓ |
+| Baker's | 0.976 | **0.984** | +0.008 | ✓ |
+
+**Eleven of twelve findings now clear 0.80; eight clear 0.870.** The 0.846
+system cleared 0.80 on six and 0.870 on four.
+
+**MCL, +0.267.** E035 named it the single separated recoverable modelling loss —
+teacher 0.884, model 0.628 — and concluded the signal was in the pixels and the
+model was failing to extract it. With better supervision the same architecture
+on the same cache reaches **0.882**, which is its teacher's level. The
+diagnosis was right and the fix was labels, not modelling.
+
+**Synovitis is now the only finding below 0.80**, at 0.779 — up from 0.634, and
+up from a teacher E037 measured at **chance**. E037 concluded Synovitis "cannot
+be fixed from the reports"; that was true of *this project's* reader and false
+of the reports, and this is the second measurement to say so.
+
+- **two changes arrive together and this run cannot separate them.** The public
+  labels are both *better* (teacher 0.8927 vs 0.7827) and *more complete* (100%
+  slot coverage vs 65.5%, so `ABSTAIN_MASKS_LOSS` now masks nothing and the
+  model sees ~53% more supervised targets). Attributing +0.1067 to label
+  quality alone would be unearned. Separating them needs a run with the public
+  labels artificially masked to 65.5% coverage, which is ~7 more GPU-h and has
+  not been done.
+- **forecast**: E038's corrected rule — `board ≈ gold_OOF + 0.032 + 0.005` —
+  puts this near **0.935** against a standing 0.846. That rule has one genuine
+  test behind it (E038) and understated the board on the run before it, so treat
+  it as a direction, not a number. The submission is the measurement.
+- **credit**: the labels are `stevenleehans/rsna-knee-llm-report-labels`
+  (`llm_labels_v4_blend.csv`), shared publicly under **CC0-1.0** and repackaged
+  with attribution as `knee-phase1-public` (E041, E043). None of this +0.1067 is
+  this project's own label work.

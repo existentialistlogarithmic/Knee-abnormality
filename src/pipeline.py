@@ -432,31 +432,36 @@ LINEAGES = [
         ),
     ),
     Lineage(
-        # E052: the one large untested region, tested. Every architecture lever
-        # this project owns was measured against a 0.78 teacher and recorded
-        # dead — 288px, DINOv2, focal top-k, per-finding pooling (E029, E030,
-        # E036, E039). None had been retested against the 0.89 public teacher
-        # that produced the 0.923 board result, and the log said so in as many
-        # words.
+        # Per-finding attention pooling, which this project has called dead
+        # three times and measured at roughly the same positive value each
+        # time. On frozen embeddings, out-of-fold on the 58 expert studies:
         #
-        # Re-run on frozen embeddings against the public labels, averaged over
-        # four restarts so the comparison measures a head rather than an
-        # initialisation, per-finding attention pooling comes back
-        # **+0.0338, 95% CI [+0.009, +0.061] — separated**. Focal top-k moves
-        # the same way (+0.0163, [-0.001, +0.035]) and is not taken here,
-        # because two levers at once is no longer one variable.
+        #   E030, old labels, 1 seed    +0.039   [-0.009, +0.090]
+        #   E053, old labels, 4 seeds   +0.0371  [-0.001, +0.077]
+        #   E052, public labels, 4 seeds +0.0338 [+0.009, +0.061]  separated
         #
-        # The mechanism was written down before it was measured, in the model's
-        # own comment: one attention map over twelve findings forces a single
-        # compromise about which slices matter, and the compromise is paid by
-        # the focal findings. That is still exactly where this ensemble is
-        # weakest — Synovitis 0.771, Lateral OA 0.830, PF OA 0.849 are its
-        # three worst, against Medial OA 0.980 and Baker's 0.978.
+        # E052 first read the last row as the teacher unlocking the lever.
+        # E053 withdrew that: the effect is the same size against both
+        # teachers and only the interval moved. What changed was averaging
+        # restarts before scoring — one seed per arm put the BASELINE's spread
+        # at 0.036 while the treated arm moved 0.007, so a single-seed A/B on
+        # 58 studies was reading an initialisation as an architecture.
         #
-        # It is also the better use of the last GPU hours than a reseed. It
-        # buys the same ensemble diversity a second seed would (more, in fact:
-        # a different pooling differs more than a different initialisation),
-        # and answers a question at the same time.
+        # Three agreeing magnitudes across two independent teachers is why
+        # this is worth GPU. The mechanism was also written down before any of
+        # it was measured, in the model's own comment: one attention map over
+        # twelve findings forces a single compromise about which slices
+        # matter, and the focal findings pay it. That is still exactly where
+        # this ensemble is weakest — Synovitis 0.771, Lateral OA 0.830, PF OA
+        # 0.849, against Medial OA 0.980 and Baker's 0.978.
+        #
+        # Focal top-k moves the same way (+0.0163, [-0.001, +0.035]) and is
+        # NOT taken here, because two levers at once is no longer one variable.
+        #
+        # It is also a better use of the last GPU hours than v1publicB's
+        # reseed. The folds join the ensemble either way, a different pooling
+        # is more diversity than a different initialisation, and this answers
+        # a question while it does it.
         name="v1pubpool",
         cache=CACHE_V1,
         labels=PUBLIC_DATASET,

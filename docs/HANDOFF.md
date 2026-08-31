@@ -1,7 +1,7 @@
 # HANDOFF — read this first
 
 The session entry point. Everything here is either a live instruction or a
-pointer to the file that holds the detail. Last updated **2026-08-29**.
+pointer to the file that holds the detail. Last updated **2026-08-31**.
 
 Read order: **this file**, then `docs/STATUS.md` (what is known, by evidence
 strength), then `docs/PATH.md` (what is left and what it is worth).
@@ -117,17 +117,29 @@ python eda/head_lab.py --embeddings artifacts/embed/embeddings.npy \
     --index artifacts/embed/embeddings_index.json --compare all
 ```
 
-Answers as of E030, all paired one-variable A/Bs scored out-of-fold on the 58:
+**Pass `--seeds 4`.** Without it the rig measures an initialisation as much as
+a hypothesis: on the focal A/B the treated arm moved 0.007 across restarts
+while the *baseline* moved 0.036, so the difference swung from +0.007 to +0.044
+depending on the draw (E052). `--seeds N` averages out-of-fold predictions over
+restarts before scoring, which removes that from both arms and roughly halves
+the interval.
+
+Answers as of E053, all paired one-variable A/Bs scored out-of-fold on the 58:
 
 | question | answer |
 |---|---|
 | do the fused labels help | **yes**, +0.0508 [+0.001, +0.102], replicated |
-| does focal top-k pooling help | **no measurable effect**, +0.006 [−0.041, +0.051] |
-| do per-finding attention maps help | **not separated**, +0.039 [−0.009, +0.090] |
+| do per-finding attention maps help | **yes, ~+0.035** — +0.039, +0.0371, +0.0338 across three runs and two teachers; the last separated at [+0.009, +0.061] |
+| does focal top-k pooling help | **probably, smaller**: +0.0163 [−0.001, +0.035], all 4 seeds positive |
+| does slice position help | **no**, +0.0035 [−0.017, +0.025] — and the model is *exactly* permutation-invariant over slices (E050) |
 
 Absolute numbers from the rig do not predict the board — a frozen backbone is
 not the fine-tuned model. **Comparisons above the backbone do transfer**,
 because those are the part being trained.
+
+**Every single-seed negative in this log predating 2026-08-31 is suspect**, for
+the reason E053 gives: the rig could not resolve a ~0.035 effect at one seed,
+and recorded the failure to resolve as an absence. Re-run before trusting one.
 
 ## 7. The standing rule
 
@@ -137,6 +149,9 @@ small number of observations read as a trend, or a number measured as a
 *ceiling* and later used as a *gain* — E030 is the most recent instance.
 
 So: every comparison is one-variable by construction, a test asserts it, and a
-claim carries the interval it was measured with. `docs/FINDINGS.md` tags every
+claim carries the interval it was measured with. **A negative carries its
+interval width too, or it is not a negative** — E053 is the seventh overturned
+claim and the second where an effect the instrument could not resolve was
+written down as an effect that was not there. `docs/FINDINGS.md` tags every
 claim `VERIFIED` / `UNVERIFIED` / `CONTRADICTED` / `CORRECTED`; `EXPERIMENTS.md`
 is append-only and a run with no entry did not happen.

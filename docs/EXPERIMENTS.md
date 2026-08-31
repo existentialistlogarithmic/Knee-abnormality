@@ -2513,3 +2513,50 @@ E041's +0.114 was a real comparison and this one cannot be.
   reseed. Same cost, and it dominates: the folds join the ensemble either way,
   a different pooling is more diversity than a different initialisation, and
   the run answers a question while it does it.
+
+
+### E053 — CORRECTION to E052: the teacher was never the variable, the instrument was
+- **date**: 2026-08-31. CPU only, ~18 min.
+- **why**: `HANDOFF.md` §6 already carried E030's per-finding pooling number —
+  **+0.039 [−0.009, +0.090]** against the *old* labels. E052 reported +0.0338
+  against the *public* labels and attributed the change to the teacher. Those
+  two point estimates are the same number. If the teacher were the variable,
+  they should not be.
+- **so the A/B was re-run against the old labels with the same four restarts**,
+  changing nothing else:
+
+| labels | per-finding − baseline | 95% CI | verdict |
+|---|---:|---|---|
+| old (lexicon, 0.7827) | **+0.0371** | [−0.001, +0.077] | not separated |
+| public (0.8927) | **+0.0338** | [+0.009, +0.061] | separated |
+
+- **the effect is the same size against both teachers. Only the interval
+  changed** — 0.078 wide against 0.052. The public-label arms score higher
+  (0.7726 / 0.7388 against 0.6661 / 0.6290) and a bootstrap over 58 studies is
+  tighter up there, so the same effect crosses the line in one case and not the
+  other.
+- **E052's causal claim is withdrawn.** "Against a 0.78 teacher the focal
+  findings had no signal left to sharpen; against 0.89 they do" is a story that
+  fits one of the two numbers and is contradicted by the other. It was written
+  before this check and should not have been.
+- **the conclusion about the lever gets stronger, not weaker.** Per-finding
+  pooling has now measured +0.039, +0.0371 and +0.0338 in three runs across two
+  independent teachers. Three agreeing magnitudes is better evidence than one
+  interval clearing 95%, and it means E030 did not measure "no effect" — it
+  measured this effect with an instrument that could not resolve it, and the
+  log recorded the failure to resolve as an absence.
+- **so `v1pubpool` is still the right call**, for a better reason than the one
+  it was queued with: not "the teacher unlocked it" but "it was always ~+0.035
+  and this project called it dead three times".
+- **what actually changed the instrument was `--seeds`.** One restart per arm
+  put the *baseline*'s spread at 0.036 across seeds while the treated arm moved
+  0.007 (E052). Averaging restarts before scoring is what made a ~0.035 effect
+  visible at all. Every single-seed A/B in this log predating today's
+  `head_lab` was measuring an initialisation as much as a hypothesis, and
+  **every negative among them is suspect for the same reason** — focal top-k
+  (E029), 288px (E015), and DINOv2's head comparisons included.
+- **this is the seventh overturned claim** and the second of the recurring
+  shape: a number measured as an absence and recorded as one, when it was a
+  measurement too noisy to say. The standing rule in `HANDOFF.md` §7 gains a
+  clause — *a negative needs its interval width quoted beside it, or it is not
+  a negative.*

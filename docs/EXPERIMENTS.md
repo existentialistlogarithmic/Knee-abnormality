@@ -2191,3 +2191,54 @@ and Synovitis (0.779 vs 0.766, effectively tied).
   `dinov2fused` lineage. If its gold lands near the resnet34's **0.8477** on
   fold 0, a second family is competitive against a good teacher and worth four
   more folds; if it is 0.07 behind as in E036, the probe saved ~20 GPU-h.
+
+
+### E047 — two new public label sets are unevaluable: they contain the answer key
+- **date**: 2026-08-31. CPU only, no quota.
+- **why**: labels are the dominant lever (+0.166 of the +0.198 board gain), and
+  the last survey was 2026-08-24. Five days is a long time in an active
+  competition, so it was repeated.
+
+**Four new label sets have appeared.** Two carry all twelve findings in a usable
+schema, and both score **macro 1.0000** on the 58 gold studies.
+
+**A perfect score is a leak signal, not a result.** Checked directly:
+
+| dataset | slots on the 58 equal to the expert label | binary on gold | binary on 2,000 non-gold |
+|---|---:|---:|---:|
+| `tasmeemreza/rsna-knee-refined-llm-labels` | **100.0%** | 100% | 76.5% |
+| `shingo257/rsna-knee-calibrated-labels-v1` | **100.0%** | 100% | 0.0% |
+
+Both **copy the expert labels verbatim** for the 58 gold studies — which is
+public information, sitting in `train.csv`, and entirely legitimate for their
+authors to use. It is not cheating and it is not necessarily bad labelling. Away
+from the gold set they behave quite differently: one is 76.5% hard 0/1, the
+other fully continuous.
+
+**The consequence is that this project's only offline instrument is blind to
+them.** Gold-58 measures a label set by asking how well it agrees with the 58
+expert answers; a file that contains those answers scores 1.0000 regardless of
+its quality on the other 4,349 studies — which is the part that actually trains
+the model.
+
+**The incumbent is clean.** `stevenleehans/llm_labels_v4_blend`, the label set
+behind the 0.923 board result, scores **0.8927** — not 1.0 — so it does not carry
+the gold labels and its measurement means what it appears to mean. That is why
+E041's +0.114 was a real comparison and this one cannot be.
+
+- **what this rules out**: swapping in either new set on the strength of
+  "1.0000 > 0.8927". That number compares one file's copy of an answer key
+  against another file's honest attempt, and acting on it would have been the
+  most expensive kind of mistake this log records — a weakly-known number read
+  as a well-known one, for the eighth time.
+- **what it does not rule out**: that they are better. They may well be. The
+  only instrument that can tell is **the board**, at ~7 GPU-h to train plus one
+  of five daily submissions, per label set, blind.
+- **note on training**: this project already assigns expert labels to gold
+  studies at `GOLD_WEIGHT=8.0`, so a label file that also contains them
+  introduces no leakage into training that is not already there. The problem is
+  purely one of *evaluation*.
+- **next**: with ~7 GPU-h left this week and two DINOv2 folds running, the
+  honest options are (a) spend a blind 7 GPU-h on one new label set and let the
+  board judge, or (b) wait for next week's quota. Neither is a measurement this
+  project can make offline.

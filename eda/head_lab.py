@@ -215,7 +215,8 @@ def main(argv=None) -> int:
     parser.add_argument("--headers", default="artifacts/kaggle_dataset/series_headers.parquet")
     parser.add_argument("--train", default="data/train.csv")
     parser.add_argument("--compare",
-                        choices=["focal", "pool", "labels", "position", "all"],
+                        choices=["focal", "pool", "labels", "position", "stack",
+                                 "all"],
                         default="all")
     parser.add_argument("--epochs", type=int, default=24)
     parser.add_argument("--batch", type=int, default=64)
@@ -299,6 +300,22 @@ def main(argv=None) -> int:
         b, _ = run_config(embeddings, base_t, base_m, expert, is_gold, splits,
                           focal_k=0, per_finding=False, label="baseline", **common)
         paired("positional", a, "baseline  ", b, expert, gold)
+
+    if args.compare in ("stack", "all"):
+        # Both levers move positive on their own, and both were built to fix the
+        # SAME thing: one attention map over twelve findings compromises about
+        # which slices matter, and the focal findings pay for it. So this asks
+        # whether they compose or merely substitute. The baseline is per-finding
+        # pooling ALONE, not the plain head, which is what makes focal the one
+        # variable.
+        print("\n=== focal top-k ON TOP OF per-finding pooling, one variable ===")
+        a, gold = run_config(embeddings, base_t, base_m, expert, is_gold, splits,
+                             focal_k=3, per_finding=True,
+                             label="pooling + focal", **common)
+        b, _ = run_config(embeddings, base_t, base_m, expert, is_gold, splits,
+                          focal_k=0, per_finding=True,
+                          label="pooling alone", **common)
+        paired("pooling+focal", a, "pooling      ", b, expert, gold)
 
     if args.compare in ("labels", "all") and Path(args.fused).exists():
         print("\n=== fused labels versus lexicon labels, one variable ===")

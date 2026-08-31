@@ -130,7 +130,7 @@ Answers as of E053, all paired one-variable A/Bs scored out-of-fold on the 58:
 |---|---|
 | do the fused labels help | **yes**, +0.0508 [+0.001, +0.102], replicated |
 | do per-finding attention maps help | **yes, ~+0.035** — +0.039, +0.0371, +0.0338 across three runs and two teachers; the last separated at [+0.009, +0.061] |
-| does focal top-k pooling help | **probably, smaller**: +0.0163 [−0.001, +0.035], all 4 seeds positive |
+| does focal top-k pooling help | **subsumed** — +0.0163 [−0.001, +0.035] alone, but −0.0075 [−0.026, +0.011] *on top of* per-finding pooling (E056). Same fix, worse route. |
 | does slice position help | **no**, +0.0035 [−0.017, +0.025] — and the model is *exactly* permutation-invariant over slices (E050) |
 
 Absolute numbers from the rig do not predict the board — a frozen backbone is

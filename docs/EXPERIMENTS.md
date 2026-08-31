@@ -2636,3 +2636,32 @@ E041's +0.114 was a real comparison and this one cannot be.
   the pooled n=58 out-of-fold AUC is 0.8980. They measure different things —
   averaging five AUCs is not the AUC of the pooled predictions — and only the
   second is comparable to anything else in this log.
+
+
+### E056 — focal top-k and per-finding pooling are substitutes, not complements
+- **date**: 2026-08-31. **CPU only — zero GPU hours**, ~9 min.
+- **why**: both levers move positive on their own (E052: +0.0338 and +0.0163),
+  and both were built to fix the *same* defect — one attention map over twelve
+  findings forces a single compromise about which slices matter, and the focal
+  findings pay it. So "take both" is only right if they compose. The baseline
+  here is per-finding pooling **alone**, which is what makes focal the one
+  variable.
+
+| arm | gold macro, n=58 |
+|---|---:|
+| pooling alone | **0.7726** |
+| pooling + focal top-k | 0.7651 |
+
+- **focal on top of pooling = −0.0075, 95% CI [−0.026, +0.011]. Not separated,
+  and the point estimate is negative.** Adding it to pooling buys nothing.
+- **they are the same fix by two routes, and pooling is the better one.** Focal
+  top-k's standalone +0.0163 was a partial repair of exactly the defect
+  per-finding pooling repairs directly: give each finding its own attention map
+  and it no longer needs a separate top-k path to escape the shared one. That
+  the two do not add is evidence *for* the mechanism, not against either lever.
+- **so `v1pubpool` takes pooling only, and that was the right call for a
+  better reason than "one variable at a time".** Stacking them would have cost
+  the same 7 GPU-h and, on this measurement, returned slightly less.
+- **focal top-k is closed** — not as "no effect" (E029 said that on one seed and
+  E053 showed why that reading was unsafe), but as *subsumed*. It is a smaller
+  version of a lever already being taken.

@@ -2560,3 +2560,43 @@ E041's +0.114 was a real comparison and this one cannot be.
   measurement too noisy to say. The standing rule in `HANDOFF.md` §7 gains a
   clause — *a negative needs its interval width quoted beside it, or it is not
   a negative.*
+
+
+### E054 — the 10-model cross-lineage ensemble is worse than the 5 it starts from
+- **date**: 2026-08-31. **CPU only — zero GPU hours.** Both lineages had already
+  dumped out-of-fold predictions on the 58 expert studies, so this cost nothing
+  but the arithmetic.
+- **why**: inference measures an extra ensemble member at **0.037 h** on the
+  full test set (E050), so the submission side can afford ten members as easily
+  as five. The five `v1fused` folds already exist and are already paid for. The
+  question is only whether they help.
+- **rank-mean, exactly as `11_infer_folds` combines members** — equal weights,
+  ranks not probabilities:
+
+| members | gold macro, n=58 |
+|---|---:|
+| `v1public` ×5 | **0.8980** |
+| `v1fused` ×5 | 0.7913 |
+| rank-mean of all ten | 0.8684 |
+
+- **union − v1public = −0.0296, 95% CI [−0.046, −0.015]. Separated: the five
+  alone are better.** Adding five more models made the system measurably worse.
+- **this is the weak-member shape for the sixth time** — E033, E039, E042, E046,
+  E048 and now here — and the first time it has been measured on *models*
+  rather than on label sets. The rule it keeps writing is the same one: an
+  equal-weight union imports the weaker member's errors in proportion to how
+  far behind it is, and `v1fused` is 0.107 behind.
+- **no weighted variant was tried**, for E048's reason: a weight that rescued
+  this would be a free parameter fitted to 58 studies.
+
+- **so, pre-registered before the data arrives** — `v1pubpool` is training now
+  and will be decided by this rule, written down here so it cannot be chosen
+  after the fact:
+  > The new folds join the submission **iff** their pooled gold OOF is not
+  > *separated-worse* than `v1public`'s 0.8980 on the paired bootstrap. If they
+  > are separated-worse, they are dropped whatever their standalone number
+  > looks like; if they are not separated either way, the ten-member rank-mean
+  > is measured on gold and submitted only if it does not lose.
+
+  95% is this project's standing convention, not a threshold picked for this
+  question, which is what keeps the rule parameter-free.

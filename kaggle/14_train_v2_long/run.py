@@ -470,8 +470,21 @@ class StudyDataset:
             # the cache build so every volume shows the same anatomy; flipping
             # here would undo that and make medial/lateral findings ambiguous —
             # and four of the twelve targets are explicitly medial or lateral.
-            if np.random.rand() < 0.5:                      # reverse slice order
-                array = array[:, ::-1].copy()
+            # NO slice-order reversal either, and this one is not a judgement
+            # call — it is arithmetic. The model embeds each slice
+            # independently and pools with a softmax-weighted sum over the
+            # token axis, with no positional encoding anywhere, so it is
+            # EXACTLY permutation-invariant over slices: measured max
+            # |f(x) - f(reverse(x))| = 2.4e-7, and the same for a random
+            # permutation (E050). Every augmentation below is order-independent
+            # too, so reversing here produced a volume the model could not
+            # distinguish from the one it already had. It was a copy of every
+            # second training sample in exchange for nothing.
+            #
+            # `test_the_model_is_permutation_invariant_over_slices` pins the
+            # property this rests on. If that test ever fails, the architecture
+            # has gained slice-order sensitivity and this augmentation should
+            # come back with it.
             shift = np.random.randint(-SHIFT_PIXELS, SHIFT_PIXELS + 1, size=2)
             array = np.roll(array, shift, axis=(2, 3))
             array = array * np.random.uniform(0.85, 1.15) + np.random.uniform(-0.05, 0.05)

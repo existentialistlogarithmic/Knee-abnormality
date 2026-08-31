@@ -2332,3 +2332,92 @@ E041's +0.114 was a real comparison and this one cannot be.
   DINOv2 against weak labels, focal top-k, per-finding pooling, Synovitis via
   reports and via correlation. **One lever retains a measured coefficient: more
   models, +0.032 for 1→5 folds.**
+
+
+### E050 — TTA is worth nothing, and the reason is worth more than the measurement
+- **date**: 2026-08-31. **CPU only — zero GPU hours**, 16.4 min wall clock.
+- **why**: inference has never used test-time augmentation and no experiment in
+  this log had ever tested it, which made it the last untried lever that was
+  not "train more models". Unlike every other remaining lever it could be
+  measured without a GPU: `gold_eval` already scores checkpoints on CPU, and
+  58 studies through resnet34 is minutes. `knee-tta-eval` (kernel 50) mounts
+  the five `v1public` folds behind the 0.923 board result and runs each held-out
+  gold study through four views.
+- **views**: only symmetries training already teaches — `identity`, `reverse`
+  (slice order, trained at p=0.5) and a pixel roll of ±`TARGET_SIZE//16` in
+  both directions. Intensity jitter and coarse dropout were excluded on
+  purpose: they inject noise to regularise, and averaging over noise adds
+  variance without adding a view. A left-right flip was excluded for a reason
+  specific to this dataset — right knees are mirrored during the cache build so
+  every volume shows the same anatomy, and four of the twelve findings are
+  explicitly medial or lateral, so a flip would move the answer rather than ask
+  for it twice.
+
+- **the baseline reproduces the record exactly**, which is what makes the rest
+  of this readable: pooled identity over n=58 is **0.8980**, the same figure
+  E044 recorded for the public-label lineage, to four decimals. Per-fold the
+  recomputation differs from the training kernel's own gold dump by at most
+  6.5e-4 — T4 versus CPU float arithmetic, enough to swap two near-tied ranks
+  inside a 12-study fold and nothing more.
+
+| view(s) | gold macro, n=58 |
+|---|---:|
+| `identity` | **0.8980** |
+| `reverse` | **0.8980** |
+| `shift_pos` | 0.8883 |
+| `shift_neg` | 0.8962 |
+| `identity,reverse` | 0.8980 |
+| all four (unweighted) | 0.8986 |
+
+- **paired: identity − 4-view = −0.0006, 95% CI [−0.006, +0.005]. Not
+  separated.** This is the tightest interval in the whole log — 0.011 wide
+  against the usual 0.044 — because both sides are the *same model* on the
+  *same studies*, so almost all the variance the paired bootstrap normally has
+  to carry cancels. It is therefore a sharp null rather than an underpowered
+  one: TTA is not unmeasured here, it is measured at zero.
+- **no weighted variant was tried**, for the reason E048 gives. Weights over
+  four views fitted to 58 studies are four free parameters bought with 58
+  studies.
+
+- **the reason `reverse` ties identity to four decimals is that it is exactly
+  the same number.** The architecture embeds each slice independently and pools
+  with a softmax-weighted sum over the token axis — no positional encoding, no
+  operation anywhere that mixes neighbouring slices. So it is *exactly*
+  permutation-invariant over slices. Measured: max |f(x) − f(reverse(x))| =
+  **2.4e-7**, and the same for a random permutation, on both the plain and the
+  focal-top-k head.
+- **so the slice-reversal augmentation in training was dead code**, and has
+  been in every run this project has ever made. Every augmentation applied
+  after it is order-independent too (the roll, the intensity scale, the
+  dropout box and the plane drop are all identical across slices), so
+  reversing produced a volume the model could not distinguish from the one it
+  already had. It bought a full array copy on half of all training samples in
+  exchange for nothing. **Removed**, with
+  `test_the_model_is_permutation_invariant_over_slices` pinning the property it
+  rests on — if that test ever fails, the architecture has gained slice-order
+  sensitivity and the augmentation should come back with it.
+- the two shift views *do* change the output and both land at or below
+  identity. `np.roll` wraps content across the border, which is not a symmetry
+  of a knee; the model tolerates it because it was trained on it, and gains
+  nothing from being asked.
+
+- **the finding underneath is bigger than TTA and is not being chased today.**
+  The model does not see a study as a stack. It sees an unordered bag of 60
+  slices. That a meniscal tear appears on three *adjacent* sagittal slices —
+  the continuity that makes a radiologist scroll rather than shuffle — is
+  information this architecture is structurally incapable of using. That is the
+  strongest architectural lead in this log, and it is a lead precisely because
+  nothing in the 288px / DINOv2 / focal-top-k / per-finding-pooling family ever
+  addressed it; they all changed the encoder or the head while leaving the bag
+  a bag. Testing it means slice positional encoding or a small transformer over
+  the token axis, at 5-7 GPU-h a fold against ~7 h left this week. Recorded for
+  a week with quota, not started with hours.
+
+- **and inference has no budget problem at all**, measured from the last
+  submission's manifest rather than assumed: 0.98 h projected for 1,300 test
+  studies against the 9 h cap, of which the forward pass is 0.51 s/study across
+  five members. An extra ensemble member costs **0.037 h** on the full test set
+  — 2.2 minutes. Ten members with four-view TTA would come to roughly 2.3 h,
+  still a quarter of the cap. **Ensemble size is limited by training quota
+  alone**; the submission side has ~8 h of headroom and is not the constraint
+  anyone should be designing around.

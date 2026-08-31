@@ -674,3 +674,45 @@ def test_the_tta_kernel_scores_on_the_labels_its_checkpoints_trained_on():
     lineage = next(x for x in pipeline.LINEAGES if x.name == "v1public")
     assert tta.datasets == [lineage.labels], (tta.datasets, lineage.labels)
     assert {t.slug for t in lineage.trainers} <= set(tta.depends)
+
+
+# --------------------------------------------------------------------------- #
+# what the architecture can and cannot see
+# --------------------------------------------------------------------------- #
+def test_the_model_is_permutation_invariant_over_slices():
+    """Slice ORDER cannot reach the output. This is arithmetic, not a claim.
+
+    Each slice is embedded independently and the study vector is a
+    softmax-weighted sum over the token axis. There is no positional encoding
+    and no operation that mixes neighbouring slices, so any permutation of them
+    — reversal included — leaves the output identical.
+
+    Two things rest on this. Slice-reversal augmentation was removed from
+    training because it provably could not change the loss, and slice-reversal
+    TTA was measured at exactly zero because it provably could not change a
+    prediction (E050).
+
+    So if this test fails, it is not necessarily a bug: someone has given the
+    architecture a way to read slice order, and both of those should come back.
+    """
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+    import runpy
+
+    ns = runpy.run_path(str(KAGGLE / "04_train" / "run.py"), run_name="__not_main__")
+    torch.manual_seed(0)
+    volume = torch.randn(2, 3, 12, 64, 64)
+    for focal_k in (0, 3):
+        model = ns["build_model"]("resnet18", 3, 12, False, False, focal_k).eval()
+        with torch.no_grad():
+            plain = model(volume)
+            reversed_slices = model(volume.flip(2))
+            shuffled = model(volume[:, :, torch.randperm(12)])
+        assert torch.allclose(plain, reversed_slices, atol=1e-5), focal_k
+        assert torch.allclose(plain, shuffled, atol=1e-5), focal_k
+
+
+def test_training_does_not_reverse_slice_order():
+    """The augmentation that the invariance above makes free of any effect."""
+    source = (KAGGLE / "04_train" / "run.py").read_text()
+    assert "array[:, ::-1]" not in source

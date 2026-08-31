@@ -2600,3 +2600,39 @@ E041's +0.114 was a real comparison and this one cannot be.
 
   95% is this project's standing convention, not a threshold picked for this
   question, which is what keeps the rule parameter-free.
+
+
+### E055 — val-selected early stopping is fine on resnet34; E051's alarm was DINOv2-specific
+- **date**: 2026-08-31. **CPU only — zero GPU hours**, arithmetic on histories
+  the training kernels already wrote.
+- **why**: E051 found DINOv2's report-label validation AUC climbing while its
+  gold AUC fell — fold 1 ran val 0.8074 → 0.8141 over epochs 22-29 while gold
+  went 0.8121 → 0.7765 — and concluded that early stopping on val "also
+  mis-picks the epoch", adding that "every lineage in this project selects its
+  export that way". The second half of that was an extrapolation from one
+  architecture and needed checking against the one that actually scores 0.923.
+- **method**: one fold's gold subset is ~12 studies and unreadable on its own
+  (E031: ~0.19 interval). Averaging the five folds' gold AUC at each epoch
+  aggregates the whole 58 and makes the trend legible.
+
+| | epoch | mean val | mean gold |
+|---|---:|---:|---:|
+| where mean **val** peaks | 20 | 0.8463 | 0.9077 |
+| where mean **gold** peaks | 21 | 0.8458 | 0.9084 |
+
+- **one epoch apart, worth +0.0007.** The two curves track each other and
+  plateau together across epochs 18-21. There is no divergence to exploit.
+- per fold, the gap between "epoch val picked" and "epoch gold peaked" averages
+  **+0.0047**, and that is an *upper bound* rather than an estimate: it is the
+  maximum of 24 noisy 12-study measurements per fold, so most of it is
+  noise-picking. Two of the five folds have a gap of exactly zero.
+- **so E051's general claim is withdrawn and its specific one stands.** The
+  divergence is real for DINOv2's 40-epoch schedule, where the model has room
+  to overfit the report labels long after gold turns over. It is not a property
+  of report-label validation as such, and the 24-epoch resnet34 schedule stops
+  before the curves separate. Nothing to change, and **~7 GPU-h not spent** on a
+  selection-rule experiment that had no gap to close.
+- **a number not to confuse**: the mean of five fold-level gold AUCs is 0.9077;
+  the pooled n=58 out-of-fold AUC is 0.8980. They measure different things —
+  averaging five AUCs is not the AUC of the pooled predictions — and only the
+  second is comparable to anything else in this log.

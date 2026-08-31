@@ -577,3 +577,100 @@ def test_inference_and_gold_eval_read_focal_k_from_the_checkpoint():
     for directory in ("11_infer_folds", "23_gold_eval"):
         source = (KAGGLE / directory / "run.py").read_text()
         assert 'state.get("focal_k", 0)' in source, directory
+
+
+# --------------------------------------------------------------------------- #
+# seeding: a second seed has to be a mechanism, not a comment
+# --------------------------------------------------------------------------- #
+def test_the_second_seed_differs_in_exactly_one_constant():
+    """v1publicB exists only to be a different draw of v1public.
+
+    If anything else moved, its contribution to the ensemble would no longer be
+    attributable to the seed, and the +0.032-for-1-to-5-folds coefficient it is
+    banking on would not be the coefficient in play.
+    """
+    baseline = constants(KAGGLE / "37_train_v1pub_fold0" / "run.py")
+    variant = constants(KAGGLE / "45_train_v1pubB_fold0" / "run.py")
+    differing = {k for k in set(baseline) | set(variant)
+                 if baseline.get(k) != variant.get(k)}
+    assert differing == {"RUN_SEED"}, differing
+    assert baseline["RUN_SEED"] is None and variant["RUN_SEED"] == 1
+
+
+def test_a_seeded_run_seeds_every_generator_the_training_loop_draws_from():
+    """Head init, batch order and augmentation all have to descend from it.
+
+    Seeding torch alone would leave the augmentation stream free-running, and
+    the run would still not be reproducible — which is the only thing the field
+    is for.
+    """
+    source = (KAGGLE / "45_train_v1pubB_fold0" / "run.py").read_text()
+    for call in ("random.seed(RUN_SEED)", "np.random.seed(RUN_SEED)",
+                 "torch.manual_seed(RUN_SEED)", "torch.cuda.manual_seed_all(RUN_SEED)"):
+        assert call in source, call
+
+
+def test_lineages_that_already_ran_are_left_unseeded():
+    """RUN_SEED is None for them on purpose, and None is not 0.
+
+    Their checkpoints were produced by an unseeded process. Emitting a seed
+    into the source that made them would not reproduce them; it would only
+    claim to, and the claim would never fail loudly.
+    """
+    for directory in ("04_train", "21_train_v1fused", "37_train_v1pub_fold0",
+                      "43_train_dinov2pub_fold0"):
+        assert constants(KAGGLE / directory / "run.py")["RUN_SEED"] is None, directory
+
+
+# --------------------------------------------------------------------------- #
+# test-time augmentation
+# --------------------------------------------------------------------------- #
+def test_the_first_tta_view_is_the_deterministic_one():
+    """View 0 is what every gold number on record was computed from.
+
+    The kernel reports it as `predicted`, so the TTA run stays directly
+    comparable to the runs before TTA existed instead of silently redefining
+    the baseline it is being measured against.
+    """
+    for directory in ("23_gold_eval", "50_tta_eval"):
+        views = constants(KAGGLE / directory / "run.py")["TTA_VIEWS"]
+        assert views[0] == "identity", (directory, views)
+
+
+def test_tta_never_flips_left_to_right():
+    """The one TTA view that is obvious elsewhere and wrong here.
+
+    Right knees were mirrored during the cache build so every volume shows the
+    same anatomy. Four of the twelve findings are explicitly medial or lateral,
+    so a flip would not be a second look at the same question — it would move
+    the answer.
+    """
+    views = constants(KAGGLE / "50_tta_eval" / "run.py")["TTA_VIEWS"]
+    assert set(views) <= {"identity", "reverse", "shift_pos", "shift_neg"}, views
+    assert not any("flip" in v or "mirror" in v for v in views), views
+
+
+def test_every_declared_tta_view_is_implemented():
+    """An unimplemented view raises at the end of a CPU session, not the start."""
+    import runpy
+
+    ns = runpy.run_path(str(KAGGLE / "50_tta_eval" / "run.py"), run_name="__not_main__")
+    numpy = pytest.importorskip("numpy")
+    volume = numpy.zeros((3, 4, 32, 32), dtype=numpy.float32)
+    for view in ns["TTA_VIEWS"]:
+        assert ns["apply_view"](volume, view).shape == volume.shape, view
+
+
+def test_the_tta_kernel_scores_on_the_labels_its_checkpoints_trained_on():
+    """Otherwise 'out-of-fold' would be a false claim rather than a wrong one.
+
+    The cohort is the intersection of the cache with the label file's index, so
+    the label set decides the study list and therefore the GroupKFold split.
+    Mounting a different one would hand each checkpoint a validation fold it had
+    partly trained on, and every number would still look held-out.
+    """
+    kernels = {k.slug: k for k in pipeline.all_kernels()}
+    tta = kernels["knee-tta-eval"]
+    lineage = next(x for x in pipeline.LINEAGES if x.name == "v1public")
+    assert tta.datasets == [lineage.labels], (tta.datasets, lineage.labels)
+    assert {t.slug for t in lineage.trainers} <= set(tta.depends)

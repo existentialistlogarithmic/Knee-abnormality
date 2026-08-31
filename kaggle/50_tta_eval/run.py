@@ -31,20 +31,29 @@ import numpy as np
 # Edit the manifest, not this file. Everything outside this block is shared by
 # every kernel rendered from this template.
 # --------------------------------------------------------------------------- #
-# Scores already-trained checkpoints against the expert labels they
-# never saw, on CPU, because the weekly GPU allowance is spent and
-# this is twelve studies through one backbone.
+# Test-time augmentation, measured out-of-fold on the 58 expert
+# studies, for zero GPU hours.
 #
-# knee-train predates the gold dump later runs emit, which leaves a
-# hole in the middle of the only offline signal this project trusts:
-# folds 1-4 pool to n=46 and fold 0 holds the other 12. It also
-# leaves the two fold-0 experiments — per-finding pooling and
-# DINOv2 — with no like-for-like baseline to be measured against.
+# Inference has never used TTA and no experiment has ever tested
+# it, which makes it the last untried lever that is not simply
+# 'train more models'. The views are the two geometric symmetries
+# training already teaches — slice-order reversal (p=0.5) and a
+# pixel roll of up to TARGET_SIZE//16 — so a gain here is the
+# model being asked the same question four ways, not four
+# different questions.
+#
+# It mounts the five v1public folds, the 0.923 board ensemble, and
+# writes every view's predictions separately. Which subset to
+# average is then decided offline on the pooled n=58 rather than
+# costing another session to revisit. An unweighted mean of all
+# four views is the default answer, because it fits nothing: the
+# project has twice declined a gain that required a free parameter
+# tuned on 58 studies (E048).
 #
 TARGET_MM_PER_PIXEL = 0.6
 TARGET_SIZE         = 192
 SLICES_PER_PLANE    = 20
-TTA_VIEWS           = ('identity',)
+TTA_VIEWS           = ('identity', 'reverse', 'shift_pos', 'shift_neg')
 # --------------------------------------------------------------------------- #
 
 FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",

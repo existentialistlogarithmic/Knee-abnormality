@@ -128,6 +128,17 @@ class TrainConfig:
     input_norm: bool = False
     per_finding_pool: bool = False
     focal_k: int = 0
+    seed: int | None = None
+    """Explicit RNG seed, or None to leave the process unseeded.
+
+    None is not an oversight and not a synonym for 0: it reproduces exactly
+    what every run before this field existed did, which is what keeps those
+    checkpoints comparable to the source that made them. A lineage that sets
+    an integer here is one whose weights are reproducible, and — the reason
+    the field exists — one that is *provably* a different draw from another
+    lineage with a different integer, rather than different by the accident
+    of two processes seeding themselves from OS entropy.
+    """
     note: str = ""
 
     def constants(self) -> dict[str, object]:
@@ -138,6 +149,7 @@ class TrainConfig:
                 "INPUT_NORM": self.input_norm,
                 "PER_FINDING_POOL": self.per_finding_pool,
                 "FOCAL_K": self.focal_k,
+                "RUN_SEED": self.seed,
                 "RUN_TIME_BUDGET": Raw("7.5 * 3600"),
                 "GOLD_WEIGHT": 8.0, "ABSTAIN_MASKS_LOSS": True,
                 "WARMUP_EPOCHS": 2, "EMA_DECAY": 0.999, "LABEL_SMOOTH": 0.02}
@@ -420,6 +432,38 @@ LINEAGES = [
         ),
     ),
     Lineage(
+        # The only lever with a measured coefficient. E036 measured ensembling
+        # at +0.032 on the board for 1 fold -> 5; log-scaling puts 5 -> 10 at
+        # roughly +0.010. Same config, same labels, different seeds — nothing
+        # here is a new hypothesis, which is the point: every hypothesis this
+        # project still had has been measured and is dead (E046-E049).
+        #
+        # Folds re-run with a different seed give genuinely different models
+        # because init, augmentation order and batch composition all change,
+        # while the fold split stays fixed so gold OOF remains valid.
+        name="v1publicB",
+        cache=CACHE_V1,
+        labels=PUBLIC_DATASET,
+        train=TrainConfig(
+            backbone="resnet34", epochs=24, batch=16, lr=6e-4, seed=1,
+            note="Second seed of the 0.923 configuration. Nothing changes but\n"
+                 "the random seed; this buys ensemble diversity, not a new idea.\n"
+                 "\n"
+                 "seed=1 is an explicit mechanism, not a label. Before the seed\n"
+                 "field existed this lineage would have differed from v1public\n"
+                 "only because two unseeded processes draw different entropy —\n"
+                 "true in practice, but nothing in the source said so and\n"
+                 "nothing would have caught it if it stopped being true.",
+        ),
+        trainers=(
+            Trainer(0, "knee-train-v1pubB", "45_train_v1pubB_fold0"),
+            Trainer(1, "knee-train-v1pubB-fold1", "46_train_v1pubB_fold1"),
+            Trainer(2, "knee-train-v1pubB-fold2", "47_train_v1pubB_fold2"),
+            Trainer(3, "knee-train-v1pubB-fold3", "48_train_v1pubB_fold3"),
+            Trainer(4, "knee-train-v1pubB-fold4", "49_train_v1pubB_fold4"),
+        ),
+    ),
+    Lineage(
         # DINOv2 reached 0.6878 in 16 epochs and NEVER FLATTENED — it climbed
         # 0.588 to 0.688 with the last three epochs still adding 0.002 each,
         # where the resnet34 run plateaued by epoch 18 of 24. So 0.6878 is not a
@@ -617,7 +661,7 @@ EXTRAS = [
         depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
                  "knee-cache-build-3", "knee-train"],
         datasets=[ARTIFACTS_DATASET],
-        constants={**V1.constants()},
+        constants={**V1.constants(), "TTA_VIEWS": ("identity",)},
         note="Scores already-trained checkpoints against the expert labels they\n"
              "never saw, on CPU, because the weekly GPU allowance is spent and\n"
              "this is twelve studies through one backbone.\n"
@@ -627,6 +671,50 @@ EXTRAS = [
              "folds 1-4 pool to n=46 and fold 0 holds the other 12. It also\n"
              "leaves the two fold-0 experiments — per-finding pooling and\n"
              "DINOv2 — with no like-for-like baseline to be measured against.",
+    ),
+    Kernel(
+        slug="knee-tta-eval",
+        directory="50_tta_eval",
+        template="gold_eval",
+        # CPU. This is the whole point: the weekly GPU allowance is 30 hours
+        # and every other lever left costs 5-7 of them per measurement, while
+        # CPU sessions draw on a separate allowance. 58 studies x 4 views
+        # through resnet34 is well inside a CPU session, so this measures a
+        # real lever for a GPU cost of zero.
+        gpu=False,
+        internet=False,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3",
+                 "knee-train-v1pub", "knee-train-v1pub-fold1",
+                 "knee-train-v1pub-fold2", "knee-train-v1pub-fold3",
+                 "knee-train-v1pub-fold4"],
+        # PUBLIC_DATASET, not ARTIFACTS_DATASET, and this is load-bearing
+        # rather than incidental. The cohort is the intersection of the cache
+        # with the label file's index, so a different label set is a different
+        # study list and therefore a different GroupKFold split. Mounting the
+        # artifacts labels here would score each v1public checkpoint on studies
+        # it had trained on, and the number would look held-out and not be.
+        datasets=[PUBLIC_DATASET],
+        constants={**V1.constants(),
+                   "TTA_VIEWS": ("identity", "reverse", "shift_pos", "shift_neg")},
+        note="Test-time augmentation, measured out-of-fold on the 58 expert\n"
+             "studies, for zero GPU hours.\n"
+             "\n"
+             "Inference has never used TTA and no experiment has ever tested\n"
+             "it, which makes it the last untried lever that is not simply\n"
+             "'train more models'. The views are the two geometric symmetries\n"
+             "training already teaches — slice-order reversal (p=0.5) and a\n"
+             "pixel roll of up to TARGET_SIZE//16 — so a gain here is the\n"
+             "model being asked the same question four ways, not four\n"
+             "different questions.\n"
+             "\n"
+             "It mounts the five v1public folds, the 0.923 board ensemble, and\n"
+             "writes every view's predictions separately. Which subset to\n"
+             "average is then decided offline on the pooled n=58 rather than\n"
+             "costing another session to revisit. An unweighted mean of all\n"
+             "four views is the default answer, because it fits nothing: the\n"
+             "project has twice declined a gain that required a free parameter\n"
+             "tuned on 58 studies (E048).",
     ),
     Kernel(
         slug="knee-llm-labeler",

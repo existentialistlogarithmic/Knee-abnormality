@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import time
 from pathlib import Path
 
@@ -60,6 +61,7 @@ SLICE_SUBSAMPLE     = None
 INPUT_NORM          = False
 PER_FINDING_POOL    = False
 FOCAL_K             = 0
+RUN_SEED            = None
 RUN_TIME_BUDGET     = 7.5 * 3600
 GOLD_WEIGHT         = 8.0
 ABSTAIN_MASKS_LOSS  = True
@@ -522,6 +524,29 @@ def main() -> int:
     from torch.utils.data import DataLoader
 
     started = time.time()
+
+    # RUN_SEED is None for every lineage that ran before this existed, and that
+    # is deliberate: seeding them now would not reproduce their checkpoints, it
+    # would only claim to. Where it is set, it makes two things true that were
+    # previously only assumed — the run is reproducible, and a sibling lineage
+    # with a different seed is a *provably* different draw rather than one that
+    # happens to differ because two processes each seeded from OS entropy.
+    #
+    # Seeding torch's global generator is what reaches the augmentation as well
+    # as the head init: DataLoader draws a fresh base_seed from that generator
+    # for every epoch's worker pool, and each worker reseeds numpy from it. So
+    # augmentation stays fresh epoch to epoch (verified — the known
+    # numpy-inherited-across-fork bug does not apply on torch >= 1.9) while the
+    # whole sequence still descends from this one number.
+    if RUN_SEED is not None:
+        random.seed(RUN_SEED)
+        np.random.seed(RUN_SEED)
+        torch.manual_seed(RUN_SEED)
+        torch.cuda.manual_seed_all(RUN_SEED)
+        print(f"seeded: {RUN_SEED}")
+    else:
+        print("unseeded (RUN_SEED is None)")
+
     if not report_environment():
         # Exit immediately rather than burning a session that cannot possibly
         # run. This makes probing accelerator strings cost seconds, not hours.

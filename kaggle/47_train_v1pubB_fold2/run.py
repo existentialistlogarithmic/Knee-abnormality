@@ -45,8 +45,14 @@ import pandas as pd
 # Edit the manifest, not this file. Everything outside this block is shared by
 # every kernel rendered from this template.
 # --------------------------------------------------------------------------- #
-# Identical to the 0.846 configuration. The labels are the
-# single variable, and they are not this project's own.
+# Second seed of the 0.923 configuration. Nothing changes but
+# the random seed; this buys ensemble diversity, not a new idea.
+#
+# seed=1 is an explicit mechanism, not a label. Before the seed
+# field existed this lineage would have differed from v1public
+# only because two unseeded processes draw different entropy —
+# true in practice, but nothing in the source said so and
+# nothing would have caught it if it stopped being true.
 #
 RUN_FOLD            = 2
 TARGET_MM_PER_PIXEL = 0.6
@@ -61,7 +67,7 @@ SLICE_SUBSAMPLE     = None
 INPUT_NORM          = False
 PER_FINDING_POOL    = False
 FOCAL_K             = 0
-RUN_SEED            = None
+RUN_SEED            = 1
 RUN_TIME_BUDGET     = 7.5 * 3600
 GOLD_WEIGHT         = 8.0
 ABSTAIN_MASKS_LOSS  = True

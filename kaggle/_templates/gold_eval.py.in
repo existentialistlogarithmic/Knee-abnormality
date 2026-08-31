@@ -46,6 +46,34 @@ OUT = Path("/kaggle/working")
 @@INCLUDE model@@
 
 
+def apply_view(volume, view):
+    """One test-time view of a cached volume, as a fresh array.
+
+    Only symmetries the model was *trained* to be invariant to belong here.
+    Training reverses slice order with p=0.5 and rolls the image by up to
+    SHIFT_PIXELS, so averaging over those views asks the model the same
+    question from an angle it has already been taught not to care about.
+
+    Two augmentations are deliberately excluded. Intensity jitter and coarse
+    dropout are noise injected to regularise; averaging over noise adds
+    variance without adding a view. And a left-right flip — the obvious TTA on
+    any other dataset — is wrong here specifically: right knees were mirrored
+    during the cache build so that every volume shows the same anatomy, and
+    four of the twelve findings are explicitly medial or lateral. Flipping
+    would undo that and make those four ambiguous.
+    """
+    shift = max(1, volume.shape[-1] // 16)      # SHIFT_PIXELS, as in training
+    if view == "identity":
+        return volume
+    if view == "reverse":
+        return volume[:, ::-1].copy()
+    if view == "shift_pos":
+        return np.roll(volume, (shift, shift), axis=(2, 3))
+    if view == "shift_neg":
+        return np.roll(volume, (-shift, -shift), axis=(2, 3))
+    raise SystemExit(f"unknown TTA view {view!r}")
+
+
 def main() -> int:
     import torch
 
@@ -113,17 +141,22 @@ def main() -> int:
         if not positions:
             continue
 
-        predicted = []
+        # One row per study per view. TTA_VIEWS = ("identity",) reproduces the
+        # single deterministic pass this kernel has always made, so the first
+        # view is always directly comparable to every gold number on record.
+        by_view = {view: [] for view in TTA_VIEWS}
         for position in positions:
             volume = np.load(cache_paths[studies[position]]).astype(np.float32) / 255.0
             if subsample and volume.shape[1] > subsample:
                 # Evenly spaced, exactly as validation did during training.
                 idx = np.linspace(0, volume.shape[1] - 1, subsample).round().astype(int)
                 volume = volume[:, idx]
-            with torch.no_grad():
-                logits = model(torch.from_numpy(volume)[None])
-            predicted.append(torch.sigmoid(logits.float())[0].numpy())
-        predicted = np.stack(predicted)
+            for view in TTA_VIEWS:
+                with torch.no_grad():
+                    logits = model(torch.from_numpy(apply_view(volume, view))[None])
+                by_view[view].append(torch.sigmoid(logits.float())[0].numpy())
+        by_view = {view: np.stack(rows) for view, rows in by_view.items()}
+        predicted = by_view[TTA_VIEWS[0]]
         expert = targets[positions]
 
         from sklearn.metrics import roc_auc_score
@@ -136,6 +169,18 @@ def main() -> int:
         macro = float(np.mean(list(aucs.values()))) if aucs else float("nan")
         print(f"  gold macro AUC {macro:.4f} over {len(aucs)} scorable findings")
 
+        if len(TTA_VIEWS) > 1:
+            # A per-fold read only; the fold subsets are far too small to
+            # decide anything (E031 put a single fold's interval at ~0.19).
+            # The decision is made on the pooled n=58, offline.
+            mean_of_views = np.mean(list(by_view.values()), axis=0)
+            tta_aucs = [roc_auc_score((expert[:, i] > 0.5).astype(int),
+                                      mean_of_views[:, i])
+                        for i, finding in enumerate(FINDINGS)
+                        if finding in aucs]
+            print(f"  {len(TTA_VIEWS)}-view mean {float(np.mean(tta_aucs)):.4f} "
+                  f"(indicative only at n={len(positions)})")
+
         tag = path.parent.parent.name.replace("/", "_")
         (OUT / f"gold_oof_fold{fold}_{tag}.json").write_text(json.dumps({
             "fold": fold, "epoch": state.get("epoch"), "backbone": backbone,
@@ -146,6 +191,13 @@ def main() -> int:
             "studies": [studies[p] for p in positions],
             "predicted": predicted.round(5).tolist(),
             "expert": expert.round(5).tolist(),
+            # Every view is written out rather than only their mean, because
+            # which subset of views to average is a question to settle offline
+            # on the pooled n=58, not one to bake in here and re-run a session
+            # to revisit.
+            "views": list(TTA_VIEWS),
+            "predicted_by_view": {view: rows.round(5).tolist()
+                                  for view, rows in by_view.items()},
         }, indent=2))
 
     print(f"\nwall clock {(time.time() - started) / 60:.1f} min on CPU")

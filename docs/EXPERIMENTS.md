@@ -2297,3 +2297,38 @@ E041's +0.114 was a real comparison and this one cannot be.
   3. **a Synovitis reader better than 0.790**, which nobody in this competition
      appears to have published, and which would have to be built rather than
      borrowed.
+
+
+### E049 — Synovitis is not recoverable from Effusion either
+- **date**: 2026-08-31. CPU only, no quota.
+- **hypothesis, declared before measuring**: "effusion-synovitis" is a single
+  named construct in the MOAKS scoring system, so the model's **strong Effusion
+  channel (0.929)** might carry Synovitis signal that its **weak Synovitis
+  channel (0.779)** misses. Synovitis is worth **+0.010 board** alone (E046
+  arithmetic), the largest single prize left.
+- **the clinical coupling is real**: on the 58 expert studies, Synovitis is
+  positive in **62.9%** of Effusion-positive knees against **21.7%** of
+  Effusion-negative ones, φ = **+0.403**.
+- **and the model has already extracted it**:
+
+  | predicting Synovitis with | AUC |
+  |---|---:|
+  | **its own Synovitis channel** | **0.779** |
+  | the Effusion channel | 0.705 |
+  | blend, w_synovitis = 0.9 | 0.778 |
+  | blend, w_synovitis = 0.8 | 0.774 |
+  | blend, w_synovitis = 0.5 | 0.743 |
+
+  **Monotonic to w = 1.0.** Best is the Synovitis channel alone, delta +0.000.
+  The correlation exists in the labels but contributes nothing the model has not
+  already used.
+- **what this closes**: the cheap route to Synovitis. Three attempts now — a
+  better report reader (E037), a better *public* report reader (E048, none above
+  0.790), and a correlated-finding prior (here). Synovitis at 0.779 is where it
+  stays without a genuinely new source of supervision.
+- **the standing tally of what is measured dead**: this project's own labels
+  (superseded), blending in four forms (E033, E039, E042, E046, E048), borrowed
+  weights (E046 — we overtook them), more epochs (E046 — converged), 288px,
+  DINOv2 against weak labels, focal top-k, per-finding pooling, Synovitis via
+  reports and via correlation. **One lever retains a measured coefficient: more
+  models, +0.032 for 1→5 folds.**

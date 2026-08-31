@@ -387,6 +387,31 @@ LINEAGES = [
         infer_directory="42_infer_v1pub",
     ),
     Lineage(
+        # A ONE-FOLD PROBE, not a campaign. Every architecture lever this
+        # project tested — 288px, DINOv2, focal top-k, per-finding pooling —
+        # was measured against a 0.78 teacher and came back zero or negative
+        # (E029, E030, E036, E039). None has been retested against the 0.89
+        # teacher that produced the 0.923 board result, and that is the one
+        # large untested region left.
+        #
+        # Fold 0 only, ~5 GPU-h. If its gold lands near the resnet34's 0.8477
+        # on the same fold, a second family is competitive and worth four more
+        # folds. If it is 0.07 behind as in E036, it is dead again and the
+        # probe saved ~20 GPU-h. Constants are otherwise identical to the
+        # dinov2fused lineage so the comparison stays one-variable.
+        name="dinov2public",
+        cache=CACHE_V1,
+        labels=PUBLIC_DATASET,
+        train=TrainConfig(
+            backbone="vit_small_patch14_dinov2.lvd142m",
+            epochs=40, batch=6, lr=1e-4, accum=3, input_norm=True,
+            note="Identical to dinov2fused except the labels. A one-fold probe\n"
+                 "of whether a second architecture is competitive once the\n"
+                 "teacher is good.",
+        ),
+        trainers=(Trainer(0, "knee-train-dinov2pub", "43_train_dinov2pub_fold0"),),
+    ),
+    Lineage(
         # DINOv2 reached 0.6878 in 16 epochs and NEVER FLATTENED — it climbed
         # 0.588 to 0.688 with the last three epochs still adding 0.002 each,
         # where the resnet34 run plateaued by epoch 18 of 24. So 0.6878 is not a

@@ -2114,3 +2114,80 @@ models; it does not forecast a score.** It ranked all three correctly.
   now clears 0.80 and eight clear 0.870. Two routes remain, both untried: the
   CC0 public *weights* (E042/E043, ~0.9 GPU-h, measured 0.8576 gold as a
   standalone system) and blending them with this one.
+
+
+### E046 — the borrowing route is exhausted: we now beat what we were borrowing
+- **date**: 2026-08-29. CPU only, no quota, no submission.
+- **the question**: E042 measured the public 0.917 system at **0.8576** gold
+  against the *0.846* system's 0.7913 and found a blend worth +0.0046, not
+  separated. The 0.923 system is 0.107 stronger, so the blend was worth
+  re-measuring before spending ~0.9 GPU-h building a CC0-weights inference
+  kernel.
+
+| | gold macro, n=58 |
+|---|---:|
+| **ours (board 0.923)** | **0.8980** |
+| public 0.917 system | 0.8576 |
+
+**The relationship has inverted.** When E042 ran, the public system was **+0.066
+ahead** of this project's. It is now **0.040 behind**. The system this project
+was preparing to borrow from is weaker than the one it has.
+
+**Blend, parameter-free rank union:**
+
+| w_ours | gold macro |
+|---:|---:|
+| 0.5 | 0.8971 |
+| 0.65 | 0.9015 |
+| **0.70** | **0.9016** |
+| 0.8 | 0.9013 |
+| 1.0 (ours alone) | 0.8980 |
+
+**+0.0036 at the optimum, 95% CI [−0.0078, +0.0160] — not separated.**
+
+There is a **broad** interior optimum from 0.65 to 0.8, all within 0.0003 — so
+the decorrelation is real and stable, not the noise E039 found. But the margin
+is a third of the instrument's resolution. Three blend attempts now
+(E033 labels, E039 architectures, E042 and this) have produced +0.0046, +0.0022
+and +0.0036, none separated. **Blending is not a lever in this competition at
+this sample size.**
+
+Per finding, ours wins on 10 of 12 — the exceptions are PF OA (0.858 vs 0.874)
+and Synovitis (0.779 vs 0.766, effectively tied).
+
+- **decision: do not build the CC0-weights inference kernel.** It would cost
+  ~0.9 GPU-h and a submission for +0.0036 that cannot be distinguished from
+  zero, on top of a system that already beats it. E042's "cheapest route to
+  ~0.90" was correct when written and is now obsolete — the route arrived first
+  by another road.
+- **what this closes**: every borrowing lever identified in `PATH.md` §3 has now
+  been tried. The **labels** were worth +0.077 on the board (E045). The
+  **weights** are worth nothing, because this project's own model overtook them
+  in the same week.
+- **what remains for 0.94** (+0.017 on the board): **Synovitis at 0.779** is the
+  only finding below 0.80 and the only one clearly short of the ~0.870 floor
+  `PATH.md` §4 requires. Every architecture lever in this project was tested
+  against the *old* weak labels — 288px, DINOv2, focal top-k, per-finding
+  pooling all measured zero or negative when the teacher was 0.78. **None has
+  been retested against a 0.89 teacher**, and that is the one large untested
+  region left.
+
+- **and more epochs will not help.** The five `v1public` runs are converged:
+
+  | fold | peak val | at epoch | final (23) |
+  |---|---:|---:|---:|
+  | 0 | 0.8551 | 19 | 0.8515 |
+  | 1 | 0.8383 | **23** | 0.8383 |
+  | 2 | 0.8725 | 19 | 0.8701 |
+  | 3 | 0.8233 | 18 | 0.8200 |
+  | 4 | 0.8448 | 19 | 0.8419 |
+
+  Four of five peak at epoch 18–19 and decay after; only fold 1 is still
+  rising at 23. This is the same shape E036 found for DINOv2 and read
+  correctly — a curve that has turned over, not one still climbing. **Saves
+  ~7 GPU-h** that a "train it longer" instinct would have spent.
+- **so a one-fold probe is queued instead**: `43_train_dinov2pub_fold0`,
+  DINOv2 on the public labels, ~5 GPU-h, constants otherwise identical to the
+  `dinov2fused` lineage. If its gold lands near the resnet34's **0.8477** on
+  fold 0, a second family is competitive against a good teacher and worth four
+  more folds; if it is 0.07 behind as in E036, the probe saved ~20 GPU-h.

@@ -141,6 +141,15 @@ because those are the part being trained.
 the reason E053 gives: the rig could not resolve a ~0.035 effect at one seed,
 and recorded the failure to resolve as an absence. Re-run before trusting one.
 
+**Two embedding banks now exist and they are not interchangeable.** Every rig
+number above was measured on frozen **DINOv2 ViT-S/14** features
+(`artifacts/embed_dinov2/`), while the lineage they are being used to justify
+is fine-tuned **resnet34**. That transfer is an assumption, not a measurement —
+`knee-embed`'s manifest declares `RUN_BACKBONE = "resnet34"` and its stored
+output was stale DINOv2 from an earlier version, so it was re-run on CPU to
+produce the matching bank. `head_lab` prints `index['backbone']` on every run;
+read it before comparing two numbers.
+
 ## 7. The standing rule
 
 This project has overturned **six** of its own confident claims, and every one

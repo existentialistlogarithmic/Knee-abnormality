@@ -409,7 +409,15 @@ LINEAGES = [
                  "of whether a second architecture is competitive once the\n"
                  "teacher is good.",
         ),
-        trainers=(Trainer(0, "knee-train-dinov2pub", "43_train_dinov2pub_fold0"),),
+        trainers=(
+            Trainer(0, "knee-train-dinov2pub", "43_train_dinov2pub_fold0"),
+            # Fold 1 fills the second GPU slot, which is idle while fold 0
+            # runs (concurrency is 2). Two folds is a materially better read
+            # than one — E031 showed a single fold's gold subset carries a
+            # ~0.19 interval — and it costs no wall clock. Folds 2-4 stay
+            # undeclared until the probe reports.
+            Trainer(1, "knee-train-dinov2pub-fold1", "44_train_dinov2pub_fold1"),
+        ),
     ),
     Lineage(
         # DINOv2 reached 0.6878 in 16 epochs and NEVER FLATTENED — it climbed

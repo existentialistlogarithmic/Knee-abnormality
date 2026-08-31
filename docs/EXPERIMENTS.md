@@ -2421,3 +2421,95 @@ E041's +0.114 was a real comparison and this one cannot be.
   still a quarter of the cap. **Ensemble size is limited by training quota
   alone**; the submission side has ~8 h of headroom and is not the constraint
   anyone should be designing around.
+
+
+### E051 — DINOv2 is dead against a good teacher too, and further behind than before
+- **date**: 2026-08-31. ~11 GPU-h, two folds, the probe E046 queued.
+- **why**: every architecture lever this project owns was measured against a
+  0.78 teacher. The probe asked whether a second family becomes competitive
+  once the teacher is 0.89.
+
+| fold | DINOv2 gold at its saved epoch | resnet34 gold, same fold | gap |
+|---|---:|---:|---:|
+| 0 | 0.8178 (best val 0.8240 @ 27) | 0.8526 | **−0.035** |
+| 1 | 0.7765 (best val 0.8141 @ 29) | 0.9249 | **−0.148** |
+
+- **the verdict is the same as E036 and slightly worse.** E036 put DINOv2 0.074
+  behind against the weak teacher; against the good one it is 0.035 and 0.148
+  behind on the two folds measured. A better teacher does not rescue it.
+- **folds 2-4 are not being run.** ~15 GPU-h saved, which is more than remains
+  this week. This is the second time a one-fold-first probe has paid for
+  itself, and the reason the second slot was filled with fold 1 rather than
+  left idle: one fold could not have carried this, at a ~0.19 interval.
+- **an incidental finding worth more than the verdict.** On both folds the
+  report-label validation AUC keeps *climbing* while the gold AUC *falls* —
+  fold 1 runs val 0.8074 → 0.8141 across epochs 22-29 while gold goes 0.8121 →
+  0.7765. `FINDINGS.md` §11 recorded that report-label CV mis-ranks *models*;
+  this is the same disagreement appearing *within one run's trajectory*, which
+  means it also mis-picks the epoch. Early stopping on val AUC selected weights
+  0.036 worse on expert truth than the ones eight epochs earlier. Every lineage
+  in this project selects its export that way.
+
+
+### E052 — the untested region pays: per-finding pooling separates against the 0.89 teacher
+- **date**: 2026-08-31. **CPU only — zero GPU hours**, ~4 min per arm.
+- **why**: E046 named it outright — "every architecture lever was tested
+  against the *old* weak labels; **none has been retested against a 0.89
+  teacher**, and that is the one large untested region left." `head_lab.py`
+  trains everything above a frozen backbone in minutes, so the region costs
+  coffee rather than quota. All three A/Bs re-run with `--labels
+  artifacts/phase1_public`.
+
+- **first, the instrument was wrong and had to be fixed.** Run one seed per arm,
+  focal top-k against the public labels reported +0.0256 [+0.001, +0.051],
+  "A is better". Repeating it on three more seeds gave +0.0136, +0.0443,
+  +0.0071 — the same comparison swinging by a factor of six. The reason is
+  visible in the arms rather than the deltas:
+
+  | seed | focal | baseline |
+  |---|---:|---:|
+  | 0 | 0.7361 | 0.7106 |
+  | 1 | 0.7428 | 0.7292 |
+  | 2 | 0.7433 | 0.6990 |
+  | 3 | 0.7419 | 0.7347 |
+
+  Focal spans 0.007 across restarts; **the baseline spans 0.036**. A
+  single-seed A/B on 58 gold studies was reading the initialisation draw as if
+  it were the architecture. `--seeds N` now averages out-of-fold predictions
+  over restarts before scoring, which removes it from both arms.
+
+- **the three levers, four restarts each, against the public teacher:**
+
+| lever | Δ vs baseline | 95% CI | verdict |
+|---|---:|---|---|
+| **per-finding attention maps** | **+0.0338** | **[+0.009, +0.061]** | **separated** |
+| focal top-k (k=3) | +0.0163 | [−0.001, +0.035] | not separated, all 4 seeds positive |
+| slice positional embedding | +0.0035 | [−0.017, +0.025] | not separated |
+
+- **per-finding pooling was recorded dead in E030 and is not dead.** What
+  changed is the teacher, and the mechanism for why that matters was written
+  down before the measurement, in the model's own comment: one attention map
+  over twelve findings forces a single compromise about which slices matter,
+  and the compromise is paid by the focal findings. Against a 0.78 teacher the
+  focal findings had no signal left to sharpen. Against 0.89 they do — and they
+  are still exactly where the 0.923 ensemble is weakest, at Synovitis 0.771,
+  Lateral OA 0.830 and PF OA 0.849 against Medial OA 0.980 and Baker's 0.978.
+- **focal top-k moves the same way and is not being taken**, because two levers
+  at once stops being one variable. It is the next thing to try if pooling
+  lands.
+- **slice position buys nothing**, which lowers the prior on E050's
+  architectural lead without closing it: a frozen-feature head at 0.74 may
+  simply be floor-limited. It does say that lead is not worth 7 GPU-h today.
+- **caveats, stated rather than buried.** These are frozen DINOv2 features, so
+  the absolute numbers do not predict the board; what `head_lab` claims to
+  transfer is comparisons *above the backbone*, which all three of these are.
+  Three comparisons were run, so one separating at 95% is roughly a one-in-seven
+  coincidence on its own — the reasons to believe it are the pre-registered
+  mechanism and the second lever moving the same way, not the interval alone.
+  The board is the only place this gets settled.
+
+- **so the remaining GPU goes to `v1pubpool`**, five folds of the 0.923
+  configuration with `per_finding_pool=True`, rather than to `v1publicB`'s
+  reseed. Same cost, and it dominates: the folds join the ensemble either way,
+  a different pooling is more diversity than a different initialisation, and
+  the run answers a question while it does it.

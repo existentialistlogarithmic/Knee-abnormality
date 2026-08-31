@@ -432,6 +432,49 @@ LINEAGES = [
         ),
     ),
     Lineage(
+        # E052: the one large untested region, tested. Every architecture lever
+        # this project owns was measured against a 0.78 teacher and recorded
+        # dead — 288px, DINOv2, focal top-k, per-finding pooling (E029, E030,
+        # E036, E039). None had been retested against the 0.89 public teacher
+        # that produced the 0.923 board result, and the log said so in as many
+        # words.
+        #
+        # Re-run on frozen embeddings against the public labels, averaged over
+        # four restarts so the comparison measures a head rather than an
+        # initialisation, per-finding attention pooling comes back
+        # **+0.0338, 95% CI [+0.009, +0.061] — separated**. Focal top-k moves
+        # the same way (+0.0163, [-0.001, +0.035]) and is not taken here,
+        # because two levers at once is no longer one variable.
+        #
+        # The mechanism was written down before it was measured, in the model's
+        # own comment: one attention map over twelve findings forces a single
+        # compromise about which slices matter, and the compromise is paid by
+        # the focal findings. That is still exactly where this ensemble is
+        # weakest — Synovitis 0.771, Lateral OA 0.830, PF OA 0.849 are its
+        # three worst, against Medial OA 0.980 and Baker's 0.978.
+        #
+        # It is also the better use of the last GPU hours than a reseed. It
+        # buys the same ensemble diversity a second seed would (more, in fact:
+        # a different pooling differs more than a different initialisation),
+        # and answers a question at the same time.
+        name="v1pubpool",
+        cache=CACHE_V1,
+        labels=PUBLIC_DATASET,
+        train=TrainConfig(
+            backbone="resnet34", epochs=24, batch=16, lr=6e-4,
+            per_finding_pool=True, seed=2,
+            note="v1public with per-finding attention pooling, which is the\n"
+                 "single variable against the five folds behind 0.923.",
+        ),
+        trainers=(
+            Trainer(0, "knee-train-v1pubpool", "51_train_v1pubpool_fold0"),
+            Trainer(1, "knee-train-v1pubpool-fold1", "52_train_v1pubpool_fold1"),
+            Trainer(2, "knee-train-v1pubpool-fold2", "53_train_v1pubpool_fold2"),
+            Trainer(3, "knee-train-v1pubpool-fold3", "54_train_v1pubpool_fold3"),
+            Trainer(4, "knee-train-v1pubpool-fold4", "55_train_v1pubpool_fold4"),
+        ),
+    ),
+    Lineage(
         # The only lever with a measured coefficient. E036 measured ensembling
         # at +0.032 on the board for 1 fold -> 5; log-scaling puts 5 -> 10 at
         # roughly +0.010. Same config, same labels, different seeds — nothing

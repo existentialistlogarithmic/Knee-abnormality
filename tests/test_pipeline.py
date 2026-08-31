@@ -716,3 +716,36 @@ def test_training_does_not_reverse_slice_order():
     """The augmentation that the invariance above makes free of any effect."""
     source = (KAGGLE / "04_train" / "run.py").read_text()
     assert "array[:, ::-1]" not in source
+
+
+def test_the_pooling_lineage_differs_from_its_baseline_in_pooling_and_a_seed():
+    """v1pubpool against the five folds behind the 0.923 board result.
+
+    Two constants move, not one, and the second is deliberate. v1public ran
+    unseeded, so it is one uncontrolled draw from the initialisation
+    distribution; v1pubpool records which draw it took. That distribution is
+    not narrow — measured on frozen embeddings, the same head over four
+    restarts spanned 0.699 to 0.735 — so a lineage worth 7 GPU-h is worth being
+    able to reproduce.
+    """
+    baseline = constants(KAGGLE / "37_train_v1pub_fold0" / "run.py")
+    variant = constants(KAGGLE / "51_train_v1pubpool_fold0" / "run.py")
+    differing = {k for k in set(baseline) | set(variant)
+                 if baseline.get(k) != variant.get(k)}
+    assert differing == {"PER_FINDING_POOL", "RUN_SEED"}, differing
+    assert variant["PER_FINDING_POOL"] is True
+
+
+def test_the_ensemble_may_mix_pooled_and_unpooled_members():
+    """Otherwise the new folds could not join the five they are measured against.
+
+    Two properties are invisible in the weights and fatal if members disagree —
+    slice count and input normalisation — and inference refuses to average
+    across them. Pooling is not one of those: it changes the shape of the
+    weights, so it is read from each checkpoint and the right architecture is
+    built per member.
+    """
+    source = (KAGGLE / "11_infer_folds" / "run.py").read_text()
+    assert 'state.get("per_finding_pool", False)' in source
+    expectations = constants(KAGGLE / "42_infer_v1pub" / "run.py")
+    assert "PER_FINDING_POOL_EXPECTED" not in expectations

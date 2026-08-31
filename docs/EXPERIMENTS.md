@@ -2242,3 +2242,58 @@ E041's +0.114 was a real comparison and this one cannot be.
   honest options are (a) spend a blind 7 GPU-h on one new label set and let the
   board judge, or (b) wait for next week's quota. Neither is a measurement this
   project can make offline.
+
+
+### E048 — a fourth independent reader adds nothing; the label lever is spent
+- **date**: 2026-08-31. CPU only, no quota.
+- **why**: E047 established the two newest label sets are unevaluable (they carry
+  the answer key). A third, `laymond/…qwen3-8b-weak-labels`, is a genuinely
+  independent reader — Qwen3-8B, with `__label`, `__confidence`, `__mentioned`
+  and `__negated` per finding — and is **evaluable**: it matches the expert
+  label on 83.2% of gold slots, not 100%, so it is a real attempt rather than a
+  copy.
+
+**Each reader alone, on the 58:**
+
+| reader | macro | Synovitis |
+|---|---:|---:|
+| **incumbent (`llm_labels_v4_blend`)** | **0.8927** | **0.790** |
+| pilkwang | 0.8658 | 0.687 |
+| gpt-5.6-sol | 0.8352 | 0.676 |
+| Qwen3-8B (label × confidence) | 0.8293 | 0.657 |
+
+**Parameter-free rank unions:**
+
+| combination | macro |
+|---|---:|
+| incumbent alone | 0.8927 |
+| incumbent + qwen3 | 0.8843 |
+| incumbent + pilkwang | 0.8939 |
+| incumbent + qwen3 + pilkwang | 0.8943 |
+| **all four** | **0.8954** |
+
+**+0.0027, 95% CI [−0.0086, +0.0132] — not separated.**
+
+- **the tempting number was +0.0044**, from weighting the incumbent ×2 in the
+  union. That weight is **a free parameter fitted to 58 studies**, which is the
+  exact practice `dataset-metadata.fused.json` rejects: *"a rule that picked the
+  better reader per finding would be fitting twelve choices to 58 studies and
+  would report a number that means nothing."* It is recorded and not used.
+- **why this differs from E023**, where the union of two readers beat both by
+  **+0.070**: there, the two readers were **comparable** (0.7446 and 0.7421) and
+  abstained on different findings. Here the incumbent is 0.03–0.06 ahead of
+  every other reader, so a union mostly imports their errors. This is the same
+  weak-member shape as E033, E039 and E046 — the fourth time it has appeared.
+- **the conclusion, and it is the important one**: **the label lever is spent
+  for this project.** Four public readers exist; the best is 0.8927; combining
+  them adds nothing measurable. Labels delivered +0.089 and +0.077 on the board
+  and there is no fifth reader on the shelf to deliver a third instalment.
+  **Synovitis stays at 0.790 in the best available teacher** — no public reader
+  is above 0.79 on it — which is why the model sits at 0.779 there.
+- **what remains for a higher score**, with the label route closed:
+  1. **more models** — the only lever with a measured coefficient (+0.032 for
+     1→5 folds), extrapolating to ~+0.010 for 5→10;
+  2. **a second architecture**, being probed now against the good teacher;
+  3. **a Synovitis reader better than 0.790**, which nobody in this competition
+     appears to have published, and which would have to be built rather than
+     borrowed.

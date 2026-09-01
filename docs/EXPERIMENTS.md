@@ -2665,3 +2665,57 @@ E041's +0.114 was a real comparison and this one cannot be.
 - **focal top-k is closed** — not as "no effect" (E029 said that on one seed and
   E053 showed why that reading was unsafe), but as *subsumed*. It is a smaller
   version of a lever already being taken.
+
+
+### E057 — per-finding pooling is −0.034 fine-tuned, the exact mirror of the rig's +0.034
+- **date**: 2026-09-01. ~14 GPU-h, folds 0 and 1.
+- **why**: E052/E053 measured per-finding attention pooling at **+0.0338**
+  [+0.009, +0.061] on the frozen rig, replicated at +0.0371 against a second
+  teacher and +0.039 in E030. Three agreeing magnitudes across two teachers.
+  `v1pubpool` was queued to cash it.
+
+| fold | v1pubpool gold | v1public gold | Δ |
+|---|---:|---:|---:|
+| 0 | 0.8225 | 0.8526 | −0.0301 |
+| 1 | 0.8888 | 0.9249 | −0.0361 |
+
+- **paired on the 26 shared gold studies: −0.0338, 95% CI [−0.067, −0.007].
+  Separated. `v1public` is better.**
+- **the point estimate is the rig's, with the sign flipped.** +0.0338 frozen,
+  −0.0338 fine-tuned. Not noise around zero — the same magnitude, reversed.
+- **so E054's pre-registered rule fires and the lineage is dropped.** Written
+  down before the data arrived precisely so this could not be argued away
+  afterwards. **Folds 2-4 are not pushed: ~10 GPU-h saved.**
+
+- **what this costs is not 14 GPU-h, it is the rig's authority.** `head_lab`'s
+  standing claim is that absolute numbers do not transfer but *comparisons
+  above the backbone* do, because those are the part being trained. This is the
+  first time that claim has been checked against a fine-tuned run of the same
+  comparison, and it failed — not by degrading, but by inverting.
+- **the mechanism is the backbone, and it splits the rig's record cleanly.**
+  The bank is frozen **DINOv2 ViT-S/14** patch tokens; the lineage is
+  fine-tuned **resnet34** convolutional features. A *label* comparison survives
+  that gap because labels are what you train on whatever the encoder is — and
+  the rig's label result (+0.0508) was confirmed on the board at +0.089. A
+  *head-architecture* comparison need not, because attention pooling reads the
+  geometry of the features underneath it, and those two feature spaces have
+  different geometry. **The rig transfers label comparisons; it does not
+  transfer head comparisons across a backbone it did not measure.**
+- so every architecture verdict this project holds on the rig's authority is
+  now unsupported in *both* directions — E030 and E052's positives and E029's
+  negatives alike. They are statements about frozen DINOv2 heads.
+
+- **caveats, stated plainly.** n=26, not 58, and the interval's upper end is
+  −0.007, so this is separated but not comfortably. `v1pubpool` also carries
+  `seed=2` against `v1public`'s unseeded draw, so the measurement is confounded
+  with one initialisation — two folds agreeing in direction and magnitude
+  narrows that, but does not remove it. Resolving it needs GPU that this week
+  does not have. The rule was written for exactly this situation, and applying
+  it costs 10 GPU-h less than doubting it does.
+- **still running, and now a better experiment than it was queued as**:
+  `knee-embed` is re-extracting the bank on **resnet34** (CPU, no quota). It was
+  started to check whether pooling transfers across backbones. It now has a
+  known answer to predict — if the rig on matching features reproduces −0.034,
+  the backbone really is the whole explanation and the rig is repairable by
+  matching it. If it still says +0.034, the rig does not predict fine-tuned
+  behaviour at all and its architecture verdicts should be retired.

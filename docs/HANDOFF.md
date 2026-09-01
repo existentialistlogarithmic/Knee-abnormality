@@ -77,6 +77,12 @@ CPU is a separate allowance and is unaffected.
 
 ## 5. The next action
 
+**Standing system is unchanged: `v1public`, five folds, 0.923.** Nothing
+measured since has beaten it. `v1pubpool` (per-finding pooling) was queued on
+the rig's recommendation and **dropped at folds 0-1** by E054's pre-registered
+rule — see E057. `v1publicB` (a second seed) is generated but never pushed;
+its lineage is still in the manifest.
+
 **0.94 needs +0.017.** `PATH.md` §4 says that means no finding below ~0.870.
 After E044 only **Synovitis (0.779)** is below 0.80; eight of twelve clear 0.870.
 
@@ -128,10 +134,26 @@ Answers as of E053, all paired one-variable A/Bs scored out-of-fold on the 58:
 
 | question | answer |
 |---|---|
-| do the fused labels help | **yes**, +0.0508 [+0.001, +0.102], replicated |
-| do per-finding attention maps help | **yes, ~+0.035** — +0.039, +0.0371, +0.0338 across three runs and two teachers; the last separated at [+0.009, +0.061] |
-| does focal top-k pooling help | **subsumed** — +0.0163 [−0.001, +0.035] alone, but −0.0075 [−0.026, +0.011] *on top of* per-finding pooling (E056). Same fix, worse route. |
-| does slice position help | **no**, +0.0035 [−0.017, +0.025] — and the model is *exactly* permutation-invariant over slices (E050) |
+| do the fused labels help | **yes**, +0.0508 [+0.001, +0.102], replicated — **and confirmed on the board** at +0.089 |
+| do per-finding attention maps help | rig says **+0.035**, replicated three times. **Fine-tuned it is −0.0338 [−0.067, −0.007]** (E057). The rig was wrong by a sign. |
+| does focal top-k pooling help | +0.0163 [−0.001, +0.035] alone, −0.0075 on top of pooling (E056) — **rig-only, and the rig is not trusted on heads** |
+| does slice position help | +0.0035 [−0.017, +0.025] — rig-only. Separately: the model is *exactly* permutation-invariant over slices (E050), which is arithmetic and does hold. |
+
+**READ E057 BEFORE TRUSTING ANY ROW ABOVE EXCEPT THE FIRST.** The rig's standing
+claim — absolute numbers do not transfer but *comparisons above the backbone*
+do — was checked against a fine-tuned run for the first time and **inverted**:
++0.0338 frozen, −0.0338 fine-tuned, the same magnitude with the sign flipped.
+
+The split is the backbone. The bank is frozen **DINOv2 ViT-S/14** patch tokens;
+every lineage that scores on the board is fine-tuned **resnet34**. A *label*
+comparison crosses that gap — labels are what you train on whatever the encoder
+is, and the board confirmed it. A *head-architecture* comparison does not,
+because attention pooling reads the geometry of the features under it. So:
+
+- **trust the rig on labels.**
+- **do not trust it on heads** unless the bank's backbone matches the lineage.
+  Every architecture verdict here is a statement about frozen DINOv2 heads, in
+  both directions — E030 and E052's positives and E029's negatives alike.
 
 Absolute numbers from the rig do not predict the board — a frozen backbone is
 not the fine-tuned model. **Comparisons above the backbone do transfer**,

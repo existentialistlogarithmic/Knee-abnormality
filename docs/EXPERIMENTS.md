@@ -2833,3 +2833,60 @@ E041's +0.114 was a real comparison and this one cannot be.
 - **the general lesson, which is the reusable part**: before building a better
   reader, measure whether the source contains the answer. That check cost
   minutes and the build would have cost most of a weekly quota.
+
+
+### E060 — CORRECTION to E057/E058: a pure reseed reproduces the "architecture effect"
+- **date**: 2026-09-01. No extra GPU — this is the control arm of a run that was
+  queued for another purpose.
+- **why**: `v1publicB` exists to add ensemble members, and it differs from
+  `v1public` in **the seed and nothing else** — two tests assert exactly that.
+  So it is also, accidentally, the control arm E057 never had.
+
+| fold 0 gold | | fold 1 gold | |
+|---|---:|---|---:|
+| `v1public` (unseeded) | **0.8526** | `v1public` | **0.9249** |
+| `v1publicB` (seed only) | 0.8143 (−0.0383) | `v1publicB` | 0.9067 (−0.0182) |
+| `v1pubpool` (seed + pooling) | 0.8225 (−0.0301) | `v1pubpool` | 0.8888 (−0.0361) |
+
+- **paired on the same 26 gold studies:**
+
+| comparison | Δ | 95% CI | verdict |
+|---|---:|---|---|
+| `v1pubpool` − `v1public` (E057) | −0.0338 | [−0.067, **−0.007**] | separated |
+| **`v1publicB` − `v1public` (seed alone)** | **−0.0284** | [−0.063, **+0.002**] | not separated |
+
+- **these are the same result.** A configuration change of *nothing at all*
+  produces −0.0284; per-finding pooling produces −0.0338. The 0.005 between them
+  is what decided "separated" against "not separated". **E057 measured seed
+  noise and reported it as an architecture effect.**
+- **E057's verdict is withdrawn.** Per-finding pooling is *unmeasured*
+  fine-tuned, not negative. The confound was named in E057's own caveats —
+  "confounded with one initialisation draw... resolving it needs GPU that this
+  week does not have" — and then the conclusion was written as though it had
+  been resolved.
+- **E058's framing goes with it.** Its headline was that the rig "inverted":
+  +0.034 frozen against −0.034 fine-tuned. If the fine-tuned −0.034 is noise,
+  nothing inverted and nothing was contradicted. E058's hedge — "unvalidated as
+  a predictor, not proven wrong" — was the correct reading and is the one that
+  survives; the mechanism story built on top of it (frozen features over-value
+  head capacity) rests on an effect that has not been shown to exist. It may
+  still be true. It is not evidenced.
+- **the real finding, and it is bigger than either**: **fine-tuned single-seed
+  comparisons on this gold set have a noise floor of about ±0.03.** That is
+  larger than any architecture effect this project has ever hypothesised. E052
+  found the same thing on the frozen rig and fixed it with `--seeds 4`; the
+  fine-tuned side has no such fix, because four seeds of five folds is 30 GPU-h
+  — an entire weekly quota to answer one A/B.
+- **so the honest position on every fine-tuned architecture verdict here** —
+  288px, DINOv2, focal top-k, per-finding pooling — is that only differences
+  well outside ±0.03 mean anything. DINOv2's −0.148 on fold 1 (E051) clears
+  that comfortably and stands. Per-finding pooling's −0.034 does not.
+- **and it is the strongest argument yet for the ensemble that produced it.**
+  If one fold's gold moves ±0.03 on the seed alone, then `v1public`'s 0.8980 is
+  itself one draw, and the 0.923 board score with it. Averaging ten members is
+  precisely the operation that cancels this, which is what ensembling has always
+  been for and why it is the one lever with a board-confirmed coefficient.
+- **eighth overturned claim.** The recurring shape, now twice in one day: a
+  measurement whose noise was not characterised, read as an effect. The rule
+  from E053 — *a negative carries its interval width beside it* — was necessary
+  and insufficient. E057 carried its interval. What it lacked was a control arm.

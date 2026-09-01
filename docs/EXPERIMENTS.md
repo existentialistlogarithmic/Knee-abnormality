@@ -2771,3 +2771,65 @@ E041's +0.114 was a real comparison and this one cannot be.
 - **cost of learning this: zero GPU hours.** Cost of not having learned it
   earlier: the 14 GPU-h of E057, and an unknown share of E029/E030's
   conclusions.
+
+
+### E059 — Synovitis is not reader-limited, it is unwritten: the text ceiling is 0.808
+- **date**: 2026-09-01. **CPU only — zero GPU hours**, arithmetic on files already
+  on disk.
+- **why**: E046's list of what remains ended with "**a Synovitis reader better
+  than 0.790**, which nobody in this competition appears to have published, and
+  which would have to be built rather than borrowed". It was about to be built —
+  a modern open-weights model in `knee-llm-labeler`, ~8 GPU-h to label plus ~7 to
+  retrain. The premise was never checked: that the reports contain the answer
+  and the readers are what fall short.
+- **they do not.** On the 58 expert studies, counting how often a finding is
+  mentioned in the report *at all* (channel ≠ `absent`):
+
+| finding | expert-positive | of those, mentioned |
+|---|---:|---:|
+| Effusion | 35 | **35 / 35** |
+| ACL | 24 | **24 / 24** |
+| Medial Meniscus | 26 | **26 / 26** |
+| MCL | 9 | 9 / 9 |
+| Contusion | 19 | 18 / 19 |
+| PF OA | 21 | 16 / 21 |
+| Fracture | 18 | 14 / 18 |
+| **Synovitis** | **27** | **13 / 27** |
+
+  **Fifty-two per cent of true Synovitis cases are invisible to any report
+  reader.** Synovitis is also the only finding where total mentions (21) fall
+  *below* the number of positives (27) — radiologists write about it less often
+  than it is present. Corpus-wide the same shape: Synovitis is mentioned in
+  **23.6%** of the 4,407 reports against Effusion's 90.4% and ACL's 91.5%.
+
+- **this is not a vocabulary gap, which was the obvious alternative and was
+  checked.** `src/lexicons/findings.csv` carries **45** Synovitis terms across
+  ten languages — more than Effusion (19), ACL (27) or Fracture (15) — including
+  the bare roots `synovial` / `sinovial` / `sinovyal`, plus pannus, hypertrophy,
+  thickening and proliferation. Effusion detects 56/58 on nineteen terms.
+  Forty-five terms finding 21/58 is the corpus talking, not the lexicon.
+
+- **so the ceiling can be computed rather than guessed.** Of the 58: 13
+  mentioned positives, 14 silent positives, 8 mentioned negatives, 23 silent
+  negatives. A *perfect* reader ranks the mentioned positives top and the
+  mentioned negatives bottom, and cannot separate the 37 silent studies at all:
+
+      AUC = [13x31 + 14x8 + 0.5x14x23] / (27x31) = 676/837 = 0.8076
+
+- **the incumbent reader scores 0.790. The ceiling is 0.8076. Headroom in the
+  text is +0.0176** — and that is for a reader with flawless negation, flawless
+  multilingual coverage and no errors at all.
+- **so the Synovitis-reader route is closed before it was opened**, and the
+  ~15 GPU-h it was costed at are not spent. It also explains the observation
+  E046 recorded and could not account for: four independent public readers all
+  cap near 0.79 not because four teams built mediocre readers, but because
+  0.808 is what the reports contain.
+- **and it reframes the model's own 0.771.** Against a teacher at 0.790 and a
+  text ceiling of 0.808, the imaging model is not underperforming its
+  supervision — it is within 0.02 of the best label any report-derived teacher
+  could carry. Beating it requires supervision that does not route through
+  text, and the only non-text Synovitis labels in existence here are the 27
+  positives inside the 58 gold studies.
+- **the general lesson, which is the reusable part**: before building a better
+  reader, measure whether the source contains the answer. That check cost
+  minutes and the build would have cost most of a weekly quota.

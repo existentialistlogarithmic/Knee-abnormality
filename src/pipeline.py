@@ -765,6 +765,48 @@ EXTRAS = [
              "tuned on 58 studies (E048).",
     ),
     Kernel(
+        slug="knee-infer-v1pub10",
+        directory="56_infer_v1pub10",
+        template="infer",
+        gpu=True,
+        internet=False,     # a submission kernel
+        # Ten members: the five folds behind the 0.923 board result and the
+        # five second-seed folds. Nothing in the inference kernel needed
+        # changing to allow this — it discovers checkpoints by globbing the
+        # mounted notebooks rather than listing them, so a member joins by
+        # being mounted. The two lineages agree on both properties the
+        # ensemble guard checks (slice_subsample None, input_norm False), so
+        # all ten load rather than being refused.
+        depends=["knee-train-v1pub", "knee-train-v1pub-fold1",
+                 "knee-train-v1pub-fold2", "knee-train-v1pub-fold3",
+                 "knee-train-v1pub-fold4",
+                 "knee-train-v1pubB", "knee-train-v1pubB-fold1",
+                 "knee-train-v1pubB-fold2", "knee-train-v1pubB-fold3",
+                 "knee-train-v1pubB-fold4"],
+        constants={**V1.constants(),
+                   "BATCH_STUDIES": V1.infer_batch,
+                   "SLICE_SUBSAMPLE_EXPECTED": None,
+                   "INPUT_NORM_EXPECTED": False},
+        note="Ten members: v1public plus its second seed.\n"
+             "\n"
+             "The only lever with a board-measured coefficient that survived\n"
+             "the sweep of E050-E058. E036 measured ensembling at +0.032 going\n"
+             "from one fold to five; log-scaling puts five to ten at roughly\n"
+             "+0.010. Nothing here is a new hypothesis, which is the point.\n"
+             "\n"
+             "E054 measured a ten-member ensemble WORSE than its five when the\n"
+             "added members were 0.107 behind (v1fused, -0.0296 [-0.046,\n"
+             "-0.015]). That result is why this one is not assumed: the\n"
+             "difference is that a reseed is an equal-strength member rather\n"
+             "than a weak one, and E054's rule decides it on gold before this\n"
+             "kernel is pushed, not after.\n"
+             "\n"
+             "Budget is not a constraint and was measured rather than guessed:\n"
+             "0.98 h projected for 1,300 test studies with five members\n"
+             "against a 9 h cap, and 0.037 h per extra member. Ten members is\n"
+             "~1.2 h.",
+    ),
+    Kernel(
         slug="knee-llm-labeler",
         directory="16_llm_labeler",
         template="llm_label",

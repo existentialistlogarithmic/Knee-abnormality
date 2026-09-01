@@ -749,3 +749,45 @@ def test_the_ensemble_may_mix_pooled_and_unpooled_members():
     assert 'state.get("per_finding_pool", False)' in source
     expectations = constants(KAGGLE / "42_infer_v1pub" / "run.py")
     assert "PER_FINDING_POOL_EXPECTED" not in expectations
+
+
+def test_the_ten_member_ensemble_mounts_two_lineages_that_agree():
+    """Ten members only load if both lineages were fed identically.
+
+    The guard refuses to average models that disagree on slice count or input
+    normalisation, because neither is visible in the weights and either one
+    costs AUC silently. v1public and v1publicB agree on both by construction —
+    they differ in a seed — but "by construction" is what this asserts rather
+    than assumes.
+    """
+    kernels = {k.slug: k for k in pipeline.all_kernels()}
+    ten = kernels["knee-infer-v1pub10"]
+    a = next(x for x in pipeline.LINEAGES if x.name == "v1public")
+    b = next(x for x in pipeline.LINEAGES if x.name == "v1publicB")
+
+    assert {t.slug for t in a.trainers} | {t.slug for t in b.trainers} == set(ten.depends)
+    assert len(ten.depends) == 10
+    assert a.train.slice_subsample == b.train.slice_subsample
+    assert a.train.input_norm == b.train.input_norm
+    assert ten.constants["SLICE_SUBSAMPLE_EXPECTED"] == a.train.slice_subsample
+    assert ten.constants["INPUT_NORM_EXPECTED"] == a.train.input_norm
+    assert ten.internet is False, "a submission kernel must have internet off"
+
+
+def test_the_second_seed_is_an_equal_strength_member_by_construction():
+    """E054 measured ten members WORSE than five when the five added were weak.
+
+    That ensemble failed because v1fused was 0.107 behind, not because ten is
+    too many. The distinction this pins is that v1publicB differs from v1public
+    in the seed and nothing else — so whatever it scores, it is not weak by
+    configuration.
+    """
+    a = next(x for x in pipeline.LINEAGES if x.name == "v1public")
+    b = next(x for x in pipeline.LINEAGES if x.name == "v1publicB")
+    assert a.labels == b.labels
+    assert a.cache is b.cache
+    differing = {f for f in ("backbone", "epochs", "batch", "lr", "accum",
+                             "slice_subsample", "input_norm", "per_finding_pool",
+                             "focal_k")
+                 if getattr(a.train, f) != getattr(b.train, f)}
+    assert not differing, differing

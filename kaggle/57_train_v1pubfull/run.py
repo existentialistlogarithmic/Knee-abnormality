@@ -45,10 +45,32 @@ import pandas as pd
 # Edit the manifest, not this file. Everything outside this block is shared by
 # every kernel rendered from this template.
 # --------------------------------------------------------------------------- #
-# Identical to the 0.725 configuration. The labels are the
-# single variable.
+# Full fit: the 0.923 configuration trained on every study, with
+# nothing held out.
 #
-RUN_FOLD            = 0
+# The fold split exists to produce an out-of-fold score, not
+# because the model needs it. Once the configuration is settled,
+# holding out a fifth of the corpus spends a fifth of the training
+# data on a number already measured — and it costs more than that
+# where it matters most, because each fold model never sees ~12 of
+# the 58 expert studies. Those carry GOLD_WEIGHT=8.0 and are the
+# only labels known to match what the leaderboard scores. This one
+# sees all 58.
+#
+# It is a DATA lever, not an architecture one, which is the whole
+# reason it is worth GPU: labels and data account for +0.166 of the
+# +0.198 this project has gained, while every architecture lever
+# measured zero, negative, or inside the +-0.03 noise floor E060
+# established.
+#
+# The trade is that it cannot be validated. It exports at a FIXED
+# epoch (E055: the five honest folds peak at 20-21 and plateau over
+# 18-21), writes no gold dump, and is named checkpoint_foldall.pt so
+# that inference picks it up as an ensemble member while gold_eval
+# skips it — a model that trained on every gold study must never be
+# scored as though it had not.
+#
+RUN_FOLD            = -1
 TARGET_MM_PER_PIXEL = 0.6
 TARGET_SIZE         = 192
 SLICES_PER_PLANE    = 20
@@ -61,7 +83,7 @@ SLICE_SUBSAMPLE     = None
 INPUT_NORM          = False
 PER_FINDING_POOL    = False
 FOCAL_K             = 0
-RUN_SEED            = None
+RUN_SEED            = 3
 FULL_FIT_EPOCH      = 20
 RUN_TIME_BUDGET     = 7.5 * 3600
 GOLD_WEIGHT         = 8.0

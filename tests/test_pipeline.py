@@ -791,3 +791,53 @@ def test_the_second_seed_is_an_equal_strength_member_by_construction():
                              "focal_k")
                  if getattr(a.train, f) != getattr(b.train, f)}
     assert not differing, differing
+
+
+# --------------------------------------------------------------------------- #
+# full fit: an ensemble member that must never be scored out-of-fold
+# --------------------------------------------------------------------------- #
+def test_full_fit_trains_on_every_study():
+    source = (KAGGLE / "57_train_v1pubfull" / "run.py").read_text()
+    assert constants(KAGGLE / "57_train_v1pubfull" / "run.py")["RUN_FOLD"] == -1
+    assert "full_fit = args.fold < 0" in source
+    assert "train_idx = np.arange(len(studies))" in source
+
+
+def test_full_fit_writes_no_gold_dump():
+    """It trained on all 58 gold studies, so it has no out-of-fold anything.
+
+    A dump from this model would be globbed straight into `pool_gold_oof.py`
+    alongside honest ones and would score near-perfectly, exactly the leak
+    shape E047 caught in two public label sets.
+    """
+    source = (KAGGLE / "57_train_v1pubfull" / "run.py").read_text()
+    assert "if gold_positions and best_epoch == epoch and not full_fit:" in source
+
+
+def test_full_fit_is_an_ensemble_member_but_not_a_gold_eval_subject():
+    """checkpoint_foldall.pt: inference globs it in, gold_eval cannot parse it.
+
+    gold_eval reads the fold number out of the filename and skips what it
+    cannot read, so "all" is refused there while `checkpoint_fold*.pt` still
+    matches it at inference. The naming is what enforces this, so it is pinned.
+    """
+    source = (KAGGLE / "57_train_v1pubfull" / "run.py").read_text()
+    assert 'tag = "all" if full_fit else str(args.fold)' in source
+    infer = (KAGGLE / "56_infer_v1pub10" / "run.py").read_text()
+    assert "checkpoint_fold*.pt" in infer
+    gold = (KAGGLE / "23_gold_eval" / "run.py").read_text()
+    assert 'int(stem.rsplit("fold", 1)[1])' in gold
+    assert "except (IndexError, ValueError):" in gold
+
+
+def test_full_fit_exports_a_fixed_epoch_not_the_best_monitor_score():
+    """Its validation set is inside its training set, so "best val" is a lie."""
+    source = (KAGGLE / "57_train_v1pubfull" / "run.py").read_text()
+    assert "if epoch == min(FULL_FIT_EPOCH, args.epochs - 1):" in source
+    assert constants(KAGGLE / "57_train_v1pubfull" / "run.py")["FULL_FIT_EPOCH"] == 20
+
+
+def test_the_fold_trainers_are_unchanged_by_full_fit_existing():
+    """Adding the branch must not alter any lineage that already ran."""
+    for directory in ("37_train_v1pub_fold0", "45_train_v1pubB_fold0"):
+        assert constants(KAGGLE / directory / "run.py")["RUN_FOLD"] >= 0, directory

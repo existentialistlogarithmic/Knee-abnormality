@@ -128,6 +128,15 @@ class TrainConfig:
     input_norm: bool = False
     per_finding_pool: bool = False
     focal_k: int = 0
+    full_fit_epoch: int = 20
+    """Which epoch a full-fit run exports, since it has no honest validation.
+
+    Measured rather than chosen: across the five v1public folds the mean val
+    AUC peaks at epoch 20 and the mean gold AUC at 21, both flat over 18-21
+    (E055). A full-fit model trains on every study including all 58 gold, so
+    there is no held-out set left to early-stop on and picking the epoch from
+    the monitor set would be picking it from training data.
+    """
     seed: int | None = None
     """Explicit RNG seed, or None to leave the process unseeded.
 
@@ -150,6 +159,7 @@ class TrainConfig:
                 "PER_FINDING_POOL": self.per_finding_pool,
                 "FOCAL_K": self.focal_k,
                 "RUN_SEED": self.seed,
+                "FULL_FIT_EPOCH": self.full_fit_epoch,
                 "RUN_TIME_BUDGET": Raw("7.5 * 3600"),
                 "GOLD_WEIGHT": 8.0, "ABSTAIN_MASKS_LOSS": True,
                 "WARMUP_EPOCHS": 2, "EMA_DECAY": 0.999, "LABEL_SMOOTH": 0.02}
@@ -763,6 +773,44 @@ EXTRAS = [
              "four views is the default answer, because it fits nothing: the\n"
              "project has twice declined a gain that required a free parameter\n"
              "tuned on 58 studies (E048).",
+    ),
+    Kernel(
+        slug="knee-train-v1pubfull",
+        directory="57_train_v1pubfull",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": -1,          # negative = train on everything
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                 lr=6e-4, seed=3).constants()},
+        note="Full fit: the 0.923 configuration trained on every study, with\n"
+             "nothing held out.\n"
+             "\n"
+             "The fold split exists to produce an out-of-fold score, not\n"
+             "because the model needs it. Once the configuration is settled,\n"
+             "holding out a fifth of the corpus spends a fifth of the training\n"
+             "data on a number already measured — and it costs more than that\n"
+             "where it matters most, because each fold model never sees ~12 of\n"
+             "the 58 expert studies. Those carry GOLD_WEIGHT=8.0 and are the\n"
+             "only labels known to match what the leaderboard scores. This one\n"
+             "sees all 58.\n"
+             "\n"
+             "It is a DATA lever, not an architecture one, which is the whole\n"
+             "reason it is worth GPU: labels and data account for +0.166 of the\n"
+             "+0.198 this project has gained, while every architecture lever\n"
+             "measured zero, negative, or inside the +-0.03 noise floor E060\n"
+             "established.\n"
+             "\n"
+             "The trade is that it cannot be validated. It exports at a FIXED\n"
+             "epoch (E055: the five honest folds peak at 20-21 and plateau over\n"
+             "18-21), writes no gold dump, and is named checkpoint_foldall.pt so\n"
+             "that inference picks it up as an ensemble member while gold_eval\n"
+             "skips it — a model that trained on every gold study must never be\n"
+             "scored as though it had not.",
     ),
     Kernel(
         slug="knee-infer-v1pub10",

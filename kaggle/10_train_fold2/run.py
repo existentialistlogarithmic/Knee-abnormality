@@ -64,6 +64,7 @@ INPUT_NORM          = False
 PER_FINDING_POOL    = False
 FOCAL_K             = 0
 RUN_SEED            = None
+FULL_FIT_EPOCH      = 20
 RUN_TIME_BUDGET     = 7.5 * 3600
 GOLD_WEIGHT         = 8.0
 ABSTAIN_MASKS_LOSS  = True
@@ -597,9 +598,34 @@ def main() -> int:
     is_gold, splits = cohort["is_gold"], cohort["splits"]
     group_values = cohort["group_values"]
 
-    train_idx, val_idx = splits[args.fold]
-    print(f"fold {args.fold}: train {len(train_idx):,}  val {len(val_idx):,}  "
-          f"val groups {pd.Series(group_values[val_idx]).nunique()}")
+    # A NEGATIVE fold means full-fit: train on every study, hold nothing out.
+    #
+    # The fold split exists to produce an out-of-fold score, not because the
+    # model needs it. Once a configuration is settled, holding out a fifth of
+    # the corpus costs a fifth of the training data for a number that has
+    # already been measured — and it costs more than that on the part that
+    # matters, because each fold model never sees ~12 of the 58 expert studies,
+    # which carry GOLD_WEIGHT and are the only labels known to match what the
+    # leaderboard scores. A full-fit model sees all 58.
+    #
+    # It cannot be validated, and that is the trade rather than an oversight.
+    # There is no honest val AUC to early-stop on, so the export epoch is fixed
+    # at FULL_FIT_EPOCH — measured, not guessed: across the five v1public folds
+    # the mean val AUC peaks at epoch 20 and the mean gold AUC at 21, with both
+    # curves flat over 18-21 (E055). A leaked val set is deliberately NOT used
+    # to pick the epoch.
+    full_fit = args.fold < 0
+    if full_fit:
+        train_idx = np.arange(len(studies))
+        # Monitored and printed, never scored on: these studies are in training.
+        val_idx = splits[0][1]
+        print(f"FULL FIT: train {len(train_idx):,} (every study)  "
+              f"monitor {len(val_idx):,} (IN TRAINING — not a held-out score)")
+        print(f"export fixed at epoch {FULL_FIT_EPOCH}; no early stopping")
+    else:
+        train_idx, val_idx = splits[args.fold]
+        print(f"fold {args.fold}: train {len(train_idx):,}  val {len(val_idx):,}  "
+              f"val groups {pd.Series(group_values[val_idx]).nunique()}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = build_model(args.backbone, 3, len(FINDINGS), INPUT_NORM,
@@ -643,7 +669,13 @@ def main() -> int:
     print(f"gold studies held out in this fold: {len(gold_positions)}")
 
     out_dir = Path(args.out)
-    checkpoint_path = out_dir / f"checkpoint_fold{args.fold}.pt"
+    # "foldall" rather than "fold-1" on purpose. Inference globs
+    # checkpoint_fold*.pt so this still joins the ensemble, while gold_eval
+    # parses the fold out of the filename with int() and skips what it cannot
+    # read — which is exactly right for a model that trained on every gold
+    # study and must never be scored as if it had not.
+    tag = "all" if full_fit else str(args.fold)
+    checkpoint_path = out_dir / f"checkpoint_fold{tag}.pt"
 
     # /kaggle/working does not survive a session, so a checkpoint from a previous
     # run only exists if that run's output is mounted. Look there too, otherwise
@@ -651,9 +683,9 @@ def main() -> int:
     # becomes useless.
     resume_from = checkpoint_path if checkpoint_path.exists() else None
     if resume_from is None:
-        mounted = find_marker(f"checkpoint_fold{args.fold}.pt")
+        mounted = find_marker(f"checkpoint_fold{tag}.pt")
         if mounted is not None:
-            resume_from = mounted / f"checkpoint_fold{args.fold}.pt"
+            resume_from = mounted / f"checkpoint_fold{tag}.pt"
             print(f"found a mounted checkpoint: {resume_from}")
 
     start_epoch = 0
@@ -791,7 +823,14 @@ def main() -> int:
         # 192px run peaked at 0.7334 on epoch 18 and drifted down to 0.7282 by
         # epoch 23 — and epoch 23 is what got saved, so 0.005 was given away for
         # nothing. Over an ensemble that compounds.
-        if macro == macro and macro > best_macro:      # NaN-safe
+        if full_fit:
+            # No honest validation exists, so "best" is the measured epoch and
+            # nothing else. Selecting on the monitor set would be selecting on
+            # training data.
+            if epoch == min(FULL_FIT_EPOCH, args.epochs - 1):
+                best_macro, best_epoch, best_state = macro, epoch, ema_state
+                print(f"  full-fit export taken at epoch {epoch}")
+        elif macro == macro and macro > best_macro:      # NaN-safe
             best_macro, best_epoch = macro, epoch
             best_state = ema_state
 
@@ -817,12 +856,12 @@ def main() -> int:
                     "per_finding_pool": PER_FINDING_POOL,
                     "focal_k": FOCAL_K,
                     }, checkpoint_path)
-        (out_dir / f"history_fold{args.fold}.json").write_text(json.dumps(history, indent=2))
+        (out_dir / f"history_fold{tag}.json").write_text(json.dumps(history, indent=2))
 
         # Raw predictions for the held-out gold studies, so the folds can be
         # pooled. Written from the same weights that are exported: when this
         # epoch set a new best, these are the best model's predictions.
-        if gold_positions and best_epoch == epoch:
+        if gold_positions and best_epoch == epoch and not full_fit:
             g = np.array(gold_positions)
             (out_dir / f"gold_oof_fold{args.fold}.json").write_text(json.dumps({
                 "fold": args.fold, "epoch": epoch, "backbone": args.backbone,

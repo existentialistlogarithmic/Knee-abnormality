@@ -75,6 +75,28 @@ begin with "Maximum"; confusing them has cost real time before:
 
 CPU is a separate allowance and is unaffected.
 
+## 4b. SUBMITTING — the API cannot do it
+
+**`kaggle competitions submit` fails with HTTP 400:**
+
+> `{"error":{"code":400,"message":"Submission not allowed:  This competition
+> only accepts Submissions from Notebooks.","status":"FAILED_PRECONDITION"}}`
+
+Verified 2026-09-01 against two finished inference kernels holding valid
+`submission.csv` output. Older rows in `kaggle competitions submissions` show
+`fileName submission.csv` and score fine, so this reads as a competition-side
+change rather than something wrong with the file — do not waste time debugging
+the CSV.
+
+**The only route is the browser**, once per submission:
+
+1. open `https://www.kaggle.com/code/achelijndiamantidis/<kernel-slug>`
+2. **Submit to Competition**
+
+Everything up to that point is scriptable — push the kernel, wait for
+COMPLETE, verify `checkpoints mounted: N` in its log — and the click is not.
+Budget for it: a run that nobody clicks is a run that scored nothing.
+
 ## 5. The next action
 
 **Standing system is unchanged: `v1public`, five folds, 0.923.** Nothing

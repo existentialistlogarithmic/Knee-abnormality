@@ -139,21 +139,33 @@ Answers as of E053, all paired one-variable A/Bs scored out-of-fold on the 58:
 | does focal top-k pooling help | +0.0163 [−0.001, +0.035] alone, −0.0075 on top of pooling (E056) — **rig-only, and the rig is not trusted on heads** |
 | does slice position help | +0.0035 [−0.017, +0.025] — rig-only. Separately: the model is *exactly* permutation-invariant over slices (E050), which is arithmetic and does hold. |
 
-**READ E057 BEFORE TRUSTING ANY ROW ABOVE EXCEPT THE FIRST.** The rig's standing
-claim — absolute numbers do not transfer but *comparisons above the backbone*
-do — was checked against a fine-tuned run for the first time and **inverted**:
-+0.0338 frozen, −0.0338 fine-tuned, the same magnitude with the sign flipped.
+**READ E057 AND E058 BEFORE TRUSTING ANY ROW ABOVE EXCEPT THE FIRST.** The
+rig's standing claim — absolute numbers do not transfer but *comparisons above
+the backbone* do — was checked against a fine-tuned run for the first time and
+**inverted**:
 
-The split is the backbone. The bank is frozen **DINOv2 ViT-S/14** patch tokens;
-every lineage that scores on the board is fine-tuned **resnet34**. A *label*
-comparison crosses that gap — labels are what you train on whatever the encoder
-is, and the board confirmed it. A *head-architecture* comparison does not,
-because attention pooling reads the geometry of the features under it. So:
+| | per-finding − baseline |
+|---|---:|
+| rig, frozen DINOv2 | +0.0338 [+0.009, +0.061] |
+| rig, frozen resnet34 | +0.0528 [+0.013, +0.097] |
+| **fine-tuned resnet34** | **−0.0338** [−0.067, −0.007] |
 
-- **trust the rig on labels.**
-- **do not trust it on heads** unless the bank's backbone matches the lineage.
-  Every architecture verdict here is a statement about frozen DINOv2 heads, in
-  both directions — E030 and E052's positives and E029's negatives alike.
+E057 blamed the backbone mismatch. E058 tested that by rebuilding the bank on
+resnet34 — and matching it made the disagreement **wider**, not narrower. So the
+split is **freezing**, not architecture. On frozen features the encoder cannot
+adapt, so a richer head is the only way to get more out of fixed inputs and head
+capacity is rewarded on its own merits. Fine-tuned, the encoder adapts to the
+head it has, and extra head capacity buys parameters and overfitting instead.
+**The rig systematically over-values head capacity, because head capacity is the
+only capacity it has.**
+
+- **Labels: trust it.** A label comparison changes the target, not the head's
+  capacity, so freezing does not bite. Called the fused labels at +0.0508; the
+  board paid +0.089.
+- **Architecture: do not act on it**, and matching the backbone does not fix
+  this. Every architecture verdict here — E030 and E052's positives, E029's
+  negatives — is a statement about frozen heads. A positive means "not ruled
+  out", never "worth GPU".
 
 Absolute numbers from the rig do not predict the board — a frozen backbone is
 not the fine-tuned model. **Comparisons above the backbone do transfer**,

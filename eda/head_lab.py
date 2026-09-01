@@ -12,11 +12,33 @@ Measured costs, on four CPU threads:
 So the question "does focal top-k pooling help" costs a coffee rather than a GPU
 session, and the weekly GPU allowance is spent.
 
-**What transfers and what does not.** A frozen backbone is not the fine-tuned
-model that scored 0.725, so absolute numbers here do not predict the board. What
-transfers is *comparisons above the backbone* — pooling and labels — because
-those are exactly what is being trained. Every comparison below is therefore run
-as a one-variable A/B and reported with a paired interval, not as a score.
+**What transfers and what does not.** This claim used to read "comparisons
+above the backbone transfer, because those are what is being trained". It was
+checked in E057/E058 and it is wrong for architecture:
+
+    per-finding pooling, rig on frozen DINOv2      +0.0338 [+0.009, +0.061]
+    per-finding pooling, rig on frozen resnet34    +0.0528 [+0.013, +0.097]
+    per-finding pooling, FINE-TUNED resnet34       -0.0338 [-0.067, -0.007]
+
+Matching the backbone made the disagreement wider, not narrower, so the split
+is freezing rather than architecture. On frozen features the encoder cannot
+adapt, so a richer head is the only route to extracting more and head capacity
+is rewarded on its own merits; fine-tuned, the encoder adapts to the head it
+has, and extra head capacity buys parameters and overfitting instead. **This rig
+systematically over-values head capacity, because head capacity is the only
+capacity it has.**
+
+So, concretely:
+
+* **Labels: trust it.** A label comparison changes the target, not the head's
+  capacity, so freezing does not bite. It called the fused labels at +0.0508
+  and the board paid +0.089 — right sign, understated size.
+* **Architecture: do not act on it.** Pooling, focal top-k, positional
+  embeddings and anything else that adds head capacity will read high here.
+  Treat a positive as "not ruled out", never as a reason to spend GPU.
+
+Absolute numbers never transferred and still do not. Every comparison below is
+run as a one-variable A/B and reported with a paired interval, not as a score.
 
     python eda/head_lab.py --embeddings artifacts/embed/embeddings.npy \
         --index artifacts/embed/embeddings_index.json --compare focal

@@ -2719,3 +2719,55 @@ E041's +0.114 was a real comparison and this one cannot be.
   the backbone really is the whole explanation and the rig is repairable by
   matching it. If it still says +0.034, the rig does not predict fine-tuned
   behaviour at all and its architecture verdicts should be retired.
+
+
+### E058 — matching the backbone does not repair the rig; frozen heads do not predict fine-tuned ones
+- **date**: 2026-09-01. **CPU only — zero GPU hours.** `knee-embed` re-run with
+  `RUN_BACKBONE="resnet34"`, 4,407 × 60 × 512 float16.
+- **why**: E057 found the rig's +0.0338 for per-finding pooling inverting to
+  −0.0338 fine-tuned, and offered the backbone as the explanation — frozen
+  **DINOv2 ViT-S/14** patch tokens against fine-tuned **resnet34**
+  convolutions. That was a hypothesis with a testable consequence, written down
+  before the test: *if the rig on matching features reproduces −0.034, the
+  backbone is the whole explanation and the rig is repairable by matching it.*
+
+| measurement | per-finding − baseline | 95% CI |
+|---|---:|---|
+| rig, frozen **DINOv2** features | +0.0338 | [+0.009, +0.061] |
+| rig, frozen **resnet34** features | **+0.0528** | [+0.013, +0.097] |
+| **fine-tuned resnet34** (E057) | **−0.0338** | [−0.067, −0.007] |
+
+- **the backbone was not the explanation.** Matching it did not move the rig
+  towards the fine-tuned answer; it moved it *further away*, from +0.034 to
+  +0.053. The second branch of the prediction fired.
+- **the explanation is freezing, and it has a direction.** On frozen features
+  the encoder cannot adapt, so a richer head is the *only* way to extract more
+  from fixed inputs and head capacity is rewarded on its own merits. Fine-tuned,
+  the encoder adapts *to the head it has* — a single shared attention map and
+  the convolutions underneath it co-adapt — so a per-finding head adds
+  parameters and overfitting without adding a capability the system lacked.
+  **The rig systematically over-values head capacity, because head capacity is
+  the only capacity it has.**
+- that predicts the sign of every rig error on this axis, and the record
+  agrees: per-finding maps (+0.034 / +0.053), focal top-k (+0.0163) and slice
+  positional embedding (+0.0035) are all head-capacity levers, all measured
+  positive-or-zero on the rig, and the one tested fine-tuned came back negative.
+- **it also says why labels are different, and why that one was right.** A
+  label comparison changes the *target*, not the head's capacity, so the
+  frozen/fine-tuned distinction does not bite. The rig said +0.0508 for the
+  fused labels; the board paid +0.089. Right sign, understated magnitude.
+
+- **so `head_lab` is retired as an architecture instrument and kept as a label
+  instrument.** Its docstring now says so, because the claim it made — "what
+  transfers is comparisons *above the backbone*" — is the exact claim that
+  failed, and a tool that misleads in its own documentation will mislead again.
+- **stated precisely rather than dramatically**: the rig is *unvalidated as a
+  predictor of fine-tuned architecture behaviour*, not *proven wrong*. The
+  fine-tuned side of the comparison is the weaker measurement — n=26, two
+  folds, confounded with one seed draw — while the rig side is n=58 and
+  4-seed. What is established is that the only time the two were compared they
+  disagreed in **sign**, which is enough to stop spending GPU on the rig's
+  architecture verdicts and not enough to call any particular one of them false.
+- **cost of learning this: zero GPU hours.** Cost of not having learned it
+  earlier: the 14 GPU-h of E057, and an unknown share of E029/E030's
+  conclusions.

@@ -135,37 +135,39 @@ Answers as of E053, all paired one-variable A/Bs scored out-of-fold on the 58:
 | question | answer |
 |---|---|
 | do the fused labels help | **yes**, +0.0508 [+0.001, +0.102], replicated — **and confirmed on the board** at +0.089 |
-| do per-finding attention maps help | rig says **+0.035**, replicated three times. **Fine-tuned it is −0.0338 [−0.067, −0.007]** (E057). The rig was wrong by a sign. |
+| do per-finding attention maps help | rig says **+0.035**, replicated three times. Fine-tuned gave −0.0338 — but a **pure reseed gives −0.0284** (E060), so that was seed noise. **Unmeasured, not negative.** |
 | does focal top-k pooling help | +0.0163 [−0.001, +0.035] alone, −0.0075 on top of pooling (E056) — **rig-only, and the rig is not trusted on heads** |
 | does slice position help | +0.0035 [−0.017, +0.025] — rig-only. Separately: the model is *exactly* permutation-invariant over slices (E050), which is arithmetic and does hold. |
 
-**READ E057 AND E058 BEFORE TRUSTING ANY ROW ABOVE EXCEPT THE FIRST.** The
-rig's standing claim — absolute numbers do not transfer but *comparisons above
-the backbone* do — was checked against a fine-tuned run for the first time and
-**inverted**:
+**READ E060 FIRST — IT CORRECTS E057 AND E058.**
 
 | | per-finding − baseline |
 |---|---:|
 | rig, frozen DINOv2 | +0.0338 [+0.009, +0.061] |
 | rig, frozen resnet34 | +0.0528 [+0.013, +0.097] |
-| **fine-tuned resnet34** | **−0.0338** [−0.067, −0.007] |
+| fine-tuned resnet34 | −0.0338 [−0.067, −0.007] |
+| **fine-tuned, SEED CHANGE ONLY** | **−0.0284** [−0.063, +0.002] |
 
-E057 blamed the backbone mismatch. E058 tested that by rebuilding the bank on
-resnet34 — and matching it made the disagreement **wider**, not narrower. So the
-split is **freezing**, not architecture. On frozen features the encoder cannot
-adapt, so a richer head is the only way to get more out of fixed inputs and head
-capacity is rewarded on its own merits. Fine-tuned, the encoder adapts to the
-head it has, and extra head capacity buys parameters and overfitting instead.
-**The rig systematically over-values head capacity, because head capacity is the
-only capacity it has.**
+That last row is the control arm E057 lacked. Changing *nothing but the seed*
+reproduces almost exactly the loss E057 attributed to per-finding pooling, so
+the fine-tuned number is seed noise and the rig was never contradicted. E058's
+headline ("the rig inverted") is withdrawn; only its hedge survives — the rig is
+**unvalidated** as a predictor of fine-tuned architecture behaviour, not proven
+wrong either way.
 
-- **Labels: trust it.** A label comparison changes the target, not the head's
-  capacity, so freezing does not bite. Called the fused labels at +0.0508; the
-  board paid +0.089.
-- **Architecture: do not act on it**, and matching the backbone does not fix
-  this. Every architecture verdict here — E030 and E052's positives, E029's
-  negatives — is a statement about frozen heads. A positive means "not ruled
-  out", never "worth GPU".
+**The load-bearing number for anyone planning work here: fine-tuned single-seed
+gold comparisons have a noise floor of about ±0.03**, which is larger than any
+architecture effect this project has ever hypothesised. Only differences well
+outside that mean anything — DINOv2's −0.148 (E051) clears it and stands;
+per-finding pooling's −0.034 does not. There is no cheap fix, either: four seeds
+of five folds is 30 GPU-h, a whole weekly quota for one A/B.
+
+- **Labels: trust the rig.** A label comparison changes the target rather than
+  the head, and the board confirmed it — +0.0508 on the rig, +0.089 paid.
+- **Architecture: the rig is unvalidated, and the fine-tuned instrument cannot
+  resolve ±0.03 either.** Treat both a rig positive and a single-seed
+  fine-tuned negative as "not measured". This is why ensembling, not
+  architecture, is the lever with a board-confirmed coefficient.
 
 Absolute numbers from the rig do not predict the board — a frozen backbone is
 not the fine-tuned model. **Comparisons above the backbone do transfer**,

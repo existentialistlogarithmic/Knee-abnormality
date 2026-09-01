@@ -2890,3 +2890,56 @@ E041's +0.114 was a real comparison and this one cannot be.
   measurement whose noise was not characterised, read as an effect. The rule
   from E053 — *a negative carries its interval width beside it* — was necessary
   and insufficient. E057 carried its interval. What it lacked was a control arm.
+
+
+### E061 — the second seed at n=58, and the full-fit model runs as designed
+- **date**: 2026-09-01. ~9 GPU-h (five v1publicB folds + one full fit).
+- **the ten-member ensemble, pooled over all 58 gold studies:**
+
+| members | gold macro, n=58 |
+|---|---:|
+| `v1public` ×5 | **0.8980** |
+| `v1publicB` ×5 (pure reseed) | 0.8827 |
+| rank-mean of all ten | 0.8951 |
+
+  **ensemble − v1public = −0.0029, 95% CI [−0.014, +0.007]. Not separated.**
+  E054's pre-registered rule permits the submission, and it was pushed
+  (`knee-infer-v1pub10`).
+- **the flat result is not evidence against the ensemble, and the reason is
+  structural.** Each gold study carries exactly *one* prediction per lineage —
+  from the single fold that held it out — while at test time all ten models
+  predict every study. The out-of-fold instrument therefore cannot see
+  cross-fold averaging at all. E038's board correction
+  (`board ≈ gold_OOF + 0.032 + 0.005`) **is** that invisible effect: the +0.032
+  is precisely what ensembling buys and what OOF cannot measure. So this number
+  says the second lineage's models are slightly weaker and adds nothing about
+  what ten members do on the board.
+- **all five reseeded folds landed below their counterparts** (−0.0383, −0.0182,
+  −0.0054, −0.0172, pooling to 0.8827 against 0.8980). With `v1pubpool` that is
+  **eleven of eleven** folds across two seeded lineages below the unseeded
+  incumbent. Two readings remain open and two seeds cannot separate them:
+  either `v1public` was a favourable draw — in which case its 0.8980, and the
+  0.923 resting on it, sit above this configuration's true mean — or something
+  about fixing the seed is systematically unhelpful. **Open, not asserted.**
+
+- **the full-fit model trained exactly as specified**, confirmed from its log
+  rather than assumed:
+
+      seeded: 3
+      FULL FIT: train 4,407 (every study)  monitor 882 (IN TRAINING — not a held-out score)
+      export fixed at epoch 20; no early stopping
+      full-fit export taken at epoch 20
+
+  It emitted `checkpoint_foldall.pt` and `history_foldall.json` and **no gold
+  dump at all**, which is the safety property that matters: a model trained on
+  all 58 gold studies must never produce a file `pool_gold_oof.py` can glob.
+  All three guards — fixed epoch, suppressed dump, unparseable fold tag — fired.
+- **it cannot be scored offline, by construction**, so `knee-infer-v1pubfull`
+  was pushed as a separate submission: the same five folds behind 0.923 plus
+  this one member, one variable, with the board as the only instrument that can
+  price it.
+- **both submissions are in flight; neither board score is in yet.** The
+  follow-up if the full fit pays is four more full-fit seeds (~6 GPU-h) for a
+  full-fit-only ensemble — the real version of the lever. One member is a probe
+  of a data change worth ~25% more training data per model, and all 58 expert
+  studies instead of ~46.

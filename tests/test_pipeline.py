@@ -841,3 +841,23 @@ def test_the_fold_trainers_are_unchanged_by_full_fit_existing():
     """Adding the branch must not alter any lineage that already ran."""
     for directory in ("37_train_v1pub_fold0", "45_train_v1pubB_fold0"):
         assert constants(KAGGLE / directory / "run.py")["RUN_FOLD"] >= 0, directory
+
+
+def test_the_full_fit_submission_changes_exactly_one_thing():
+    """Six members = the five behind 0.923, plus one. Nothing else moves.
+
+    The full-fit member is invisible to every offline instrument this project
+    owns, so the board is the only thing that can price it. That only works if
+    the submission differs from the 0.923 one in this single addition —
+    combining it with v1publicB's five would make a board move unattributable
+    between two changes neither of which can be measured offline.
+    """
+    kernels = {k.slug: k for k in pipeline.all_kernels()}
+    six = kernels["knee-infer-v1pubfull"]
+    baseline = next(x for x in pipeline.LINEAGES if x.name == "v1public")
+
+    assert set(six.depends) == {t.slug for t in baseline.trainers} | {"knee-train-v1pubfull"}
+    assert six.internet is False, "a submission kernel must have internet off"
+    # and it must not quietly pull in the second seed as well
+    other = next(x for x in pipeline.LINEAGES if x.name == "v1publicB")
+    assert not ({t.slug for t in other.trainers} & set(six.depends))

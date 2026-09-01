@@ -855,6 +855,38 @@ EXTRAS = [
              "~1.2 h.",
     ),
     Kernel(
+        slug="knee-infer-v1pubfull",
+        directory="58_infer_v1pubfull",
+        template="infer",
+        gpu=True,
+        internet=False,     # a submission kernel
+        # The five folds behind 0.923 PLUS one full-fit member, which makes
+        # this a one-variable submission against that score: same five models,
+        # one addition. Deliberately not combined with v1publicB's five in the
+        # same submission — two changes at once would leave a board move
+        # unattributable, and the board is the only instrument that can see
+        # either of them.
+        depends=["knee-train-v1pub", "knee-train-v1pub-fold1",
+                 "knee-train-v1pub-fold2", "knee-train-v1pub-fold3",
+                 "knee-train-v1pub-fold4",
+                 "knee-train-v1pubfull"],
+        constants={**V1.constants(),
+                   "BATCH_STUDIES": V1.infer_batch,
+                   "SLICE_SUBSAMPLE_EXPECTED": None,
+                   "INPUT_NORM_EXPECTED": False},
+        note="Six members: the five v1public folds and one full-fit model.\n"
+             "\n"
+             "The full-fit member cannot be evaluated offline at all — it\n"
+             "trained on all 58 gold studies, so every out-of-fold instrument\n"
+             "this project owns is blind to it by construction. That is not a\n"
+             "gap in the measurement, it is the measurement: the board is the\n"
+             "only judge, which is why this exists as its own submission\n"
+             "rather than folded in with anything else.\n"
+             "\n"
+             "Cost is not a consideration: E050 measured an extra member at\n"
+             "0.037 h on the full test set, so six is ~1.0 h against a 9 h cap.",
+    ),
+    Kernel(
         slug="knee-llm-labeler",
         directory="16_llm_labeler",
         template="llm_label",

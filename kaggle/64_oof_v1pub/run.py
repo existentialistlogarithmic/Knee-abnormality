@@ -31,29 +31,40 @@ import numpy as np
 # Edit the manifest, not this file. Everything outside this block is shared by
 # every kernel rendered from this template.
 # --------------------------------------------------------------------------- #
-# Test-time augmentation, measured out-of-fold on the 58 expert
-# studies, for zero GPU hours.
+# Out-of-fold predictions for every study in the corpus, from the
+# five checkpoints behind 0.923. Each study is predicted exactly
+# once, by the one model that held it out.
 #
-# Inference has never used TTA and no experiment has ever tested
-# it, which makes it the last untried lever that is not simply
-# 'train more models'. The views are the two geometric symmetries
-# training already teaches — slice-order reversal (p=0.5) and a
-# pixel roll of up to TARGET_SIZE//16 — so a gain here is the
-# model being asked the same question four ways, not four
-# different questions.
+# This is the raw material for a distillation teacher, and the
+# reason to want one is measured rather than assumed: the model
+# scores 0.8980 on the 58 gold studies and the labels that trained
+# it score 0.8927. The student has overtaken its teacher, and by
+# 0.005 — which puts the two COMPARABLE, the condition E048
+# identified as the difference between E023's union paying +0.070
+# and the four unions since paying nothing. Every one of those four
+# failures added a member 0.03-0.06 behind the incumbent. This is
+# the first candidate that is not.
 #
-# It mounts the five v1public folds, the 0.923 board ensemble, and
-# writes every view's predictions separately. Which subset to
-# average is then decided offline on the pooled n=58 rather than
-# costing another session to revisit. An unweighted mean of all
-# four views is the default answer, because it fits nothing: the
-# project has twice declined a gain that required a free parameter
-# tuned on 58 studies (E048).
+# It runs on CPU and therefore costs ZERO GPU quota — the whole
+# point of building it from checkpoints that already exist rather
+# than re-running five folds with a wider dump, which would have
+# cost ~7.5 GPU-h for the same file.
+#
+# It also self-verifies. The gold macro is still computed from the
+# gold subset, so this run must reproduce 0.8980. If it does not,
+# the fold split here differs from the trainer's and the OOF is not
+# out-of-fold — a teacher built on that would leak, train cleanly,
+# and score worse for no visible reason.
+#
+# NOTHING IS BLENDED HERE. What to mix with the report labels, and
+# at what weight, is decided offline on the 58 — not baked into a
+# two-hour CPU run that would have to be repeated to revisit it.
 #
 TARGET_MM_PER_PIXEL = 0.6
 TARGET_SIZE         = 192
 SLICES_PER_PLANE    = 20
-TTA_VIEWS           = ('identity', 'reverse', 'shift_pos', 'shift_neg')
+TTA_VIEWS           = ('identity',)
+OOF_SCOPE           = "all"
 # --------------------------------------------------------------------------- #
 
 FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",

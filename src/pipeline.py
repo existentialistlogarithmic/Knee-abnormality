@@ -719,7 +719,8 @@ EXTRAS = [
         depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
                  "knee-cache-build-3", "knee-train"],
         datasets=[ARTIFACTS_DATASET],
-        constants={**V1.constants(), "TTA_VIEWS": ("identity",)},
+        constants={**V1.constants(), "TTA_VIEWS": ("identity",),
+                   "OOF_SCOPE": "gold"},
         note="Scores already-trained checkpoints against the expert labels they\n"
              "never saw, on CPU, because the weekly GPU allowance is spent and\n"
              "this is twelve studies through one backbone.\n"
@@ -1021,6 +1022,49 @@ EXTRAS = [
              "\n"
              "Cost: E050 measured 0.037 h per member on the full test set, so\n"
              "five is ~1.0 h against a 9 h cap.",
+    ),
+    Kernel(
+        slug="knee-oof-v1pub",
+        directory="64_oof_v1pub",
+        template="gold_eval",
+        gpu=False,          # 4,407 forward passes; CPU is a separate allowance
+        internet=False,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3",
+                 "knee-train-v1pub", "knee-train-v1pub-fold1",
+                 "knee-train-v1pub-fold2", "knee-train-v1pub-fold3",
+                 "knee-train-v1pub-fold4"],
+        datasets=[PUBLIC_DATASET],
+        constants={**V1.constants(), "TTA_VIEWS": ("identity",),
+                   "OOF_SCOPE": "all"},
+        note="Out-of-fold predictions for every study in the corpus, from the\n"
+             "five checkpoints behind 0.923. Each study is predicted exactly\n"
+             "once, by the one model that held it out.\n"
+             "\n"
+             "This is the raw material for a distillation teacher, and the\n"
+             "reason to want one is measured rather than assumed: the model\n"
+             "scores 0.8980 on the 58 gold studies and the labels that trained\n"
+             "it score 0.8927. The student has overtaken its teacher, and by\n"
+             "0.005 — which puts the two COMPARABLE, the condition E048\n"
+             "identified as the difference between E023's union paying +0.070\n"
+             "and the four unions since paying nothing. Every one of those four\n"
+             "failures added a member 0.03-0.06 behind the incumbent. This is\n"
+             "the first candidate that is not.\n"
+             "\n"
+             "It runs on CPU and therefore costs ZERO GPU quota — the whole\n"
+             "point of building it from checkpoints that already exist rather\n"
+             "than re-running five folds with a wider dump, which would have\n"
+             "cost ~7.5 GPU-h for the same file.\n"
+             "\n"
+             "It also self-verifies. The gold macro is still computed from the\n"
+             "gold subset, so this run must reproduce 0.8980. If it does not,\n"
+             "the fold split here differs from the trainer's and the OOF is not\n"
+             "out-of-fold — a teacher built on that would leak, train cleanly,\n"
+             "and score worse for no visible reason.\n"
+             "\n"
+             "NOTHING IS BLENDED HERE. What to mix with the report labels, and\n"
+             "at what weight, is decided offline on the 58 — not baked into a\n"
+             "two-hour CPU run that would have to be repeated to revisit it.",
     ),
     Kernel(
         slug="knee-llm-labeler",

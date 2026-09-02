@@ -503,8 +503,16 @@ def test_the_gold_evaluator_takes_the_fold_from_the_filename():
     one mistake this kernel exists to avoid."""
     source = (KAGGLE / "23_gold_eval" / "run.py").read_text()
     assert 'stem.rsplit("fold", 1)[1]' in source
-    assert "positions = [p for p in val_idx if is_gold[p]]" in source, \
-        "it must score the VALIDATION half of the fold, never the training half"
+    # Both scopes draw from val_idx and neither may touch the training half.
+    # OOF_SCOPE "all" widens WHICH held-out studies are predicted; it must never
+    # widen the split.
+    assert 'list(val_idx) if OOF_SCOPE == "all"' in source, \
+        "the wide scope must still be the VALIDATION half of the fold"
+    assert "else [p for p in val_idx if is_gold[p]]" in source, \
+        "the gold scope must be unchanged"
+    for line in source.splitlines():
+        if "positions" in line and "=" in line:
+            assert "_train_idx" not in line and "train_idx[" not in line, line
 
 
 def test_focal_pooling_is_a_strict_extension():

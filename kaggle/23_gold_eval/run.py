@@ -45,6 +45,7 @@ TARGET_MM_PER_PIXEL = 0.6
 TARGET_SIZE         = 192
 SLICES_PER_PLANE    = 20
 TTA_VIEWS           = ('identity',)
+OOF_SCOPE           = "gold"
 # --------------------------------------------------------------------------- #
 
 FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
@@ -459,11 +460,26 @@ def main() -> int:
         model.eval()
 
         _train_idx, val_idx = splits[fold]
-        positions = [p for p in val_idx if is_gold[p]]
+        # OOF_SCOPE "gold" predicts only the held-out expert studies, which is
+        # what this kernel has always done and what pool_gold_oof.py reads.
+        # "all" predicts the WHOLE holdout, which is how a self-distillation
+        # teacher gets built: every study in the corpus predicted exactly once,
+        # by the model that did not train on it.
+        #
+        # The gold number is computed from the gold subset either way, so a
+        # scope="all" run still reproduces the figure on record. That is the
+        # point of computing it: if the pooled macro is not 0.8980, this kernel
+        # cut the folds differently from the trainer and its OOF is not
+        # out-of-fold. A teacher built from a bad split would leak, train
+        # cleanly, and score worse for no visible reason.
+        positions = (list(val_idx) if OOF_SCOPE == "all"
+                     else [p for p in val_idx if is_gold[p]])
+        gold_rows = [i for i, p in enumerate(positions) if is_gold[p]]
         print(f"\n{path.parent.parent.name}/{path.name}: fold {fold}, "
               f"{backbone}, norm={normalise}, pool={pooling}, "
-              f"subsample={subsample}, {len(positions)} held-out gold studies")
-        if not positions:
+              f"subsample={subsample}, {len(positions)} held-out studies "
+              f"({len(gold_rows)} gold)")
+        if not positions or not gold_rows:
             continue
 
         # One row per study per view. TTA_VIEWS = ("identity",) reproduces the
@@ -482,7 +498,11 @@ def main() -> int:
                 by_view[view].append(torch.sigmoid(logits.float())[0].numpy())
         by_view = {view: np.stack(rows) for view, rows in by_view.items()}
         predicted = by_view[TTA_VIEWS[0]]
-        expert = targets[positions]
+        # Everything below scores and records GOLD only, so every number this
+        # kernel has ever printed keeps its meaning under either scope.
+        gold_positions = [positions[i] for i in gold_rows]
+        gold_predicted = predicted[gold_rows]
+        expert = targets[gold_positions]
 
         from sklearn.metrics import roc_auc_score
 
@@ -490,7 +510,7 @@ def main() -> int:
         for i, finding in enumerate(FINDINGS):
             y = (expert[:, i] > 0.5).astype(int)
             if 0 < y.sum() < len(y):
-                aucs[finding] = roc_auc_score(y, predicted[:, i])
+                aucs[finding] = roc_auc_score(y, gold_predicted[:, i])
         macro = float(np.mean(list(aucs.values()))) if aucs else float("nan")
         print(f"  gold macro AUC {macro:.4f} over {len(aucs)} scorable findings")
 
@@ -498,7 +518,7 @@ def main() -> int:
             # A per-fold read only; the fold subsets are far too small to
             # decide anything (E031 put a single fold's interval at ~0.19).
             # The decision is made on the pooled n=58, offline.
-            mean_of_views = np.mean(list(by_view.values()), axis=0)
+            mean_of_views = np.mean(list(by_view.values()), axis=0)[gold_rows]
             tta_aucs = [roc_auc_score((expert[:, i] > 0.5).astype(int),
                                       mean_of_views[:, i])
                         for i, finding in enumerate(FINDINGS)
@@ -513,17 +533,32 @@ def main() -> int:
             "geometry": {"mm_per_pixel": TARGET_MM_PER_PIXEL, "size": TARGET_SIZE,
                          "slices": SLICES_PER_PLANE, "slice_subsample": subsample},
             "findings": FINDINGS,
-            "studies": [studies[p] for p in positions],
-            "predicted": predicted.round(5).tolist(),
+            "studies": [studies[p] for p in gold_positions],
+            "predicted": gold_predicted.round(5).tolist(),
             "expert": expert.round(5).tolist(),
             # Every view is written out rather than only their mean, because
             # which subset of views to average is a question to settle offline
             # on the pooled n=58, not one to bake in here and re-run a session
             # to revisit.
             "views": list(TTA_VIEWS),
-            "predicted_by_view": {view: rows.round(5).tolist()
+            "predicted_by_view": {view: rows[gold_rows].round(5).tolist()
                                   for view, rows in by_view.items()},
         }, indent=2))
+
+        # The full holdout, written separately so the gold artifact keeps its
+        # exact shape. One row per study, predicted by the one model that held
+        # it out — this is the raw material for a distillation teacher, and it
+        # is deliberately NOT blended with anything here. What to blend and at
+        # what weight is a question for the 58 gold studies offline, not one to
+        # bake into a two-hour CPU run.
+        if OOF_SCOPE == "all":
+            (OUT / f"oof_all_fold{fold}_{tag}.json").write_text(json.dumps({
+                "fold": fold, "epoch": state.get("epoch"), "backbone": backbone,
+                "source": tag, "findings": FINDINGS,
+                "studies": [studies[p] for p in positions],
+                "predicted": predicted.round(5).tolist(),
+            }, indent=2))
+            print(f"  wrote {len(positions)} out-of-fold predictions")
 
     print(f"\nwall clock {(time.time() - started) / 60:.1f} min on CPU")
     return 0

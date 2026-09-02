@@ -360,3 +360,44 @@ def test_full_fit_ensemble_mounts_only_full_fit_members():
     sources = metadata["kernel_sources"]
     assert len(sources) == 5, sources
     assert all("v1pubfull" in slug for slug in sources), sources
+
+
+# --------------------------------------------------------------------------- #
+# the out-of-fold dump must not change what gold means
+# --------------------------------------------------------------------------- #
+def test_oof_scope_all_still_scores_only_gold():
+    """Widening the holdout must not widen the gold instrument.
+
+    `pool_gold_oof.py` reads `gold_oof_fold*.json` and every gold number on
+    record came from it. If a scope="all" run wrote the whole holdout into that
+    artifact, the pooled macro would silently become a report-label score over
+    4,407 studies rather than an expert score over 58 — a different quantity
+    with the same name, which is the single most expensive shape of error in
+    this project's log.
+    """
+    source = _source(REPO_ROOT / "kaggle" / "64_oof_v1pub" / "run.py")
+    assert 'OOF_SCOPE           = "all"' in source
+    # the gold artifact is built from the gold subset, not from `positions`
+    assert '"studies": [studies[p] for p in gold_positions],' in source
+    assert '"predicted": gold_predicted.round(5).tolist(),' in source
+    # and the AUC that gets printed is the gold one
+    assert "roc_auc_score(y, gold_predicted[:, i])" in source
+    # the full holdout goes to its own file
+    assert 'f"oof_all_fold{fold}_{tag}.json"' in source
+
+
+def test_gold_eval_default_scope_is_unchanged():
+    """The existing kernel keeps predicting gold only, so its cost is unchanged."""
+    source = _source(REPO_ROOT / "kaggle" / "23_gold_eval" / "run.py")
+    assert 'OOF_SCOPE           = "gold"' in source
+
+
+def test_oof_dump_runs_without_a_gpu():
+    """It is 4,407 forward passes on checkpoints that already exist. Spending
+    GPU quota on it would be spending the scarce allowance to avoid the free
+    one — CPU is a separate allowance with five slots."""
+    import json
+    metadata = json.loads(
+        (REPO_ROOT / "kaggle" / "64_oof_v1pub" / "kernel-metadata.json").read_text())
+    assert metadata["enable_gpu"] is False
+    assert metadata["enable_internet"] is False

@@ -3115,3 +3115,69 @@ cannot survive the trip to the board. `--seeds 4`, per E052. Result in E063.
   it cost about a minute of quota. This is the one failure mode where a re-run
   is the correct response rather than an excuse, and it is recorded so that a
   future ECC line is recognised rather than debugged.
+
+
+### E065 — PRE-REGISTRATION: the student has overtaken its teacher, so distil it
+- **date**: 2026-09-02. CPU only, no quota. **Written before the numbers
+  exist.**
+- **the question**: 0.945 needs +0.021 from 0.924, and nothing on the books
+  covers it — full fit at full weight is unmeasured, the best blend is +0.0036
+  with an interval containing zero, and no new label set has appeared since
+  08-30. So what is left has to be a lever that has never been pulled.
+- **the precondition, and it is measured.** The five `v1public` folds score
+  **0.8980** on the 58 gold studies. The public report labels that trained them
+  score **0.8927**. The student is ahead of its teacher by 0.005.
+- **why 0.005 is the interesting number rather than a rounding error.** E048
+  established the rule that decides every union this project has tried:
+
+  > a union pays when its members are COMPARABLE, and imports errors when they
+  > are not.
+
+| union | members | result |
+|---|---|---|
+| E023 lexicon ∪ LLM | 0.7446 and 0.7421 — comparable | **+0.070** |
+| E033 fused ∪ lexicon labels | incumbent 0.03+ ahead | worse at every weight |
+| E039 two architectures | incumbent ahead | +0.0022, not separated |
+| E046 ours ∪ public 0.917 system | incumbent 0.040 ahead | +0.0036, not separated |
+| E048 four public readers | incumbent 0.03–0.06 ahead | +0.0027, not separated |
+| **this: labels ∪ model OOF** | **0.8927 and 0.8980 — comparable** | **?** |
+
+  Four failures in a row shared one property, and this candidate is the first
+  that does not have it. That is not a prediction, it is the reason the
+  experiment is worth running rather than assumed dead.
+- **how the teacher is built, and why it costs no GPU.** `kaggle/64_oof_v1pub`
+  predicts every study in the corpus exactly once, using the one checkpoint that
+  held it out, **on CPU from weights that already exist**. Re-running five folds
+  with a wider dump would have produced the same file for ~7.5 GPU-h. The
+  `gold_eval` template gained an `OOF_SCOPE` constant; at `"gold"` it is
+  byte-identical in behaviour to every run on record.
+- **it self-verifies.** The gold macro is still computed from the gold subset,
+  so this run must reproduce **0.8980**. If it does not, this kernel cut the
+  folds differently from the trainer, its predictions are not out-of-fold, and a
+  teacher built on them would leak, train cleanly, and score worse for no
+  visible reason. A test also refuses the file outright if any study appears in
+  two folds.
+
+**PRE-REGISTERED ACCEPTANCE RULE.** `eda/distill_teacher.py` scores the
+**parameter-free 50/50 rank union** of model and labels against the 58. Spend
+the ~7.5 GPU-h on a `v1pubdistil` lineage only if:
+
+> union − report labels separates from zero at 95% on the paired bootstrap.
+
+No size threshold this time, and that is deliberate: unlike E062 this is a
+change to the *teacher*, which is the one category where the offline instrument
+has a board-confirmed track record — it called the fused labels +0.0508 and the
+board paid +0.089. A separated teacher gain is worth training even if small,
+because the transfer has historically been in our favour, not against it.
+
+**The weight curve is printed in full and cannot be adopted.** An argmax over it
+is a free parameter fitted to 58 studies — the practice
+`dataset-metadata.fused.json` rejects by name and E048 declined once already. A
+test asserts the script contains no call that could pick one. Result in E066.
+
+**Stating what the instrument cannot see, before the run** (the thing E062 got
+wrong): gold-58 measures a teacher by how well it agrees with 58 expert answers.
+It cannot see whether the model's predictions are *diverse* from the labels in a
+way that helps on the other 4,349 studies, which is most of what a distillation
+teacher does. So a null here is weaker evidence than a positive, and it will be
+recorded that way rather than as "distillation does not work".

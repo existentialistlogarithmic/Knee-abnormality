@@ -1,7 +1,7 @@
 # HANDOFF — read this first
 
 The session entry point. Everything here is either a live instruction or a
-pointer to the file that holds the detail. Last updated **2026-08-31**.
+pointer to the file that holds the detail. Last updated **2026-09-02**.
 
 Read order: **this file**, then `docs/STATUS.md` (what is known, by evidence
 strength), then `docs/PATH.md` (what is left and what it is worth).
@@ -15,7 +15,7 @@ bash eda/preflight.sh
 ```
 
 Four gates, the same four `.github/workflows/tests.yml` runs, in the same
-order: **lint**, **159 tests**, **kernel drift**, **no patient-derived file
+order: **lint**, **183 tests**, **kernel drift**, **no patient-derived file
 tracked**. Green here is green there. The drift gate is the one that matters
 most — `kaggle/*/run.py` is generated from `src/pipeline.py` and a hand-edited
 kernel still pushes and still runs, it just is not the pipeline any more.
@@ -39,41 +39,70 @@ package is installed. Check `which kaggle` instead.
 
 ## 3. Where the work stands
 
-**0.923 on the leaderboard** as of 2026-08-29 (E045), up from 0.846 and from
+**0.924 on the leaderboard** as of 2026-09-02 (E064), up from 0.923, 0.846 and
 0.725. **This clears the top-200 cut of 0.917.** Field top 0.952, 1,866 teams,
 final submission 2026-10-22.
 
-The standing system is `v1public`: resnet34 2.5D at 192px, five folds,
-rank-mean, trained on **publicly shared CC0 report labels**
+The standing system is `v1public` + one full-fit member: resnet34 2.5D at 192px,
+five folds trained on **publicly shared CC0 report labels**
 (`stevenleehans/rsna-knee-llm-report-labels`, repackaged with attribution as
-`knee-phase1-public`). Gold OOF 0.8980.
+`knee-phase1-public`), rank-mean, plus one model trained on every study. Gold
+OOF for the five folds alone is 0.8980; the full-fit member cannot be scored
+offline by construction.
 
-**Labels are the whole story.** Decomposed on ground truth, of the +0.198 from
-this project's first imaging model: ensembling +0.032, this project's fused
-labels +0.089, public CC0 labels +0.077 — **+0.166 of +0.198 is labels.** Every
-architectural lever tried (288px, DINOv2, focal top-k, per-finding pooling, two
-blend families) measured zero or negative.
+**Labels and data are the whole story.** Of the +0.199 from the first imaging
+model: own fused labels +0.089, public CC0 labels +0.077, ensembling +0.032,
+full fit (as one member in six) +0.001, **architecture 0.000, every time**.
 
-**Gold OOF ranks models; it does not forecast a score.** Offsets to the board
-have been +0.005, +0.054, +0.025. E038's correction (`board ≈ gold_OOF + 0.032 +
-0.005`) got its first close call here — predicted 0.935, actual 0.923.
+**Two numbers govern every decision here. Read them before planning anything.**
+
+1. **The offline instrument has a ±0.03 noise floor.** E060 proved it the hard
+   way: a pure reseed — changing *only* the RNG seed — scored −0.0284
+   [−0.063, +0.002] against the incumbent, the same magnitude that had just
+   been reported as an "architecture effect" (E057), which was therefore wrong.
+   **Any fine-tuned A/B under ±0.03 is noise.** Only DINOv2's −0.148 ever
+   cleared it.
+2. **The frozen rig does not predict fine-tuned architecture.**
+   `eda/head_lab.py` called per-finding pooling +0.034 and +0.053; fine-tuned
+   came back −0.034, which was itself noise. **Trust it on labels and targets** —
+   it called the fused labels +0.0508 and the board paid +0.089. **Never spend
+   GPU on its architecture verdicts.** Pass `--seeds 4` or it measures an
+   initialisation rather than a hypothesis.
+
+Consequence: **the board is the only trustworthy instrument.** Five submissions
+a day. Inference is ~1.0 h of a 9 h cap plus 0.037 h per extra member, so
+ensemble size is limited by *training* quota alone, never by the submission.
 
 ## 4. Quota state
 
-**The quota reset on 2026-08-22.** It refused at 2026-08-21 18:17 UTC and
-accepted at 00:17 UTC, so the weekly window turns over in that six-hour band.
-Kaggle's API reports neither the balance nor the reset moment — only the account
-page does — so the only test is to attempt the push and read the refusal.
+The weekly window turns over in an 18:17–00:17 UTC band, seven days apart from
+2026-08-22, so the next reset is **~2026-09-05**. Kaggle's API reports neither
+the balance nor the reset moment — only the account page does — so the only test
+is to attempt the push and read the refusal.
 
-**~1.5 h of the new 30 is spent** (E031). Two limits exist and both refusals
-begin with "Maximum"; confusing them has cost real time before:
+Two limits exist and both refusals begin with "Maximum"; confusing them has cost
+real time before:
 
 | message | meaning | does waiting help |
 |---|---|---|
-| `Maximum batch CPU sessions` | concurrency, 5 slots | **yes** — `eda/push_queue.sh` polls |
+| `Maximum batch GPU session count` | concurrency, 2 slots | **yes** — `eda/push_queue.sh` polls |
 | `Maximum weekly GPU quota` | the 30 h allowance | **no** — nothing runs until reset |
 
-CPU is a separate allowance and is unaffected.
+CPU is a separate allowance with **5 slots**, and it is a bigger lever than it
+looks: E050, E053, E056–E063 were all CPU-only and cost zero GPU quota.
+
+A resnet34 fold is **~1.5 GPU-h, not 7**. The 7-hour figure came from DINOv2's
+40-epoch ViT runs. Five resnet34 folds is ~7.5 h.
+
+**E039's rule: a probe must not be a job that costs something if it succeeds.**
+Pushing the thing you actually want is fine — it runs if quota exists and errors
+for free if not.
+
+**One failure mode is hardware, not code.** `knee-train-v1pubfull-s5` died 54
+seconds in with `CUDA error: uncorrectable ECC error encountered` (E064) — a
+fault in the assigned card's memory, before any batch trained. That is the one
+case where re-pushing is the right response rather than an excuse. Anything else
+that fails is this project's bug until proven otherwise.
 
 ## 4b. SUBMITTING — the API cannot do it
 
@@ -85,47 +114,42 @@ CPU is a separate allowance and is unaffected.
 Verified 2026-09-01 against two finished inference kernels holding valid
 `submission.csv` output. Older rows in `kaggle competitions submissions` show
 `fileName submission.csv` and score fine, so this reads as a competition-side
-change rather than something wrong with the file — do not waste time debugging
-the CSV.
+change rather than something wrong with the file — **do not waste time debugging
+the CSV.**
 
 **The only route is the browser**, once per submission:
 
 1. open `https://www.kaggle.com/code/achelijndiamantidis/<kernel-slug>`
 2. **Submit to Competition**
 
-Everything up to that point is scriptable — push the kernel, wait for
-COMPLETE, verify `checkpoints mounted: N` in its log — and the click is not.
-Budget for it: a run that nobody clicks is a run that scored nothing.
+Everything up to that point is scriptable — push the kernel, wait for COMPLETE,
+verify `checkpoints mounted: N` in its log — and the click is not. Budget for
+it: a run that nobody clicks is a run that scored nothing. Submitting the same
+notebook twice returns the same score and spends two of the five daily slots.
 
 ## 5. The next action
 
-**Standing system is unchanged: `v1public`, five folds, 0.923.** Nothing
-measured since has beaten it. `v1pubpool` (per-finding pooling) was queued on
-the rig's recommendation and **dropped at folds 0-1** by E054's pre-registered
-rule — see E057. `v1publicB` (a second seed) is generated but never pushed;
-its lineage is still in the manifest.
+**Wait for `knee-train-v1pubfull-s4/5/6/7`, then push
+`kaggle/63_infer_v1pubfull5` and click submit.** Five full-fit members and
+nothing else — the data lever at full weight instead of the sixth-weight
+mixture E064 priced at +0.001. Check with:
 
-**0.94 needs +0.017.** `PATH.md` §4 says that means no finding below ~0.870.
-After E044 only **Synovitis (0.779)** is below 0.80; eight of twelve clear 0.870.
+```bash
+for k in s4 s5 s6 s7; do kaggle kernels status achelijndiamantidis/knee-train-v1pubfull-$k; done
+bash eda/preflight.sh && kaggle kernels push -p kaggle/63_infer_v1pubfull5
+```
 
-Two untried routes, both cheap:
+Each must log `FULL FIT: train 4,407 (every study)` and emit
+`checkpoint_foldall.pt` with **no gold dump** — a model trained on all 58 gold
+studies must never produce a file `pool_gold_oof.py` can glob.
 
-1. **CC0 public weights, ~0.9 GPU-h.** E042 measured that system's OOF at
-   **0.8576** standalone on our 58; E043 cleared the licensing — the fold
-   checkpoints are **CC0-1.0** in `mattiaangeli/knee-mri-fold-weights` and
-   `pilkwang/rsna-knee-weights`. Pull from those public datasets, **never** from
-   `tonylica/…repro-assets` (a private consolidation with `not-declared` files).
-   Needs a new inference kernel wired in `src/pipeline.py`.
-2. **Blend that system with this one.** E042 measured +0.0046 against the
-   *0.846* system, not separated — but this system is 0.107 stronger, so the
-   blend is worth re-measuring on gold before spending a submission.
+If the five-member full fit does not beat 0.924, **the data lever is spent** and
+`PATH.md` §2.2 (the weekly label-set survey) is all that remains with a
+board-measured coefficient behind it.
 
-**Not worth quota**: the stale `v1fused` retrain (folds 2–4 on old labels),
-superseded twice over.
-
-**Still unseparated (E044)**: better labels and ~53% more supervised slots
-arrived together. A masked-coverage run (~7 GPU-h) would tell them apart. It is
-a question about *why*, not a route to a higher score.
+**Do not spend GPU on architecture of any kind.** The instrument that made those
+ideas look promising is retired, and every board-level architecture test
+returned zero or negative.
 
 ## 6. What the CPU rig has already settled
 
@@ -160,6 +184,8 @@ Answers as of E053, all paired one-variable A/Bs scored out-of-fold on the 58:
 | do per-finding attention maps help | rig says **+0.035**, replicated three times. Fine-tuned gave −0.0338 — but a **pure reseed gives −0.0284** (E060), so that was seed noise. **Unmeasured, not negative.** |
 | does focal top-k pooling help | +0.0163 [−0.001, +0.035] alone, −0.0075 on top of pooling (E056) — **rig-only, and the rig is not trusted on heads** |
 | does slice position help | +0.0035 [−0.017, +0.025] — rig-only. Separately: the model is *exactly* permutation-invariant over slices (E050), which is arithmetic and does hold. |
+
+| do auxiliary report targets help | **no**, against their own shuffled control: −0.0050 then +0.0060 across two lexicons, sign flipping, neither separated (E063). Note the rig freezes the trunk, which is what auxiliary supervision is supposed to shape — so it is a weak instrument for this one, and E062 should have said so first. |
 
 **READ E060 FIRST — IT CORRECTS E057 AND E058.**
 
@@ -210,15 +236,24 @@ read it before comparing two numbers.
 
 ## 7. The standing rule
 
-This project has overturned **six** of its own confident claims, and every one
+This project has overturned **eight** of its own confident claims, and every one
 was caught by a measurement rather than by reasoning. The recurring shape is a
 small number of observations read as a trend, or a number measured as a
-*ceiling* and later used as a *gain* — E030 is the most recent instance.
+*ceiling* and later used as a *gain*.
 
 So: every comparison is one-variable by construction, a test asserts it, and a
 claim carries the interval it was measured with. **A negative carries its
-interval width too, or it is not a negative** — E053 is the seventh overturned
-claim and the second where an effect the instrument could not resolve was
-written down as an effect that was not there. `docs/FINDINGS.md` tags every
-claim `VERIFIED` / `UNVERIFIED` / `CONTRADICTED` / `CORRECTED`; `EXPERIMENTS.md`
-is append-only and a run with no entry did not happen.
+interval width too, plus a control arm.** E057 carried its interval and was
+still wrong, because it had no control arm — a pure reseed reproduced its entire
+"effect" (E060).
+
+**Pre-register the acceptance rule before the data arrives.** E054 did it and it
+worked; E062 did it and the answer came back null, which is what a
+pre-registration is for. E062 also shows the failure mode to avoid next time: it
+picked an instrument (the frozen rig) that is structurally blind to the
+mechanism it was testing, and only noticed afterwards. **Say what the instrument
+cannot see, before running it, not after.**
+
+`docs/FINDINGS.md` tags every claim `VERIFIED` / `UNVERIFIED` / `CONTRADICTED` /
+`CORRECTED`; `EXPERIMENTS.md` is append-only, E001 through E064, and a run with
+no entry did not happen.

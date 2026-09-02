@@ -5,7 +5,7 @@ kernels and 62 tagged claims, and the single most expensive mistakes in it came
 from **treating a weakly-known number as a well-known one**. So the organising
 axis here is not topic. It is *evidence strength*.
 
-Last updated 2026-08-29 (E045).
+Last updated 2026-09-02 (E064).
 
 ---
 
@@ -22,14 +22,24 @@ Last updated 2026-08-29 (E045).
 | imaging, 288px, effective batch 16 | 0.688 | the confound corrected; still behind 192px |
 | imaging, 192px, 5-fold, lexicon labels | 0.757 | the control (E036) |
 | imaging, 192px, 5-fold, FUSED labels | 0.846 | E034 |
-| **imaging, 192px, 5-fold, PUBLIC CC0 labels** | **0.923** | **the standing result** (E045) |
+| imaging, 192px, 5-fold, PUBLIC CC0 labels | 0.923 | E045 |
+| 5-fold PUBLIC + 5 reseeded folds (10 members) | 0.923 | **a second seed buys nothing** (E064) |
+| **5-fold PUBLIC + one FULL-FIT member** | **0.924** | **the standing result** (E064) |
 
-**The jump decomposes on ground truth: ensembling +0.032, labels +0.089.**
-Labels are the dominant lever by 3:1 (E036).
+**The whole +0.199 decomposes on ground truth:** own fused labels **+0.089**,
+public CC0 labels **+0.077**, ensembling **+0.032**, full fit (as one member in
+six) +0.001, **architecture 0.000 every time it has been measured**. Labels and
+data are +0.166 of +0.199.
 
-**Leaderboard position: 0.923**, up from 0.846 on 2026-08-29 and from 0.725 on
-2026-08-22. **This clears the top-200 cut of 0.917.** Field top 0.952;
-top-200 cut 0.917.
+**Leaderboard position: 0.924**, up from 0.923 on 2026-09-02, 0.846 on
+2026-08-29 and 0.725 on 2026-08-22. **This clears the top-200 cut of 0.917.**
+Field top 0.952.
+
+**Two board results closed levers rather than opening them.** Ten members scored
+exactly what five did, so E036's +0.032 for one fold → five was the end of the
+ensembling lever and not the first term of a series. The full fit moved +0.001
+at a sixth of the weight, which is a direction and not a size; `v1pubfull5`
+measures it at full weight.
 
 **Gold OOF is not a calibrated predictor of the board.** E026 measured the
 offset at +0.005 on one model and concluded no correction was needed; the second

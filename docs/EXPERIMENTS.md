@@ -3181,3 +3181,86 @@ It cannot see whether the model's predictions are *diverse* from the labels in a
 way that helps on the other 4,349 studies, which is most of what a distillation
 teacher does. So a null here is weaker evidence than a positive, and it will be
 recorded that way rather than as "distillation does not work".
+
+
+### E066 — what the field actually does, and a CC0 ConvNeXt family screened out for one download
+- **date**: 2026-09-02. CPU only, no quota, no submission.
+- **why**: 0.945 needs +0.021 and nothing on this project's books covers it, so
+  the public assets were read properly rather than assumed closed by E046.
+
+**What the top of the leaderboard is made of**, from the public notebooks
+themselves rather than from inference:
+
+| notebook | what it is |
+|---|---|
+| `tonylica/rsna-knee-dino-radimagenet-rank-ensemble` | rank blend built on Angeli's 0.917, mounting **pilkwang's twenty checkpoints** plus RadImageNet heads |
+| `nishantkharga/…4-arm-ensemble-v55` | DINOv2 ViT-S (0.899) + cross-series attention + RadImageNet E10/E13/V18 + CoAtNet |
+| `aadigupta7686/0-899-let-me-cook` | DINOv2 members, per-finding window pooling, optional EfficientNet-B3 blend |
+| `mattiaangeli/bend-the-knee-to-dinov3-ensembled` | the DINOv3 lineage most of the above descend from |
+
+  Every one credits other competitors by name. **This is a pooled-community
+  compute route, not a single-team one**, and the rules permit it: *"It's okay
+  to share code if made available to all Participants on the forums."*
+
+**The public geometry is not ours.** `tonylica`'s constants: `SIZE = 336`,
+`CROP_MM = 130`, `N_SLICE = 16`, `SLICE_BAND = (0.12, 0.88)`, DINOv2 ViT-S/14,
+ImageNet normalisation. This project runs 192px, 20 slices × 3 planes,
+resnet34. So a foreign checkpoint cannot be fed from our cache at all — pricing
+one means **rebuilding the cache at its geometry first**, which is hours before
+a single number exists.
+
+- **and Angeli warns their own notebook is overfit to the public board.** In
+  their words: forks republished with one or two parameter tweaks chased
+  movements of **0.001–0.003**, and they followed those movements too. **That is
+  the band our own +0.001 full-fit reading sits in** (E064), and it is a reason
+  to treat the public top of 0.952 as partly public-LB fitting rather than as a
+  target with 0.028 of real headroom above us.
+
+**The licensing, re-checked per E043's rule:**
+
+| dataset | licence | verdict |
+|---|---|---|
+| `shingo257/rsna-knee-trained-checkpoints-v1` | **CC0-1.0** | usable |
+| `mattiaangeli/knee-mri-fold-weights` | CC0-1.0 | usable, already priced (E042) |
+| `pilkwang/rsna-knee-weights` | CC0-1.0 | usable, already priced (E042) |
+| `mattiaangeli/rsna-knee-cnx-m448-f0-public` | **other** | **excluded** despite shipping complete geometry and model code |
+
+**The new CC0 family screened out for the price of one download.** shingo257's
+five ConvNeXt-Small checkpoints appeared 2026-09-01 and are **self-describing** —
+each stores its backbone, geometry and the author's own gold AUC beside the
+weights:
+
+| fold | backbone | px | slices | their `auc_gold` |
+|---|---|---:|---:|---:|
+| 0 | convnext_small | 224 | 12 | 0.8677 |
+| 1 | convnext_small | 224 | 12 | 0.8102 |
+| 2 | convnext_small | 224 | 12 | 0.7331 |
+| 3 | convnext_small | 224 | 12 | 0.7448 |
+| 4 | convnext_small | 224 | 12 | 0.8611 |
+| | | | **mean** | **0.8034** |
+
+**0.0443 behind our per-fold 0.8477** — outside E048's comparability band and
+squarely in the 0.03–0.06 range where four consecutive unions paid nothing.
+**Do not build the 224px cache and do not mount this family.**
+
+- **fold 0 alone would have said the opposite.** At 0.8677 it is +0.020 *ahead*
+  of our per-fold 0.8477 and would have looked like the first public family
+  worth blending. It is the best of five and the spread runs to 0.733. A
+  one-fold read of a five-fold family is the same error E012–E019 made four
+  times with n=1 board points, and the screen only avoided it by reading all
+  five.
+- **the comparator matters as much as the number.** Judged against our *pooled*
+  0.8980 the gap would read 0.095; judged per-fold it is 0.044. The pooled
+  comparison would have been wrong by the entire width of the ensembling
+  effect — a single foreign fold must be compared against a single fold of ours.
+  `eda/survey_public_checkpoints.py` defaults to per-fold and a test asserts the
+  two comparators are further apart than the band itself.
+- **what it cost**: five downloads, no inference, no GPU, no cache. What it
+  saved: a 224px cache build plus the runs to price a family the file itself
+  said was behind. E039's rule working as intended — the probe was free and the
+  job it screened was not.
+- **the screen is now a script**, so `PATH.md` route 3 is a command rather than
+  a chore: `python eda/survey_public_checkpoints.py --checkpoints <*.pt>`. Every
+  line it prints is labelled self-reported, because it is the author's number on
+  the author's split and may include gold studies their model trained on. It
+  decides whether to build our own measurement and nothing else.

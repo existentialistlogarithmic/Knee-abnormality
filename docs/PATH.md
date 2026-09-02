@@ -94,6 +94,20 @@ new sets in five days; E062's survey on 2026-09-02 found none since. Check
 search Kaggle datasets for "rsna knee", "rsna knee labels", "knee report
 labels", sorted by update time.
 
+**The screen is now a script**, and it runs before anything is mounted:
+
+```bash
+python eda/survey_public_checkpoints.py --checkpoints artifacts/public/*.pt
+```
+
+Many shared checkpoints are self-describing — shingo257's ConvNeXt family stores
+its backbone, geometry and the author's own gold AUC beside the weights — so a
+family can often be screened for the price of a download, with no inference, no
+cache and no GPU (E066). Compare a foreign **single fold** against our
+**per-fold 0.8477**, never against the pooled 0.8980: the pooled comparison is
+wrong by the entire width of the ensembling effect. And read every fold — fold 0
+of that family reads 0.8677 and the mean is 0.8034.
+
 **Score any candidate against the 58 gold first.** Two sets score 1.0000 because
 they *contain the answer key* (E047), which makes them unevaluable rather than
 good. The incumbent scores 0.8927, which is why its measurement means what it
@@ -120,7 +134,8 @@ a future session does not re-derive them as ideas:
 |---|---|
 | auxiliary report targets | **null against its own control**, twice, sign flipping (E063) |
 | more seeds of the 5-fold config | **closed by E064** — ten members scored 0.923, exactly the five |
-| borrowing public weights | **closed by E046** — this system overtook the one it was borrowing from |
+| borrowing public weights | **closed by E046** for the family it priced; re-opened as a question by E066 and closed again for shingo257's CC0 ConvNeXt family at 0.8034 vs our 0.8477 |
+| `mattiaangeli/rsna-knee-cnx-m448-f0-public` | licensed **`other`**, so excluded by E043's rule despite shipping complete geometry and model code |
 | blending anything with anything | three attempts: +0.0046, +0.0022, +0.0036, none separated |
 | a Synovitis reader | **closed by E059** — only 13 of 27 true cases are written about at all; a perfect reader caps at 0.8076 and the model already scores 0.790 |
 | DINOv2 as a second family | −0.035 and −0.148 on two folds (E051) |

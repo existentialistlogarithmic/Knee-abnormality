@@ -670,7 +670,17 @@ def main() -> int:
     # n=58 out-of-fold evaluation rather than averaging five tiny AUCs.
     val_studies = [studies[i] for i in val_idx]
     gold_positions = [pos for pos, i in enumerate(val_idx) if is_gold[i]]
-    print(f"gold studies held out in this fold: {len(gold_positions)}")
+    # In full-fit mode NOTHING is held out — val_idx is the monitor set and it
+    # is inside training. Printing "held out: 12" next to a per-epoch gold
+    # column that climbs to 0.99 invites exactly the misreading this project
+    # has made most often: a number that is not a score, read as one. E064's
+    # full-fit member had to be explained twice for the same reason.
+    if full_fit:
+        print(f"gold studies in the monitor set: {len(gold_positions)} "
+              "— IN TRAINING, held out from nothing. Any gold figure below is "
+              "memorisation, not a score.")
+    else:
+        print(f"gold studies held out in this fold: {len(gold_positions)}")
 
     out_dir = Path(args.out)
     # "foldall" rather than "fold-1" on purpose. Inference globs

@@ -3316,3 +3316,49 @@ kernel, in either direction.
   than five members — and click submit. Nothing else in this lineage is
   actionable until then. **CPU work is unaffected**: `knee-oof-v1pub` is still
   running on the separate CPU allowance and E065's gate does not touch GPU.
+
+
+### E068 — both new full-fit members ran as specified, and their logs say something they should not
+- **date**: 2026-09-02. Verification only, no new compute.
+- **`knee-train-v1pubfull-s4` and `-s6` are COMPLETE and correct**, confirmed
+  from their logs rather than from their status:
+
+      seeded: 4                    seeded: 6
+      FULL FIT: train 4,407 (every study)  monitor 882 (IN TRAINING)
+      export fixed at epoch 20; no early stopping
+      full-fit export taken at epoch 20
+
+  Both emitted `checkpoint_foldall.pt` and `history_foldall.json` and **neither
+  emitted a gold dump** — the safety property that matters, since a model
+  trained on all 58 gold studies must never produce a file `pool_gold_oof.py`
+  can glob. All three guards fired on both runs.
+
+- **the full-fit lineage is 3 of 5**: seeds 3 (E061), 4 and 6. Seed 5 died on an
+  ECC fault and seed 7 was never pushed; both wait on the quota reset (E067).
+
+**What the logs say that they should not.** Both runs printed:
+
+      gold studies held out in this fold: 12
+      ...
+      epoch 23  val macro AUC 0.9543  gold 0.9976
+
+Every line there is produced by correct code, and read together they describe a
+**held-out gold score of 0.9976**, which does not exist. In full-fit mode
+`val_idx` is a monitor set *inside* training: nothing is held out, and that gold
+column is memorisation. It climbs from 0.64 to 0.99 precisely because the model
+is being shown those studies with `GOLD_WEIGHT=8.0`.
+
+This is the most repeated error in this log — a number that is not a score,
+read as one. It caught E027 (a ceiling used as a gain), E052 (an instrument
+change read as a teacher change) and E047 (an answer key read as accuracy). E064
+already had to explain the full-fit member's unscoreability twice for the same
+reason. So the full-fit path now prints what the number *is*:
+
+      gold studies in the monitor set: 12 — IN TRAINING, held out from nothing.
+      Any gold figure below is memorisation, not a score.
+
+A fold run still says "held out in this fold", because there it is true. A test
+asserts both branches.
+
+- **nothing measured here changes.** The two checkpoints are unaffected; this is
+  a change to what the next reader is told about them.

@@ -869,3 +869,22 @@ def test_the_full_fit_submission_changes_exactly_one_thing():
     # and it must not quietly pull in the second seed as well
     other = next(x for x in pipeline.LINEAGES if x.name == "v1publicB")
     assert not ({t.slug for t in other.trainers} & set(six.depends))
+
+
+def test_full_fit_never_calls_its_monitor_set_held_out():
+    """A full-fit model holds out nothing, and its gold column is memorisation.
+
+    The seed-4 and seed-6 runs printed "gold studies held out in this fold: 12"
+    beside a gold figure climbing to 0.9976. Both statements are produced by
+    correct code and read together they describe a held-out score of 0.9976,
+    which does not exist. A number that is not a score being read as one is the
+    single most repeated error in this project's log, so the full-fit path says
+    what the number is instead.
+    """
+    source = (KAGGLE / "59_train_v1pubfull_s4" / "run.py").read_text()
+    assert "gold studies in the monitor set" in source
+    assert "IN TRAINING, held out from nothing" in source
+    assert "memorisation, not a score" in source
+    # and a fold run must keep saying "held out", because it truly is
+    fold = (KAGGLE / "37_train_v1pub_fold0" / "run.py").read_text()
+    assert "gold studies held out in this fold" in fold

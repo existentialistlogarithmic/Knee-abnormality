@@ -2943,3 +2943,73 @@ E041's +0.114 was a real comparison and this one cannot be.
   full-fit-only ensemble — the real version of the lever. One member is a probe
   of a data change worth ~25% more training data per model, and all 58 expert
   studies instead of ~46.
+
+
+### E062 — PRE-REGISTRATION: auxiliary report targets, and the control that decides them
+- **date**: 2026-09-02. CPU only, no quota. **Written before the numbers
+  existed**, which is the point of it (E054 did this and it worked; E057 did not
+  and was overturned by E060).
+- **the survey first, because it is free and it is the lever that pays.** Kaggle
+  datasets re-surveyed on 2026-09-02, five days after E047: `stevenleehans`,
+  `pilkwang`, `tasmeemreza`, `shingo257`, `mattiaangeli`, plus searches for
+  "rsna knee", "rsna knee labels" and "knee report labels" sorted by update
+  time. **No label set has appeared since E047.** The newest label-shaped
+  datasets are still `tasmeemreza/rsna-knee-refined-llm-labels` (2026-08-30)
+  and `shingo257/rsna-knee-calibrated-labels-v1` (2026-08-26), both already
+  measured and both unevaluable because they contain the answer key. New
+  *weights* did appear — `shingo257/rsna-knee-trained-checkpoints-v1`
+  (2026-09-01) and `mattiaangeli/rsna-knee-cnx-m448-f0-public` (2026-08-31) —
+  but E046 closed that route: this project's own system overtook the public one
+  it was borrowing from, and three blend attempts returned +0.0046, +0.0022 and
+  +0.0036, none separated.
+- **so the target lever, which is untried.** The reports describe far more than
+  the twelve scored findings, and none of it is currently taught. Measured over
+  all 4,407 training reports, share mentioning each candidate:
+
+| auxiliary finding | mentioned | supervised after cues | positive | negated |
+|---|---:|---:|---:|---:|
+| Chondral | 61.7% | 60.0% | 44.2% | 13.2% |
+| PCL | 49.2% | 51.1% | 20.3% | 30.2% |
+| PatellarTendon | 45.7% | 38.2% | 20.0% | 14.6% |
+| LCL | 39.1% | 40.0% | 17.6% | 21.9% |
+| Hoffa | 22.0% | 22.1% | 10.6% | 10.2% |
+| Enthesopathy | 21.4% | 21.4% | 13.3% | 7.6% |
+| BoneEdema | 14.0% | 19.7% | 13.2% | 4.3% |
+| Bursitis | 14.2% | 14.2% | 10.9% | 0.4% |
+| Extrusion | 11.3% | 11.5% | 8.7% | 1.2% |
+| PatellarTracking | 10.2% | 10.6% | 2.4% | 7.6% |
+| Ganglion | — | 8.6% | 7.2% | 0.5% |
+| MuscleEdema | 8.5% | 8.1% | 0.7% | 7.2% |
+| Plica | 7.2% | 6.8% | 6.2% | 0.3% |
+
+  For scale, Effusion — the best-written *scored* finding — is mentioned in
+  90.4% of reports and Synovitis in 23.6% (E059). Six of these thirteen are
+  written about more often than Synovitis is. **13,765 further supervised
+  study × finding slots, a +26% change in total supervision**, all of it
+  currently discarded.
+- **how they are built, and why it is one variable.** `src/lexicons/auxiliary.csv`
+  is 326 terms over thirteen concepts and ten languages, 62% of them measured
+  present in the corpus. `src/report_labeler.py` reads it through the **same**
+  matcher, window and `cues.csv` as `findings.csv` — so the auxiliary targets
+  differ from the scored twelve in vocabulary and in nothing else. They are
+  training targets only: extra output rows on a shared trunk, dropped at
+  inference, never submitted, never scored against the 58.
+- **the trap, stated before falling into it.** Adding auxiliary outputs changes
+  *two* things: the head gains thirteen output rows, and those rows carry real
+  report content. This rig over-values head capacity — E058 found it and E060
+  left that part standing — so `auxiliary − baseline` confounds the two and
+  cannot decide anything.
+- **the deciding arm is a shuffled control.** Identical head, identical thirteen
+  extra rows, identical marginal target distribution, but the auxiliary block
+  permuted across studies so it says nothing about the images in front of it.
+  Capacity is then held fixed and the one remaining variable is whether the
+  auxiliary reports carry information. This is the control arm E057 lacked.
+
+**PRE-REGISTERED ACCEPTANCE RULE.** Spend GPU on a `v1pubaux` lineage only if
+**both** hold:
+
+1. `auxiliary − shuffled` separates from zero at 95% on the paired bootstrap, and
+2. its point estimate is at least **+0.02**.
+
+Anything smaller is inside the ±0.03 fine-tuned noise floor E060 measured and
+cannot survive the trip to the board. `--seeds 4`, per E052. Result in E063.

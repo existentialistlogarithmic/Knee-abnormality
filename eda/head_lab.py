@@ -57,7 +57,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.report_schema import FINDINGS  # noqa: E402
+from src.report_schema import AUXILIARY_FINDINGS, FINDINGS  # noqa: E402
 
 BOOTSTRAP = 2000
 
@@ -87,12 +87,19 @@ def macro(expert, score):
     return float(np.mean(values)) if values else float("nan")
 
 
-def build_head(channels, focal_k, per_finding, seed, positional=0):
+def build_head(channels, focal_k, per_finding, seed, positional=0, n_aux=0):
+    """`n_aux` extra output rows for auxiliary report targets.
+
+    They share the trunk, the attention and — when `per_finding` is off — the
+    single pooled vector, so the only thing they add to the scored twelve is
+    gradient. At scoring time the first twelve columns are read and the rest
+    discarded, which is exactly what the GPU trainer would do at inference.
+    """
     import torch
     import torch.nn as nn
 
     torch.manual_seed(seed)
-    n_out = len(FINDINGS)
+    n_out = len(FINDINGS) + n_aux
 
     class Head(nn.Module):
         def __init__(self):
@@ -147,7 +154,7 @@ def build_head(channels, focal_k, per_finding, seed, positional=0):
 
 def run_config(embeddings, targets, masks, expert, is_gold, splits, *,
                focal_k, per_finding, epochs, batch, lr, seed, label,
-               positional=0, seeds=1):
+               positional=0, seeds=1, n_aux=0):
     """Five folds, averaged over `seeds` restarts. Out-of-fold for every study.
 
     Averaging restarts is not a nicety. Measured on the focal top-k A/B against
@@ -166,15 +173,19 @@ def run_config(embeddings, targets, masks, expert, is_gold, splits, *,
 
     torch.set_num_threads(4)
     channels = embeddings.shape[2]
-    accumulated = np.zeros((len(targets), len(FINDINGS)), np.float64)
+    width = len(FINDINGS) + n_aux
+    if targets.shape[1] != width:
+        raise ValueError(f"{label}: targets are {targets.shape[1]} wide, head is {width}")
+    accumulated = np.zeros((len(targets), width), np.float64)
     counts = np.zeros((len(targets), 1), np.float64)
     started = time.time()
 
     for restart in range(seeds):
       run_seed = seed + restart * 100
-      out_of_fold = np.full((len(targets), len(FINDINGS)), np.nan, np.float32)
+      out_of_fold = np.full((len(targets), width), np.nan, np.float32)
       for fold, (train_idx, val_idx) in enumerate(splits):
-        head = build_head(channels, focal_k, per_finding, run_seed + fold, positional)
+        head = build_head(channels, focal_k, per_finding, run_seed + fold, positional,
+                          n_aux=n_aux)
         optimiser = torch.optim.AdamW(head.parameters(), lr=lr, weight_decay=1e-4)
         criterion = nn.BCEWithLogitsLoss(reduction="none")
         order = np.array(train_idx)
@@ -203,6 +214,9 @@ def run_config(embeddings, targets, masks, expert, is_gold, splits, *,
 
     out_of_fold = np.divide(accumulated, counts, out=np.full_like(accumulated, np.nan),
                             where=counts > 0).astype(np.float32)
+    # auxiliary columns are dropped here, exactly as the trainer drops them at
+    # inference: they are supervision, never a prediction anyone reads
+    out_of_fold = out_of_fold[:, :len(FINDINGS)]
     gold = is_gold & ~np.isnan(out_of_fold[:, 0])
     score = macro(expert[gold], out_of_fold[gold])
     print(f"  {label:28s} gold n={int(gold.sum())}  macro {score:.4f}  "
@@ -238,8 +252,10 @@ def main(argv=None) -> int:
     parser.add_argument("--train", default="data/train.csv")
     parser.add_argument("--compare",
                         choices=["focal", "pool", "labels", "position", "stack",
-                                 "all"],
+                                 "auxiliary", "all"],
                         default="all")
+    parser.add_argument("--auxiliary",
+                        default="artifacts/auxiliary/auxiliary_labels.parquet")
     parser.add_argument("--epochs", type=int, default=24)
     parser.add_argument("--batch", type=int, default=64)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -338,6 +354,59 @@ def main(argv=None) -> int:
                           focal_k=0, per_finding=True,
                           label="pooling alone", **common)
         paired("pooling+focal", a, "pooling      ", b, expert, gold)
+
+    if args.compare in ("auxiliary", "all") and Path(args.auxiliary).exists():
+        # PRE-REGISTERED 2026-09-02, before the numbers existed (E054's rule).
+        #
+        # Adding auxiliary outputs changes TWO things at once: the head gains
+        # thirteen output rows, and those rows carry real report content. This
+        # rig is known to over-value head capacity — that is E058's finding and
+        # E060 left it standing — so "auxiliary − baseline" cannot decide
+        # anything on its own, and is reported here as description only.
+        #
+        # The deciding arm is the CONTROL: identical head, identical thirteen
+        # extra rows, identical marginal target distribution, but the auxiliary
+        # block permuted across studies so it says nothing about the images in
+        # front of it. Capacity is then held fixed and the single remaining
+        # variable is whether the auxiliary reports carry information.
+        #
+        # ACT (spend GPU on a v1pubaux lineage) only if BOTH hold:
+        #   1. auxiliary − shuffled separates from zero at 95%, and
+        #   2. its point estimate is at least +0.02.
+        # Anything less is inside the +-0.03 fine-tuned noise floor E060
+        # measured and cannot survive the trip to the board.
+        print("\n=== auxiliary report targets, against a shuffled control ===")
+        aux = pd.read_parquet(args.auxiliary).set_index("StudyInstanceUID")
+        aux = aux.reindex(studies)
+        aux_t = np.nan_to_num(aux[AUXILIARY_FINDINGS].to_numpy(np.float32), nan=0.0)
+        aux_m = np.column_stack(
+            [(aux[f"{f}__channel"] != "absent").to_numpy(np.float32)
+             for f in AUXILIARY_FINDINGS])
+        print(f"  {len(AUXILIARY_FINDINGS)} auxiliary findings, "
+              f"{aux_m.mean():.1%} of their slots supervised")
+
+        # one permutation, drawn once and reused, so the control arm is a fixed
+        # comparator rather than a fresh random draw per restart
+        shuffle = np.random.default_rng(args.seed).permutation(len(studies))
+        arms = {
+            "auxiliary": (np.hstack([base_t, aux_t]), np.hstack([base_m, aux_m])),
+            "shuffled ": (np.hstack([base_t, aux_t[shuffle]]),
+                          np.hstack([base_m, aux_m[shuffle]])),
+        }
+        a, gold = run_config(embeddings, *arms["auxiliary"], expert, is_gold, splits,
+                             focal_k=0, per_finding=False,
+                             n_aux=len(AUXILIARY_FINDINGS),
+                             label="auxiliary targets", **common)
+        c, _ = run_config(embeddings, *arms["shuffled "], expert, is_gold, splits,
+                          focal_k=0, per_finding=False,
+                          n_aux=len(AUXILIARY_FINDINGS),
+                          label="shuffled control", **common)
+        b, _ = run_config(embeddings, base_t, base_m, expert, is_gold, splits,
+                          focal_k=0, per_finding=False, label="baseline", **common)
+        print("\n  DECIDING ARM — capacity held fixed, information is the variable:")
+        paired("auxiliary", a, "shuffled ", c, expert, gold)
+        print("\n  description only — confounds information with head capacity:")
+        paired("auxiliary", a, "baseline ", b, expert, gold)
 
     if args.compare in ("labels", "all") and Path(args.fused).exists():
         print("\n=== fused labels versus lexicon labels, one variable ===")

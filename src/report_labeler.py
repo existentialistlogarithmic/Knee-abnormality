@@ -106,10 +106,19 @@ class ReportLabeler:
     stays a clean test set.
     """
 
-    def __init__(self, lexicon_dir: Path = LEXICON_DIR, fallback_language: str = "en"):
+    def __init__(self, lexicon_dir: Path = LEXICON_DIR, fallback_language: str = "en",
+                 findings_file: str = "findings.csv"):
+        """`findings_file` selects the target vocabulary; the cues are shared.
+
+        `auxiliary.csv` holds structures the reports describe that the
+        competition does not score. Reading it through this same class is
+        deliberate: the auxiliary targets are then produced by the identical
+        matcher, window and cue ladder as the scored twelve, so "auxiliary
+        targets added" is one variable rather than a second labeler.
+        """
         self.fallback_language = fallback_language
 
-        terms = _read_lexicon(lexicon_dir / "findings.csv")
+        terms = _read_lexicon(lexicon_dir / findings_file)
         self.findings = sorted({row["finding"] for row in terms})
         # finding -> language -> compiled alternation
         self._terms: dict[str, dict[str, re.Pattern]] = defaultdict(dict)

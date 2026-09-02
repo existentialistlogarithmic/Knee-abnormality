@@ -40,7 +40,10 @@ package is installed. Check `which kaggle` instead.
 ## 3. Where the work stands
 
 **0.924 on the leaderboard** as of 2026-09-02 (E064), up from 0.923, 0.846 and
-0.725. **This clears the top-200 cut of 0.917.** Field top 0.952, 1,866 teams,
+0.725. **Rank #866 of the field as measured on 2026-09-02 (E070)** — the
+"clears the top-200 cut" line this file used to carry was read on 2026-08-18
+and is stale. 851 teams are above us and **477 sit at exactly 0.936**, one
+forked public notebook. Field top 0.952, 1,866 teams,
 final submission 2026-10-22.
 
 The standing system is `v1public` + one full-fit member: resnet34 2.5D at 192px,

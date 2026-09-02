@@ -3445,3 +3445,55 @@ have shown.
   labels replaced the fused ones.
 - **it cannot run yet.** The weekly GPU quota is spent (E067) and resets
   ~2026-09-05. ~7.5 GPU-h, then one submission.
+
+
+### E070 — CORRECTION: 0.924 is rank #866, not "clears the top-200 cut"
+- **date**: 2026-09-02. Read from the live leaderboard, 1,200 teams paged.
+- **`STATUS.md`, `PATH.md`, `HANDOFF.md` and `FINDINGS.md` §5.4 all say 0.917
+  enters the top 200.** That was read on 2026-08-18 and it is now false. The
+  field moved; the claim did not.
+
+| | measured 2026-09-02 |
+|---|---|
+| **our position** | **rank #866 at 0.924** |
+| teams strictly above us | **851** |
+| rank 100 | 0.939 |
+| rank 300 | 0.936 |
+| rank 600 | 0.936 |
+| rank 900 | 0.923 |
+
+**477 teams score exactly 0.936.** That is not 477 independent systems; it is
+one public notebook, forked. The single largest fact about this leaderboard is
+that **the free public baseline is 0.936 and this project's independently built
+system is 0.012 behind it.**
+
+| score | teams |
+|---|---:|
+| 0.952 | 1 |
+| 0.947 | 11 |
+| 0.937 | 37 |
+| **0.936** | **477** |
+| 0.935 | 69 |
+| 0.924 (ours) | 46 |
+
+- **none of the top thirteen teams publish anything.** All 190 authors with a
+  public notebook for this competition were cross-referenced against the
+  leaderboard down to 0.947: no match. The strongest public authors sit far
+  lower — Tony Li, whose rank ensemble E066 read, is **#135 at 0.937**. So the
+  public notebooks are a tier, not the frontier, and the frontier is private.
+- **what this changes.** E046 closed the borrowing route on the finding that
+  "this system overtook the one it was borrowing from". That was measured
+  against the 0.917-era family and is **stale**: the public plateau is now
+  0.936. No internal lever left closes +0.012 — full fit at full weight is
+  ~+0.005 optimistically and E069's distilled teacher is unpriced on the board.
+- **what it does not change.** E066's screen still rejects shingo257's ConvNeXt
+  family on its own numbers, and the caution about public-LB overfitting is now
+  stronger, not weaker: 477 teams tied at one score, and the notebook's own
+  author warning that forks chased movements of 0.001–0.003, together mean the
+  public ranking is substantially a fitting artifact and the private
+  leaderboard will reshuffle it.
+- **the process failure worth naming.** This project's standing rule is that a
+  claim carries the interval it was measured with. It has no rule about a claim
+  carrying the DATE it was measured on, and a leaderboard position decays faster
+  than any other number in this log. Every board-position claim in the docs now
+  carries its measurement date.

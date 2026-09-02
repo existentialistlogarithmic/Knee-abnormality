@@ -4,6 +4,12 @@ Standing: **0.924 on the leaderboard** (2026-09-02, E064 — five `v1public`
 folds plus one full-fit member), up from 0.923, 0.846 and 0.725.
 Leaderboard top **0.952**. 1,866 teams. Final submission **2026-10-22**.
 
+**Rank #866, measured 2026-09-02 (E070).** 851 teams are above us, and 477 of
+them sit at exactly 0.936 — one public notebook, forked. The free public
+baseline is 0.012 ahead of this project's independently built system, which
+makes E046's "we overtook what we were borrowing from" stale: it was measured
+against the 0.917-era family.
+
 Last rewritten 2026-09-02. The version before this one described the 0.846
 world and had gone two board jumps stale; if this header ever reads more than a
 week old, distrust the priorities below before distrusting the numbers.

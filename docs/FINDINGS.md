@@ -561,6 +561,10 @@ kind of detail that silently invalidates everything downstream.
 ## 8. Where the leaderboard actually sits — `VERIFIED`
 
 Read via `competition_leaderboard_view` on 2026-08-18, top 200 of 1,866 teams.
+**SUPERSEDED — see E070.** Re-measured 2026-09-02: 0.917 no longer enters the
+top 200, 0.924 is rank #866, and 477 teams tie at 0.936. A leaderboard
+position decays faster than any other number in this log, so every figure in
+this section is read as of its date and not as a standing fact.
 
 | score | approximate rank | percentile |
 |---:|---:|---|

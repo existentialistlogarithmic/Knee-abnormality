@@ -3264,3 +3264,55 @@ squarely in the 0.03–0.06 range where four consecutive unions paid nothing.
   line it prints is labelled self-reported, because it is the author's number on
   the author's split and may include gold studies their model trained on. It
   decides whether to build our own measurement and nothing else.
+
+
+### E067 — the weekly quota ran out mid-lineage, and it exposed a guard that was missing
+- **date**: 2026-09-02. The 30 h weekly GPU allowance is **spent**; it resets
+  ~2026-09-05.
+- **the full-fit lineage is 3 of 5, not 5 of 5:**
+
+| member | seed | state |
+|---|---:|---|
+| `knee-train-v1pubfull` | 3 | COMPLETE (E061) |
+| `knee-train-v1pubfull-s4` | 4 | **COMPLETE** |
+| `knee-train-v1pubfull-s6` | 6 | RUNNING |
+| `knee-train-v1pubfull-s5` | 5 | **ERROR** — uncorrectable ECC, 54 s in; re-push refused, quota spent |
+| `knee-train-v1pubfull-s7` | 7 | **never pushed** — quota spent |
+
+- **`eda/push_queue.sh` told the two refusals apart correctly**, which is the
+  first time that distinction has mattered in anger. It polled through repeated
+  `Maximum batch GPU session count` refusals — concurrency, waiting helps — and
+  stopped dead on `Maximum weekly GPU quota`, which waiting does not fix. The
+  ordering of those two `grep`s is load-bearing and now has a live case behind
+  it.
+
+**The guard that was missing.** `knee-infer-v1pubfull5` declares five members
+and mounts five training kernels. Two of those kernels now exist and hold **no
+checkpoint at all** — a kernel that errored and a kernel that never ran mount as
+*empty notebooks*, not as errors. The glob would have found three checkpoints,
+the ensemble would have run, and it would have produced a **valid submission for
+an experiment nobody declared**: a three-member full-fit ensemble scored against
+0.923 and read as though it were the five-member one. Unattributable the moment
+the number arrived, and every other check in the kernel would have passed.
+
+E061 verified `checkpoints mounted: 6` and `checkpoints mounted: 10` by reading
+the logs afterwards. **Reading a log is not a guard.** The count is now declared
+in the manifest and asserted in the kernel:
+
+    if MEMBERS_EXPECTED is not None and len(checkpoints) != MEMBERS_EXPECTED:
+        raise SystemExit(...)
+
+Lineage ensembles derive the count from the trainers they declare; the three
+cross-lineage ensembles in `EXTRAS` state theirs by hand (10, 6, 5). A test
+walks every inference kernel in the manifest and fails if a declared count and
+its mounted notebook count disagree — so the manifest cannot drift from the
+kernel, in either direction.
+
+- **what this cost**: ~1 minute of quota on the ECC failure and one unbuilt
+  member. What it bought: the failure mode arrived while nothing was riding on
+  it, rather than as an unexplainable board score in four days' time.
+- **next**: at the reset, push `s5` and `s7`, wait for COMPLETE, then push
+  `kaggle/63_infer_v1pubfull5` — which will now refuse to run at anything other
+  than five members — and click submit. Nothing else in this lineage is
+  actionable until then. **CPU work is unaffected**: `knee-oof-v1pub` is still
+  running on the separate CPU allowance and E065's gate does not touch GPU.

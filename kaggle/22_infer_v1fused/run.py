@@ -53,6 +53,7 @@ SLICES_PER_PLANE         = 20
 BATCH_STUDIES            = 4
 SLICE_SUBSAMPLE_EXPECTED = None
 INPUT_NORM_EXPECTED      = False
+MEMBERS_EXPECTED         = 5
 # --------------------------------------------------------------------------- #
 
 FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
@@ -434,6 +435,25 @@ def main() -> int:
         raise SystemExit("no checkpoints mounted (checkpoint_fold*.pt)")
     print(f"weights: {checkpoints[0].parent}")
     print(f"checkpoints mounted: {len(checkpoints)}")
+
+    # A member that never trained mounts as an EMPTY notebook, not as an error.
+    # The glob then finds fewer checkpoints, the ensemble runs, and it produces
+    # a perfectly valid submission for an experiment nobody declared — which is
+    # unattributable the moment its board score arrives.
+    #
+    # This is not hypothetical. On 2026-09-02 the weekly GPU quota ran out with
+    # two of five full-fit members unbuilt: one had died on an uncorrectable ECC
+    # error and one was never pushed. Every check up to here would have passed.
+    #
+    # E061 verified "checkpoints mounted: 10" and "6" by reading the log after
+    # the fact. Reading a log is not a guard, so the count is declared in the
+    # manifest and asserted here instead.
+    if MEMBERS_EXPECTED is not None and len(checkpoints) != MEMBERS_EXPECTED:
+        raise SystemExit(
+            f"expected {MEMBERS_EXPECTED} ensemble members, mounted "
+            f"{len(checkpoints)}: {[p.parent.parent.name for p in checkpoints]}. "
+            "Refusing to submit an ensemble that is not the one declared."
+        )
 
     # Averaging is only meaningful between models that were fed the same way.
     # Two properties are invisible in the weights and fatal if they differ:

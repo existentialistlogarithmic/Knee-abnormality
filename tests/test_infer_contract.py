@@ -401,3 +401,41 @@ def test_oof_dump_runs_without_a_gpu():
         (REPO_ROOT / "kaggle" / "64_oof_v1pub" / "kernel-metadata.json").read_text())
     assert metadata["enable_gpu"] is False
     assert metadata["enable_internet"] is False
+
+
+# --------------------------------------------------------------------------- #
+# an ensemble must be the ensemble that was declared
+# --------------------------------------------------------------------------- #
+def test_every_inference_kernel_declares_its_member_count():
+    """A member that never trained mounts as an EMPTY notebook, not an error.
+
+    The glob then finds fewer checkpoints, the ensemble runs, and it produces a
+    valid submission for an experiment nobody declared — unattributable the
+    moment its score arrives. On 2026-09-02 the weekly quota ran out with two of
+    five full-fit members unbuilt, and every other check would have passed.
+    """
+    import json
+    import sys
+    sys.path.insert(0, str(REPO_ROOT))
+    from src.pipeline import all_kernels
+
+    generated = [k for k in all_kernels() if k.template == "infer"]
+    assert generated, "no inference kernels in the manifest"
+    for kernel in generated:
+        directory = REPO_ROOT / "kaggle" / kernel.directory
+        source = (directory / "run.py").read_text()
+        assert "MEMBERS_EXPECTED" in source, directory.name
+        metadata = json.loads((directory / "kernel-metadata.json").read_text())
+        declared = re.search(r"^MEMBERS_EXPECTED\s*=\s*(\d+|None)", source, re.M)
+        assert declared, directory.name
+        if declared.group(1) != "None":
+            assert int(declared.group(1)) == len(metadata["kernel_sources"]), (
+                f"{directory.name}: declares {declared.group(1)} members but "
+                f"mounts {len(metadata['kernel_sources'])} notebooks"
+            )
+
+
+def test_the_guard_refuses_rather_than_warns():
+    """Printing a count is what E061 did, and reading a log is not a guard."""
+    source = _source(REPO_ROOT / "kaggle" / "63_infer_v1pubfull5" / "run.py")
+    assert "raise SystemExit(" in source.split("MEMBERS_EXPECTED is not None")[1][:400]

@@ -272,7 +272,11 @@ class Lineage:
                 constants={**self.geometry.constants(),
                            "BATCH_STUDIES": self.geometry.infer_batch,
                            "SLICE_SUBSAMPLE_EXPECTED": self.train.slice_subsample,
-                           "INPUT_NORM_EXPECTED": self.train.input_norm},
+                           "INPUT_NORM_EXPECTED": self.train.input_norm,
+                           # A lineage mounts every trainer it declares, so the
+                           # count is derived rather than restated. The EXTRAS
+                           # ensembles cross lineages and declare theirs by hand.
+                           "MEMBERS_EXPECTED": len(self.trainers)},
                 note=self.geometry.note,
             ))
         return out
@@ -835,7 +839,8 @@ EXTRAS = [
         constants={**V1.constants(),
                    "BATCH_STUDIES": V1.infer_batch,
                    "SLICE_SUBSAMPLE_EXPECTED": None,
-                   "INPUT_NORM_EXPECTED": False},
+                   "INPUT_NORM_EXPECTED": False,
+                   "MEMBERS_EXPECTED": 10},
         note="Ten members: v1public plus its second seed.\n"
              "\n"
              "The only lever with a board-measured coefficient that survived\n"
@@ -874,7 +879,8 @@ EXTRAS = [
         constants={**V1.constants(),
                    "BATCH_STUDIES": V1.infer_batch,
                    "SLICE_SUBSAMPLE_EXPECTED": None,
-                   "INPUT_NORM_EXPECTED": False},
+                   "INPUT_NORM_EXPECTED": False,
+                   "MEMBERS_EXPECTED": 6},
         note="Six members: the five v1public folds and one full-fit model.\n"
              "\n"
              "The full-fit member cannot be evaluated offline at all — it\n"
@@ -1003,7 +1009,8 @@ EXTRAS = [
         constants={**V1.constants(),
                    "BATCH_STUDIES": V1.infer_batch,
                    "SLICE_SUBSAMPLE_EXPECTED": None,
-                   "INPUT_NORM_EXPECTED": False},
+                   "INPUT_NORM_EXPECTED": False,
+                   "MEMBERS_EXPECTED": 5},
         note="The full-fit lever at full weight: five members, every one of\n"
              "them trained on the whole corpus.\n"
              "\n"

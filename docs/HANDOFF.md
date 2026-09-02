@@ -129,8 +129,16 @@ notebook twice returns the same score and spends two of the five daily slots.
 
 ## 5. The next action
 
-**Wait for `knee-train-v1pubfull-s4/5/6/7`, then push
-`kaggle/63_infer_v1pubfull5` and click submit.** Five full-fit members and
+**THE WEEKLY GPU QUOTA IS SPENT** (2026-09-02, E067). It resets ~2026-09-05.
+`s4` is COMPLETE, `s6` is running, **`s5` errored on an ECC fault and `s7` was
+never pushed** — so the full-fit lineage is 3 of 5. At the reset, push both:
+
+```bash
+kaggle kernels push -p kaggle/60_train_v1pubfull_s5
+kaggle kernels push -p kaggle/62_train_v1pubfull_s7
+```
+
+**Then push `kaggle/63_infer_v1pubfull5` and click submit.** Five full-fit members and
 nothing else — the data lever at full weight instead of the sixth-weight
 mixture E064 priced at +0.001. Check with:
 
@@ -139,7 +147,11 @@ for k in s4 s5 s6 s7; do kaggle kernels status achelijndiamantidis/knee-train-v1
 bash eda/preflight.sh && kaggle kernels push -p kaggle/63_infer_v1pubfull5
 ```
 
-Each must log `FULL FIT: train 4,407 (every study)` and emit
+The kernel now **refuses to run** at anything other than five mounted members
+(`MEMBERS_EXPECTED`), so a missing checkpoint stops it instead of quietly
+submitting a three-member ensemble against a five-member claim.
+
+Each trainer must log `FULL FIT: train 4,407 (every study)` and emit
 `checkpoint_foldall.pt` with **no gold dump** — a model trained on all 58 gold
 studies must never produce a file `pool_gold_oof.py` can glob.
 

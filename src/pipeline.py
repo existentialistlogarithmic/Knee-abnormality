@@ -887,6 +887,142 @@ EXTRAS = [
              "0.037 h on the full test set, so six is ~1.0 h against a 9 h cap.",
     ),
     Kernel(
+        slug="knee-train-v1pubfull-s4",
+        directory="59_train_v1pubfull_s4",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": -1,          # negative = train on everything
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                 lr=6e-4, seed=4).constants()},
+        note="Full-fit member 1 of the four that turn E064's probe into a\n"
+             "lineage. Byte-identical to knee-train-v1pubfull except for the\n"
+             "seed, which is the only way to draw a second full-fit model at\n"
+             "all: there are no folds left to vary when every study is in\n"
+             "training.\n"
+             "\n"
+             "E064 measured the seed=3 full fit at 0.924 on the board against\n"
+             "0.923, as one member in six. That is +0.001 at a sixth of the\n"
+             "weight and it is the smallest move the board can show, so it\n"
+             "is a direction rather than a size. These four exist so the\n"
+             "lever can be measured at full weight instead.",
+    ),
+    Kernel(
+        slug="knee-train-v1pubfull-s5",
+        directory="60_train_v1pubfull_s5",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": -1,          # negative = train on everything
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                 lr=6e-4, seed=5).constants()},
+        note="Full-fit member 2 of the four that turn E064's probe into a\n"
+             "lineage. Byte-identical to knee-train-v1pubfull except for the\n"
+             "seed, which is the only way to draw a second full-fit model at\n"
+             "all: there are no folds left to vary when every study is in\n"
+             "training.\n"
+             "\n"
+             "E064 measured the seed=3 full fit at 0.924 on the board against\n"
+             "0.923, as one member in six. That is +0.001 at a sixth of the\n"
+             "weight and it is the smallest move the board can show, so it\n"
+             "is a direction rather than a size. These four exist so the\n"
+             "lever can be measured at full weight instead.",
+    ),
+    Kernel(
+        slug="knee-train-v1pubfull-s6",
+        directory="61_train_v1pubfull_s6",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": -1,          # negative = train on everything
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                 lr=6e-4, seed=6).constants()},
+        note="Full-fit member 3 of the four that turn E064's probe into a\n"
+             "lineage. Byte-identical to knee-train-v1pubfull except for the\n"
+             "seed, which is the only way to draw a second full-fit model at\n"
+             "all: there are no folds left to vary when every study is in\n"
+             "training.\n"
+             "\n"
+             "E064 measured the seed=3 full fit at 0.924 on the board against\n"
+             "0.923, as one member in six. That is +0.001 at a sixth of the\n"
+             "weight and it is the smallest move the board can show, so it\n"
+             "is a direction rather than a size. These four exist so the\n"
+             "lever can be measured at full weight instead.",
+    ),
+    Kernel(
+        slug="knee-train-v1pubfull-s7",
+        directory="62_train_v1pubfull_s7",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": -1,          # negative = train on everything
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                 lr=6e-4, seed=7).constants()},
+        note="Full-fit member 4 of the four that turn E064's probe into a\n"
+             "lineage. Byte-identical to knee-train-v1pubfull except for the\n"
+             "seed, which is the only way to draw a second full-fit model at\n"
+             "all: there are no folds left to vary when every study is in\n"
+             "training.\n"
+             "\n"
+             "E064 measured the seed=3 full fit at 0.924 on the board against\n"
+             "0.923, as one member in six. That is +0.001 at a sixth of the\n"
+             "weight and it is the smallest move the board can show, so it\n"
+             "is a direction rather than a size. These four exist so the\n"
+             "lever can be measured at full weight instead.",
+    ),
+    Kernel(
+        slug="knee-infer-v1pubfull5",
+        directory="63_infer_v1pubfull5",
+        template="infer",
+        gpu=True,
+        internet=False,     # a submission kernel
+        # Five full-fit models and NOTHING ELSE. The point of the lineage is
+        # that every member saw all 4,407 studies and all 58 expert ones;
+        # mounting the fold models alongside would dilute that back to the
+        # sixth-weight mixture E064 already priced at +0.001.
+        depends=["knee-train-v1pubfull", "knee-train-v1pubfull-s4",
+                 "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
+                 "knee-train-v1pubfull-s7"],
+        constants={**V1.constants(),
+                   "BATCH_STUDIES": V1.infer_batch,
+                   "SLICE_SUBSAMPLE_EXPECTED": None,
+                   "INPUT_NORM_EXPECTED": False},
+        note="The full-fit lever at full weight: five members, every one of\n"
+             "them trained on the whole corpus.\n"
+             "\n"
+             "Against the 0.923 five-fold ensemble this changes exactly one\n"
+             "thing — how much data each member saw. Same architecture, same\n"
+             "geometry, same labels, same cache, same member count. Each fold\n"
+             "model trains on 80% of the studies and misses ~12 of the 58\n"
+             "expert ones; each of these sees all of both. It is the data\n"
+             "lever isolated, which is the category worth +0.166 of this\n"
+             "project's +0.198.\n"
+             "\n"
+             "It cannot be scored offline and that is not a defect: a model\n"
+             "trained on every gold study makes every out-of-fold instrument\n"
+             "here blind by construction. The board is the only judge, so\n"
+             "this is its own submission and shares it with nothing.\n"
+             "\n"
+             "Cost: E050 measured 0.037 h per member on the full test set, so\n"
+             "five is ~1.0 h against a 9 h cap.",
+    ),
+    Kernel(
         slug="knee-llm-labeler",
         directory="16_llm_labeler",
         template="llm_label",

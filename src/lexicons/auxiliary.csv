@@ -5,69 +5,82 @@
 # These exist to be EXTRA TRAINING TARGETS on a shared trunk, discarded at
 # inference. Nothing here is ever submitted or evaluated against gold.
 #
-# corpus=1 means the term was measured to occur in a report of that
+# `a~b` is a composite: both halves within 45 characters, in either order.
+# Multi-word phrases are written this way on purpose — the matcher anchors
+# the START of a term only, so a stem matches every inflection of it.
+# 'hinter~kreuzband' catches hinteres, hintere and hinteren Kreuzband;
+# the literal 'hinteres kreuzband' catches exactly one of the three, and
+# a test caught that gap on German PCL.
+#
+# corpus=1 means the term was measured to fire in a report of that
 # language in the training corpus (English terms: anywhere, because every
 # language falls back to English).
 finding,language,term,corpus
-BoneEdema,bg,костен оток,0
-BoneEdema,bg,оток на костния,1
-BoneEdema,bs,edem koštane,0
-BoneEdema,bs,edem kosti,1
+BoneEdema,bg,костн~оток,1
+BoneEdema,bg,оток~костн,1
+BoneEdema,bs,edem~košt,1
+BoneEdema,bs,edem~kosti,1
 BoneEdema,de,knochenmarködem,1
 BoneEdema,de,knochenmarksödem,1
 BoneEdema,de,knochenödem,1
-BoneEdema,el,οίδημα μυελού,0
-BoneEdema,el,οστικό οίδημα,1
+BoneEdema,de,knochenmark~ödem,1
+BoneEdema,el,οίδημα~μυελ,1
+BoneEdema,el,οστικ~οίδημα,1
 BoneEdema,en,bone marrow edema,1
 BoneEdema,en,bone marrow oedema,1
-BoneEdema,en,marrow edema,1
-BoneEdema,en,marrow oedema,1
-BoneEdema,en,subchondral edema,1
-BoneEdema,es,edema óseo,1
-BoneEdema,es,edema oseo,0
-BoneEdema,es,edema medular,0
-BoneEdema,fr,œdème osseux,1
-BoneEdema,fr,oedeme osseux,0
-BoneEdema,fr,œdème médullaire,0
-BoneEdema,hr,edem koštane,0
-BoneEdema,hr,edem kosti,1
+BoneEdema,en,marrow~edema,1
+BoneEdema,en,marrow~oedema,1
+BoneEdema,en,subchondral~edema,1
+BoneEdema,en,subchondral~oedema,1
+BoneEdema,es,edema~óse,1
+BoneEdema,es,edema~ose,0
+BoneEdema,es,edema~medular,0
+BoneEdema,fr,œdème~osseu,1
+BoneEdema,fr,oedeme~osseu,0
+BoneEdema,fr,œdème~médullaire,0
+BoneEdema,hr,edem~košt,1
+BoneEdema,hr,edem~kosti,1
 BoneEdema,nl,beenmergoedeem,0
 BoneEdema,nl,botoedeem,1
-BoneEdema,tr,kemik iliği ödem,1
-BoneEdema,tr,kemik iliği ödemi,1
+BoneEdema,nl,beenmerg~oedeem,0
+BoneEdema,tr,kemik iliğ~ödem,1
+BoneEdema,tr,kemik~ödem,1
 Bursitis,bg,бурсит,0
-Bursitis,bg,бурса,1
+Bursitis,bg,бурза,0
 Bursitis,bs,burzitis,1
 Bursitis,bs,burza,1
+Bursitis,bs,burz,1
 Bursitis,de,bursitis,1
 Bursitis,de,schleimbeutel,0
-Bursitis,el,θυλακίτιδα,0
-Bursitis,el,ορογόνου θυλάκου,0
+Bursitis,el,θυλακίτιδ,0
+Bursitis,el,ορογόν~θυλάκ,0
 Bursitis,en,bursitis,1
 Bursitis,en,bursal,1
 Bursitis,en,bursa,1
 Bursitis,es,bursitis,1
-Bursitis,es,bolsa serosa,0
+Bursitis,es,bolsa~seros,0
 Bursitis,fr,bursite,1
-Bursitis,fr,bourse séreuse,0
+Bursitis,fr,bourse~séreuse,0
 Bursitis,hr,burzitis,1
 Bursitis,hr,burza,0
+Bursitis,hr,burz,1
 Bursitis,nl,bursitis,1
 Bursitis,nl,slijmbeurs,0
 Bursitis,tr,bursit,1
 Bursitis,tr,bursa,1
 Chondral,bg,хрущял,1
-Chondral,bg,хондромалация,1
-Chondral,bg,хрущялн,0
+Chondral,bg,хондромалаци,1
 Chondral,bs,hondromalacij,1
 Chondral,bs,hrskavic,1
 Chondral,bs,hondraln,1
 Chondral,de,knorpel,1
 Chondral,de,chondropathie,1
-Chondral,de,chondromalazie,0
+Chondral,de,chondromalaz,0
 Chondral,de,chondral,1
+Chondral,el,χονδρομαλάκ,1
 Chondral,el,χονδρομαλακ,0
 Chondral,el,χονδροπάθ,1
+Chondral,el,χόνδρ~αραίωσ,0
 Chondral,el,χόνδρου,1
 Chondral,en,chondromalacia,1
 Chondral,en,chondral,1
@@ -75,15 +88,17 @@ Chondral,en,chondropathy,1
 Chondral,en,cartilage defect,1
 Chondral,en,cartilage loss,1
 Chondral,en,cartilage thinning,1
+Chondral,en,cartilag~defect,1
+Chondral,en,cartilag~thinning,1
 Chondral,es,condromalacia,1
 Chondral,es,condral,1
-Chondral,es,condropatia,1
-Chondral,es,condropatía,1
-Chondral,es,adelgazamiento del cartílago,0
+Chondral,es,condropat,1
+Chondral,es,cartílag~adelgaz,1
+Chondral,es,cartilag~adelgaz,0
 Chondral,fr,chondropathie,1
 Chondral,fr,chondromalacie,0
-Chondral,fr,cartilagineux,0
-Chondral,fr,chondrale,1
+Chondral,fr,cartilagineu,1
+Chondral,fr,chondral,1
 Chondral,hr,hondromalacij,1
 Chondral,hr,hrskavic,1
 Chondral,hr,hondraln,0
@@ -93,245 +108,277 @@ Chondral,nl,chondromalacie,1
 Chondral,tr,kondromalazi,1
 Chondral,tr,kıkırdak,1
 Chondral,tr,kondral,1
-Enthesopathy,bg,илиотибиален,0
-Enthesopathy,bg,ентезопатия,0
+Enthesopathy,bg,илиотибиал,0
+Enthesopathy,bg,ентезопат,0
 Enthesopathy,bs,iliotibijaln,1
-Enthesopathy,bs,entezopatij,1
+Enthesopathy,bs,entezopat,1
 Enthesopathy,de,tractus iliotibialis,1
 Enthesopathy,de,enthesiopathie,1
 Enthesopathy,de,iliotibial,1
-Enthesopathy,el,λαγονοκνημιαία ταινία,1
+Enthesopathy,el,λαγονοκνημιαί,1
 Enthesopathy,el,ενθεσοπάθ,0
+Enthesopathy,el,ιλιοκνημιαί,0
 Enthesopathy,en,enthesopathy,1
 Enthesopathy,en,iliotibial,1
 Enthesopathy,en,it band,1
-Enthesopathy,es,entesopatía,1
-Enthesopathy,es,banda iliotibial,1
-Enthesopathy,es,cintilla iliotibial,0
-Enthesopathy,fr,bandelette iliotibiale,1
+Enthesopathy,es,entesopat,1
+Enthesopathy,es,iliotibial,1
+Enthesopathy,es,cintilla~iliotibial,0
+Enthesopathy,es,banda~iliotibial,1
+Enthesopathy,fr,bandelette~iliotibiale,1
 Enthesopathy,fr,entésopathie,0
+Enthesopathy,fr,iliotibial,1
 Enthesopathy,hr,iliotibijaln,1
-Enthesopathy,hr,entezopatij,1
+Enthesopathy,hr,entezopat,1
 Enthesopathy,nl,iliotibiale,1
 Enthesopathy,nl,enthesopathie,0
-Enthesopathy,tr,entezopati,0
+Enthesopathy,nl,iliotibiaal,1
+Enthesopathy,tr,entezopat,0
 Enthesopathy,tr,iliotibial,1
-Extrusion,bg,екструзия,1
-Extrusion,bg,коренова руптура,0
+Extrusion,bg,екструзи,1
+Extrusion,bg,коренов~руптур,0
 Extrusion,bs,ekstruzij,1
-Extrusion,bs,korijen meniska,1
+Extrusion,bs,korijen~menisk,1
 Extrusion,de,extrusion,1
-Extrusion,de,meniskusextrusion,0
+Extrusion,de,menisk~extrusion,1
 Extrusion,de,wurzelriss,0
-Extrusion,el,εξώθηση,0
-Extrusion,el,ρίζα μηνίσκου,0
+Extrusion,de,wurzel~riss,1
+Extrusion,el,εξώθησ,0
+Extrusion,el,ρίζα~μηνίσκ,1
 Extrusion,en,extrusion,1
 Extrusion,en,extruded,1
 Extrusion,en,root tear,1
 Extrusion,en,meniscal root,1
+Extrusion,en,menisc~root,1
+Extrusion,en,root~tear,1
 Extrusion,es,extrusión,1
-Extrusion,es,extrusion meniscal,0
-Extrusion,es,raíz meniscal,1
+Extrusion,es,extrusion,0
+Extrusion,es,raíz~menisc,1
+Extrusion,es,raiz~menisc,0
 Extrusion,fr,extrusion,1
-Extrusion,fr,racine méniscale,0
+Extrusion,fr,racine~méniscale,0
 Extrusion,hr,ekstruzij,1
-Extrusion,hr,korijen meniska,1
+Extrusion,hr,korijen~menisk,1
 Extrusion,nl,extrusie,1
-Extrusion,nl,meniscusextrusie,0
+Extrusion,nl,meniscus~extrusie,1
 Extrusion,tr,ekstrüzyon,1
-Extrusion,tr,kök yırtığ,1
+Extrusion,tr,kök~yırtı,1
 Ganglion,bg,ганглий,0
-Ganglion,bg,менискова киста,0
-Ganglion,bs,ganglijska cista,1
-Ganglion,bs,meniskalna cista,0
+Ganglion,bg,менисков~киста,0
+Ganglion,bg,киста~мениск,1
+Ganglion,bs,ganglijsk~cist,1
+Ganglion,bs,meniskaln~cist,0
 Ganglion,de,ganglion,1
-Ganglion,de,ganglionzyste,1
 Ganglion,de,meniskuszyste,0
-Ganglion,el,γάγγλιο,0
-Ganglion,el,μηνισκική κύστ,0
+Ganglion,de,menisk~zyste,0
+Ganglion,el,γάγγλι,1
+Ganglion,el,μηνισκ~κύστ,0
 Ganglion,en,ganglion,1
 Ganglion,en,meniscal cyst,1
 Ganglion,en,paralabral,1
-Ganglion,en,parameniscal cyst,1
-Ganglion,es,ganglión,1
-Ganglion,es,quiste meniscal,0
-Ganglion,es,quiste parameniscal,1
+Ganglion,en,menisc~cyst,1
+Ganglion,en,parameniscal,1
+Ganglion,es,gangli,1
+Ganglion,es,quiste~menisc,1
 Ganglion,fr,ganglion,1
-Ganglion,fr,kyste méniscal,0
-Ganglion,hr,ganglijska cista,0
-Ganglion,hr,meniskalna cista,0
+Ganglion,fr,kyste~méniscal,1
+Ganglion,hr,ganglijsk~cist,0
+Ganglion,hr,meniskaln~cist,0
 Ganglion,nl,ganglioncyste,1
 Ganglion,nl,meniscuscyste,0
-Ganglion,tr,ganglion kist,1
-Ganglion,tr,menisküs kisti,0
+Ganglion,nl,ganglion~cyste,1
+Ganglion,tr,ganglion,1
 Ganglion,tr,gangliyon,1
-Hoffa,bg,мастна възглавница,0
+Ganglion,tr,menisküs~kist,1
+Hoffa,bg,мастн~възглавниц,0
 Hoffa,bg,хофа,1
-Hoffa,bs,hoffino,1
-Hoffa,bs,masno tijelo,0
+Hoffa,bs,hoffin,1
+Hoffa,bs,masn~tijel,0
 Hoffa,de,hoffa,1
-Hoffa,de,hoffa-fettkörper,1
 Hoffa,de,fettkörper,1
-Hoffa,el,λιπώδες σώμα,1
-Hoffa,el,λιπώδους σώματος,1
+Hoffa,el,λιπώδ~σώμα,1
+Hoffa,el,λιπώδ,1
 Hoffa,en,hoffa,1
 Hoffa,en,infrapatellar fat,1
 Hoffa,en,fat pad,1
-Hoffa,es,grasa de hoffa,1
-Hoffa,es,almohadilla grasa,1
-Hoffa,es,grasa infrarrotuliana,0
-Hoffa,fr,graisse de hoffa,1
+Hoffa,en,infrapatellar~fat,1
+Hoffa,es,hoffa,1
+Hoffa,es,grasa~hoffa,1
+Hoffa,es,almohadilla~gras,1
+Hoffa,es,gras~infrarrotulian,0
 Hoffa,fr,hoffa,1
-Hoffa,hr,hoffino,0
-Hoffa,hr,masno tijelo,0
+Hoffa,fr,graisse~hoffa,1
+Hoffa,hr,hoffin,1
+Hoffa,hr,masn~tijel,0
 Hoffa,nl,vetlichaam,0
 Hoffa,nl,hoffa,1
 Hoffa,tr,yağ yastığ,1
 Hoffa,tr,hoffa,1
-LCL,bg,външна странична,0
-LCL,bg,латерален колатерален,1
-LCL,bs,vanjski kolateralni,0
-LCL,bs,lateralni kolateralni,1
-LCL,de,aussenband,0
+Hoffa,tr,yağ~yastı,1
+LCL,bg,външн~странич,0
+LCL,bg,латерал~колатерал,1
+LCL,bs,vanjsk~kolateral,1
+LCL,bs,lateraln~kolateral,1
 LCL,de,außenband,1
-LCL,de,laterales kollateralband,1
-LCL,el,έξω πλάγιο,1
-LCL,el,έξω πλαγίου,1
+LCL,de,aussenband,0
+LCL,de,lateral~kollateralband,1
+LCL,de,fibular~kollateral,0
+LCL,el,έξω~πλάγι,1
+LCL,el,έξω~πλαγί,1
 LCL,en,lateral collateral,1
 LCL,en,fibular collateral,1
 LCL,en,lcl,1
-LCL,es,colateral externo,0
-LCL,es,colateral lateral,1
+LCL,en,lateral~collateral,1
+LCL,es,colateral~extern,1
+LCL,es,colateral~lateral,1
+LCL,es,lateral extern,0
 LCL,es,lce,0
-LCL,fr,collatéral latéral,1
-LCL,fr,collateral lateral,0
-LCL,hr,vanjski kolateralni,0
-LCL,hr,lateralni kolateralni,1
-LCL,nl,laterale collaterale,1
+LCL,es,lle,0
+LCL,fr,collatéral~latéral,1
+LCL,fr,collateral~lateral,0
+LCL,hr,vanjsk~kolateral,0
+LCL,hr,lateraln~kolateral,1
+LCL,nl,lateral~collateral,1
 LCL,nl,buitenband,0
 LCL,tr,dış yan bağ,1
 LCL,tr,lateral kollateral,1
-MuscleEdema,bg,мускулен оток,0
-MuscleEdema,bg,мускулно разкъсване,0
-MuscleEdema,bs,mišićna ruptura,0
-MuscleEdema,bs,edem mišić,0
+LCL,tr,dış~kollateral,0
+MuscleEdema,bg,мускулн~оток,0
+MuscleEdema,bg,мускулн~разкъс,0
+MuscleEdema,bs,mišićn~ruptur,1
+MuscleEdema,bs,edem~mišić,1
 MuscleEdema,de,muskelfaserriss,0
 MuscleEdema,de,muskelzerrung,0
 MuscleEdema,de,muskelödem,1
-MuscleEdema,el,μυϊκή θλάση,0
-MuscleEdema,el,μυϊκό οίδημα,0
+MuscleEdema,de,muskel~ödem,0
+MuscleEdema,de,muskel~riss,0
+MuscleEdema,el,μυϊκ~θλάσ,0
+MuscleEdema,el,μυϊκ~οίδημα,0
+MuscleEdema,el,μυ~οίδημα,1
 MuscleEdema,en,muscle strain,1
-MuscleEdema,en,muscle tear,0
 MuscleEdema,en,myotendinous,1
-MuscleEdema,en,muscle edema,1
-MuscleEdema,es,desgarro muscular,0
-MuscleEdema,es,edema muscular,0
+MuscleEdema,en,muscle~tear,1
+MuscleEdema,en,muscle~edema,1
+MuscleEdema,en,muscle~oedema,1
+MuscleEdema,en,muscul~tear,1
+MuscleEdema,es,desgarro~muscular,0
+MuscleEdema,es,edema~muscular,1
 MuscleEdema,es,miotendinos,0
-MuscleEdema,fr,lésion musculaire,0
-MuscleEdema,fr,œdème musculaire,0
-MuscleEdema,hr,mišićna ruptura,0
-MuscleEdema,hr,edem mišić,0
+MuscleEdema,fr,lésion~musculaire,0
+MuscleEdema,fr,œdème~musculaire,1
+MuscleEdema,hr,mišićn~ruptur,1
+MuscleEdema,hr,edem~mišić,0
 MuscleEdema,nl,spierscheur,0
 MuscleEdema,nl,spieroedeem,0
-MuscleEdema,tr,kas yırtığ,0
-MuscleEdema,tr,kas ödem,1
-PCL,bg,задна кръстна,1
-PCL,bg,задната кръстна,1
-PCL,bs,zadnji ukršteni,0
-PCL,bs,zadnja ukrštena,0
-PCL,bs,stražnji ukriženi,0
-PCL,de,hinteres kreuzband,1
-PCL,de,hinteren kreuzband,1
+MuscleEdema,nl,spier~oedeem,1
+MuscleEdema,tr,kas~yırtı,1
+MuscleEdema,tr,kas~ödem,1
+PCL,bg,задн~кръстн,1
+PCL,bs,zadnj~ukršten,0
+PCL,bs,zadnj~ukrižen,0
+PCL,bs,stražnj~ukrižen,1
+PCL,bs,stražnj~ukršten,0
+PCL,de,hinter~kreuzband,1
 PCL,de,hkb,1
-PCL,el,οπίσθιο χιαστό,1
-PCL,el,οπισθίου χιαστού,1
+PCL,el,οπίσθι~χιαστ,1
+PCL,el,οπισθί~χιαστ,1
 PCL,en,posterior cruciate,1
 PCL,en,pcl,1
+PCL,en,posterior~cruciate,1
 PCL,es,cruzado posterior,1
 PCL,es,lcp,1
-PCL,fr,croisé postérieur,1
-PCL,fr,croise posterieur,0
-PCL,hr,stražnja ukrižena,0
-PCL,hr,stražnji ukriženi,1
-PCL,hr,zadnji ukriženi,0
-PCL,nl,achterste kruisband,1
+PCL,es,cruzad~posterior,1
+PCL,fr,crois~postérieur,1
+PCL,fr,crois~posterieur,0
+PCL,hr,zadnj~ukrižen,0
+PCL,hr,stražnj~ukrižen,1
+PCL,hr,zadnj~križn,0
+PCL,nl,achterst~kruisband,1
 PCL,tr,arka çapraz,1
 PCL,tr,acb,0
-PatellarTendon,bg,пателарно сухожилие,0
-PatellarTendon,bg,тендинопатия,1
-PatellarTendon,bg,сухожилие на квадрицепса,0
-PatellarTendon,bs,patelarna tetiva,0
-PatellarTendon,bs,tetiva kvadricepsa,1
-PatellarTendon,bs,tendinopatij,1
+PCL,tr,arka~çapraz,1
+PatellarTendon,bg,пателарн~сухожили,1
+PatellarTendon,bg,тендинопат,1
+PatellarTendon,bg,сухожили~квадрицепс,1
+PatellarTendon,bs,patelarn~tetiv,1
+PatellarTendon,bs,tetiv~kvadriceps,1
+PatellarTendon,bs,tendinopat,1
 PatellarTendon,de,patellarsehne,1
 PatellarTendon,de,quadrizepssehne,1
 PatellarTendon,de,tendinopathie,1
 PatellarTendon,de,tendinose,0
-PatellarTendon,el,επιγονατιδικό τένοντ,1
+PatellarTendon,de,patellar~sehne,0
+PatellarTendon,el,επιγονατιδικ~τένοντ,1
 PatellarTendon,el,τενοντοπάθ,1
-PatellarTendon,el,τετρακέφαλου τένοντ,0
+PatellarTendon,el,τετρακέφαλ~τένοντ,1
 PatellarTendon,en,patellar tendon,1
 PatellarTendon,en,patellar tendin,1
 PatellarTendon,en,quadriceps tendon,1
 PatellarTendon,en,tendinopathy,1
 PatellarTendon,en,tendinosis,1
 PatellarTendon,en,tendinitis,1
-PatellarTendon,es,tendón rotuliano,1
-PatellarTendon,es,tendon rotuliano,0
-PatellarTendon,es,tendinopatía,1
-PatellarTendon,es,tendinopatia,0
+PatellarTendon,en,patell~tendon,1
+PatellarTendon,en,quadriceps~tendon,1
+PatellarTendon,es,tendón~rotulian,1
+PatellarTendon,es,tendon~rotulian,1
+PatellarTendon,es,tendinopat,1
 PatellarTendon,es,tendinosis,1
-PatellarTendon,es,tendón cuadricipital,1
-PatellarTendon,fr,tendon rotulien,1
-PatellarTendon,fr,tendon quadricipital,0
+PatellarTendon,es,tendón~cuadricipital,1
+PatellarTendon,fr,tendon~rotulien,1
+PatellarTendon,fr,tendon~quadricipital,0
 PatellarTendon,fr,tendinopathie,1
-PatellarTendon,hr,patelarna tetiva,0
-PatellarTendon,hr,tetiva kvadricepsa,1
-PatellarTendon,hr,tendinopatij,1
+PatellarTendon,hr,patelarn~tetiv,1
+PatellarTendon,hr,tetiv~kvadriceps,1
+PatellarTendon,hr,tendinopat,1
 PatellarTendon,nl,patellapees,1
 PatellarTendon,nl,quadricepspees,1
 PatellarTendon,nl,tendinopathie,0
-PatellarTendon,tr,patellar tendon,1
-PatellarTendon,tr,kuadriseps tendon,1
-PatellarTendon,tr,tendinopati,0
+PatellarTendon,nl,patella~pees,1
+PatellarTendon,tr,patellar~tendon,1
+PatellarTendon,tr,kuadriseps~tendon,1
+PatellarTendon,tr,tendinopat,0
 PatellarTendon,tr,tendinit,0
-PatellarTracking,bg,латерализация на пателата,0
-PatellarTracking,bg,сублуксация на пателата,1
-PatellarTracking,bs,lateralizacija patele,0
-PatellarTracking,bs,subluksacija patele,1
-PatellarTracking,de,patellalateralisation,0
-PatellarTracking,de,patellatilt,0
-PatellarTracking,de,trochleadysplasie,1
-PatellarTracking,el,πλάγια ολίσθηση επιγονατίδας,0
-PatellarTracking,el,δυσπλασία τροχιλίας,0
+PatellarTracking,bg,латерализаци~пател,0
+PatellarTracking,bg,сублуксаци~пател,1
+PatellarTracking,bs,lateralizacij~patel,0
+PatellarTracking,bs,subluksacij~patel,1
+PatellarTracking,de,patella~lateralisation,1
+PatellarTracking,de,patella~tilt,1
+PatellarTracking,de,trochlea~dysplas,1
+PatellarTracking,el,επιγονατίδ~ολίσθησ,0
+PatellarTracking,el,δυσπλασ~τροχιλ,0
 PatellarTracking,en,maltracking,1
 PatellarTracking,en,patellar tilt,1
-PatellarTracking,en,patellar subluxation,1
+PatellarTracking,en,patell~tilt,1
+PatellarTracking,en,patell~subluxation,1
 PatellarTracking,en,trochlear dysplasia,1
-PatellarTracking,es,lateralización rotuliana,0
-PatellarTracking,es,subluxación rotuliana,0
-PatellarTracking,es,displasia troclear,1
-PatellarTracking,fr,subluxation rotulienne,0
-PatellarTracking,fr,dysplasie trochléenne,0
-PatellarTracking,hr,lateralizacija patele,0
-PatellarTracking,hr,subluksacija patele,1
-PatellarTracking,nl,patella subluxatie,0
-PatellarTracking,nl,trochleadysplasie,0
-PatellarTracking,tr,patellar tilt,0
-PatellarTracking,tr,patellar subluksasyon,0
-PatellarTracking,tr,troklear displazi,1
-Plica,bg,синовиална гънка,0
+PatellarTracking,en,trochlear~dysplas,1
+PatellarTracking,es,lateraliza~rotulian,0
+PatellarTracking,es,subluxa~rotulian,0
+PatellarTracking,es,displasia~troclear,1
+PatellarTracking,fr,subluxation~rotulienne,0
+PatellarTracking,fr,dysplasie~trochl,1
+PatellarTracking,hr,lateralizacij~patel,0
+PatellarTracking,hr,subluksacij~patel,1
+PatellarTracking,nl,patella~subluxatie,1
+PatellarTracking,nl,trochlea~dysplas,1
+PatellarTracking,tr,patell~tilt,0
+PatellarTracking,tr,patell~subluksasyon,0
+PatellarTracking,tr,troklear~displaz,1
+Plica,bg,синовиалн~гънк,0
+Plica,bg,гънк,0
 Plica,bs,plika,1
-Plica,bs,sinovijalna plika,0
+Plica,bs,sinovijaln~plik,0
 Plica,de,plica,1
-Plica,el,υμενώδης πτυχή,0
-Plica,el,αρθρική πτυχή,0
+Plica,de,plika,0
+Plica,el,υμενώδ~πτυχ,0
+Plica,el,αρθρικ~πτυχ,1
+Plica,el,πλίκα,0
 Plica,en,plica,1
 Plica,en,plicae,1
-Plica,es,plica sinovial,1
 Plica,es,plica,1
 Plica,fr,plica,0
 Plica,hr,plika,1
-Plica,hr,sinovijalna plika,0
+Plica,hr,sinovijaln~plik,0
 Plica,nl,plica,1
 Plica,tr,plika,1

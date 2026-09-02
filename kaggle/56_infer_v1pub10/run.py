@@ -422,12 +422,9 @@ def main() -> int:
 
     started = time.time()
     root = find_marker("test.csv")
-    weights_dir = find_marker("checkpoint_fold0.pt")
     if root is None:
         raise SystemExit("competition data not found")
-    if weights_dir is None:
-        raise SystemExit("trained weights not mounted (checkpoint_fold0.pt)")
-    print(f"competition root: {root}\nweights: {weights_dir}")
+    print(f"competition root: {root}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cuda":
@@ -437,11 +434,19 @@ def main() -> int:
             print("pre-Volta GPU; falling back to CPU to avoid a CUDA failure")
             device = "cpu"
 
-    # Every mounted training kernel contributes one fold. Discovered rather than
-    # listed, so adding a fold means mounting it and nothing else.
+    # Every mounted training kernel contributes one member. Discovered rather
+    # than listed, so adding a member means mounting it and nothing else.
+    #
+    # This glob is the ONLY discovery path for weights, and the wildcard in
+    # `fold*` is load-bearing. A full-fit model is written as
+    # checkpoint_foldall.pt, so a kernel mounting nothing but full-fit members
+    # contains no checkpoint_fold0.pt anywhere. An earlier version guarded on
+    # that exact filename before reaching this line and would have refused to
+    # start with five perfectly good checkpoints mounted.
     checkpoints = sorted(Path("/kaggle/input").glob("notebooks/*/*/checkpoint_fold*.pt"))
     if not checkpoints:
-        raise SystemExit("no checkpoints mounted")
+        raise SystemExit("no checkpoints mounted (checkpoint_fold*.pt)")
+    print(f"weights: {checkpoints[0].parent}")
     print(f"checkpoints mounted: {len(checkpoints)}")
 
     # Averaging is only meaningful between models that were fed the same way.

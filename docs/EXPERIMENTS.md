@@ -3013,3 +3013,105 @@ E041's +0.114 was a real comparison and this one cannot be.
 
 Anything smaller is inside the ±0.03 fine-tuned noise floor E060 measured and
 cannot survive the trip to the board. `--seeds 4`, per E052. Result in E063.
+
+
+### E063 — auxiliary report targets: null against their own control, twice, with the sign flipping
+- **date**: 2026-09-02. CPU only, no quota. Answers the pre-registration in E062.
+- **the rule was written first and it is not met.** Two independent runs, each
+  five folds × 24 epochs × 4 seeds on the frozen resnet34 bank, scored
+  out-of-fold on the 58 gold studies over the twelve scored findings only:
+
+| lexicon | aux slots supervised | auxiliary | shuffled | baseline | **auxiliary − shuffled** |
+|---|---:|---:|---:|---:|---|
+| v1, literal phrases | 24.0% | 0.7153 | 0.7203 | 0.7212 | **−0.0050** [−0.024, +0.013] |
+| v2, composites | 28.5% | 0.7212 | 0.7152 | 0.7212 | **+0.0060** [−0.015, +0.028] |
+
+  Neither separates from zero, neither reaches the pre-registered +0.02, and
+  **the sign flips between them** while the magnitude stays at ~0.005. Two
+  measurements that bracket zero at a fifth of the interval width are not a
+  small effect; they are an effect the instrument cannot see.
+- **the second run exists because a test caught a lexicon bug, not because the
+  first answer was unwelcome.** `test_negation_reaches_the_other_languages`
+  failed on "Das hintere Kreuzband ist intakt": the matcher anchors the *start*
+  of a term only, so the literal `hinteres kreuzband` catches one of
+  hinteres/hintere/hinteren and misses two. Rewriting the multi-word phrases as
+  composites (`hinter~kreuzband`, both halves within 45 characters) lifted
+  corpus-seen terms from 62% to 72% and auxiliary coverage from 24.0% to 28.5%
+  — 16,319 supervised slots, **+31% total supervision**. Both runs are reported
+  because reporting only the second would be choosing a lexicon by its answer.
+- **`auxiliary − baseline` on the v2 lexicon is −0.0000**, the two arms landing
+  on 0.7212 to four decimals. The baseline arm reproduced exactly across both
+  runs, which is the determinism check that makes the other columns comparable.
+- **what this does NOT establish, and the flaw is in the pre-registration.**
+  The mechanism by which auxiliary targets are supposed to pay is that extra
+  gradient shapes the *trunk* into features the twelve alone would not teach.
+  This rig freezes the trunk. The only thing auxiliary targets can reach here
+  is the shared attention MLP and the pooled vector — a real but small channel,
+  and not the one the hypothesis is about. **The instrument is partly blind to
+  the mechanism**, in the same structural way E061 found out-of-fold scoring
+  blind to ensembling, and E062 should have said so before running rather than
+  after. It did not, so this is recorded as a limitation of the measurement and
+  not as a licence to ignore it.
+- **decision: no GPU.** The rule was pre-registered, it is not met, and the
+  project's own history is that a hypothesis rescued after the fact is the
+  shape that has cost it most (E027, E052, E057). The auxiliary lexicon,
+  builder, targets and rig arm stay in the tree: they cost nothing to keep,
+  they are tested, and if the board ever justifies a fine-tuned test the
+  targets are already built. **The only instrument that could settle this is
+  the board** — ~7.5 GPU-h to train a `v1pubaux` lineage plus one submission,
+  spent blind. That is the same verdict E047 reached about the leaked label
+  sets, and it is not affordable against a lever that has just paid on the
+  board (E064).
+- **what it cost**: ~35 minutes of CPU across two runs, zero GPU. What it
+  bought: an untried category closed with a control arm rather than left open
+  as a maybe, and a multilingual matcher bug found by a test.
+
+
+### E064 — the board answers both submissions: full fit +0.001, a second seed +0.000
+- **date**: 2026-09-02. No new GPU at measurement time; both kernels were the
+  E061 runs, submitted by hand through the browser (the API path is closed —
+  `HANDOFF.md` §4b).
+
+| submission | members | public score | vs 0.923 |
+|---|---|---:|---:|
+| `knee-infer-v1pubfull` | 5 folds + **1 full fit** | **0.924** | **+0.001** |
+| `knee-infer-v1pub10` | 5 folds + 5 reseeded folds | 0.923 | +0.000 |
+
+- **the ten-member ensemble is dead, and it is the cleanest close in the log.**
+  E061 measured the second seed at 0.8827 gold against 0.8980 and could not
+  tell whether that was a weaker lineage or an instrument blind to cross-fold
+  averaging. The board has now answered: doubling the ensemble with an
+  equal-configuration reseed moved the score by **nothing at all**. E036's
+  +0.032 for one fold → five was the last of that lever, not the first of a
+  series. `PATH.md` priority 4 ("more seeds of the plain 5-fold config") is
+  **closed**.
+- **the full fit is the only thing that moved, and +0.001 is the smallest move
+  the board can show.** It is a direction, not a size, and it must not be read
+  as one: the full-fit model was **one member in six**, so whatever it is worth
+  was diluted to a sixth before the board saw it. Two submissions of the
+  identical notebook returned 0.924 both times, which fixes scoring as
+  deterministic for a given CSV but says nothing about whether 0.924 and 0.923
+  differ by more than a pair swap on ~1,300 test studies.
+- **so the follow-up is the pre-registered one and it is now running.** Four
+  more full-fit seeds (`knee-train-v1pubfull-s4/5/6/7`, ~1.5 GPU-h each), then
+  `knee-infer-v1pubfull5` — **five full-fit members and nothing else**. Against
+  the 0.923 five-fold ensemble that changes exactly one thing: how much data
+  each member saw. Same architecture, geometry, labels, cache and member count;
+  each fold model trains on 80% of studies and misses ~12 of the 58 expert
+  ones, each of these sees all of both. The data lever isolated, at full weight
+  instead of a sixth.
+- **a guard would have refused to start, and a test now pins it.** The
+  inference template opened with `find_marker("checkpoint_fold0.pt")` and exited
+  if it was absent. A full-fit run exports `checkpoint_foldall.pt` — that name
+  is deliberate, it is what stops `pool_gold_oof.py` scoring a model trained on
+  all 58 gold studies — so a kernel mounting five full-fit members and nothing
+  else contains no numbered fold anywhere and would have died with five
+  perfectly good checkpoints on disk. Discovery is now the wildcard glob alone,
+  which was always the real source of truth, and
+  `test_inference_discovers_full_fit_checkpoints` fails if the guard returns.
+- **one run died on hardware, not on code.** `knee-train-v1pubfull-s5` errored
+  54 seconds in with `CUDA error: uncorrectable ECC error encountered` — a
+  fault in the assigned card's memory, before any batch was trained. Re-queued;
+  it cost about a minute of quota. This is the one failure mode where a re-run
+  is the correct response rather than an excuse, and it is recorded so that a
+  future ECC line is recognised rather than debugged.

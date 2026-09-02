@@ -42,19 +42,30 @@ import pydicom
 # Edit the manifest, not this file. Everything outside this block is shared by
 # every kernel rendered from this template.
 # --------------------------------------------------------------------------- #
-# v2 geometry, chosen after measuring what v1 discarded: native pixel
-# spacing has a median of 0.312 mm and 96% of series are finer than 0.60,
-# so v1 downsampled almost every study ~2x, and kept 20 of a median 30
-# slices. 0.40 mm/px over 288 px keeps the same ~115 mm field of view at
-# 1.5x the in-plane detail. Cost: ~6 MB per study, ~26 GB, so 8 shards.
-# MEASURED RESULT: 0.668 on the leaderboard, below v1's 0.725. The
-# resolution thesis is unconfirmed.
+# The full-fit lever at full weight: five members, every one of
+# them trained on the whole corpus.
 #
-TARGET_MM_PER_PIXEL      = 0.4
-TARGET_SIZE              = 288
-SLICES_PER_PLANE         = 24
-BATCH_STUDIES            = 2
-SLICE_SUBSAMPLE_EXPECTED = 18
+# Against the 0.923 five-fold ensemble this changes exactly one
+# thing — how much data each member saw. Same architecture, same
+# geometry, same labels, same cache, same member count. Each fold
+# model trains on 80% of the studies and misses ~12 of the 58
+# expert ones; each of these sees all of both. It is the data
+# lever isolated, which is the category worth +0.166 of this
+# project's +0.198.
+#
+# It cannot be scored offline and that is not a defect: a model
+# trained on every gold study makes every out-of-fold instrument
+# here blind by construction. The board is the only judge, so
+# this is its own submission and shares it with nothing.
+#
+# Cost: E050 measured 0.037 h per member on the full test set, so
+# five is ~1.0 h against a 9 h cap.
+#
+TARGET_MM_PER_PIXEL      = 0.6
+TARGET_SIZE              = 192
+SLICES_PER_PLANE         = 20
+BATCH_STUDIES            = 4
+SLICE_SUBSAMPLE_EXPECTED = None
 INPUT_NORM_EXPECTED      = False
 # --------------------------------------------------------------------------- #
 

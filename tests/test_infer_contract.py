@@ -325,3 +325,38 @@ def test_fold_ensemble_decodes_once_for_all_models():
     source = _source(FOLDS)
     build_calls = source.count("build_study(root,")
     assert build_calls == 1, f"volume built {build_calls} times; should be once per study"
+
+
+# --------------------------------------------------------------------------- #
+# full-fit members are discoverable
+# --------------------------------------------------------------------------- #
+def test_inference_discovers_full_fit_checkpoints():
+    """A full-fit-only ensemble has no `checkpoint_fold0.pt` anywhere in it.
+
+    A full-fit run exports `checkpoint_foldall.pt` — that name is what keeps
+    `pool_gold_oof.py` from scoring a model that trained on all 58 gold
+    studies. So a kernel mounting five full-fit members and nothing else
+    contains no numbered fold at all, and any guard naming one refuses to
+    start with five perfectly good checkpoints mounted.
+    """
+    source = _source(REPO_ROOT / "kaggle" / "63_infer_v1pubfull5" / "run.py")
+    assert 'find_marker("checkpoint_fold0.pt")' not in source, (
+        "inference must not require a numbered fold: full-fit members are "
+        "written as checkpoint_foldall.pt"
+    )
+    assert 'glob("notebooks/*/*/checkpoint_fold*.pt")' in source, (
+        "checkpoint discovery must stay a wildcard glob"
+    )
+    # and the wildcard has to actually admit the full-fit filename
+    import fnmatch
+    assert fnmatch.fnmatch("checkpoint_foldall.pt", "checkpoint_fold*.pt")
+
+
+def test_full_fit_ensemble_mounts_only_full_fit_members():
+    """The lever is 'every member saw all the data'. A fold model dilutes it."""
+    import json
+    metadata = json.loads(
+        (REPO_ROOT / "kaggle" / "63_infer_v1pubfull5" / "kernel-metadata.json").read_text())
+    sources = metadata["kernel_sources"]
+    assert len(sources) == 5, sources
+    assert all("v1pubfull" in slug for slug in sources), sources

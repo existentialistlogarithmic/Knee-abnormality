@@ -52,6 +52,7 @@ ARTIFACTS_DATASET = f"{ACCOUNT}/knee-phase1-artifacts"
 # labels in place would silently change what every earlier number meant.
 FUSED_DATASET = f"{ACCOUNT}/knee-phase1-fused"
 PUBLIC_DATASET = f"{ACCOUNT}/knee-phase1-public"
+DISTILLED_DATASET = f"{ACCOUNT}/knee-phase1-distilled"
 """Publicly shared LLM report labels, repackaged into this pipeline's schema.
 
 NOT this project's labels. Source: `stevenleehans/rsna-knee-llm-report-labels`,
@@ -411,6 +412,50 @@ LINEAGES = [
         ),
         infer_slug="knee-infer-v1pub",
         infer_directory="42_infer_v1pub",
+    ),
+    Lineage(
+        # The distilled lineage. Byte-identical to v1public in every constant —
+        # same cache, same geometry, same hyperparameters, same five folds — so
+        # the TEACHER is the single variable, exactly as it was when the public
+        # labels replaced the fused ones and the board paid +0.077.
+        #
+        # The teacher is the 50/50 rank union of the public report labels and
+        # the out-of-fold predictions of the v1public models those labels
+        # trained. On the 58 expert studies: labels 0.8927, model 0.8980, union
+        # 0.9188 — a paired +0.0261 over the labels, CI [+0.009, +0.046],
+        # separated (E069).
+        #
+        # It is worth GPU because of WHY it separated. E048 established that a
+        # union pays when its members are comparable and imports errors when
+        # they are not: two readers 0.002 apart were worth +0.070, and four
+        # later unions each added a member 0.03-0.06 behind and were worth
+        # nothing. Teacher and student here are 0.005 apart. This is the first
+        # candidate member in five attempts that met the condition, and it is
+        # the first to separate.
+        #
+        # What gold-58 CANNOT see, stated here rather than discovered later: it
+        # measures agreement with 58 expert answers, not whether the union is a
+        # better training target on the other 4,349 studies — which is what a
+        # distilled teacher is for. The board is the only instrument that prices
+        # that, which is the whole reason this lineage exists.
+        name="v1pubdistil",
+        cache=CACHE_V1,
+        labels=DISTILLED_DATASET,
+        train=TrainConfig(
+            backbone="resnet34", epochs=24, batch=16, lr=6e-4,
+            note="Identical to the 0.923 configuration. The teacher is the\n"
+                 "single variable: report labels united with the model those\n"
+                 "labels produced.",
+        ),
+        trainers=(
+            Trainer(0, "knee-train-v1distil", "65_train_v1distil_fold0"),
+            Trainer(1, "knee-train-v1distil-fold1", "66_train_v1distil_fold1"),
+            Trainer(2, "knee-train-v1distil-fold2", "67_train_v1distil_fold2"),
+            Trainer(3, "knee-train-v1distil-fold3", "68_train_v1distil_fold3"),
+            Trainer(4, "knee-train-v1distil-fold4", "69_train_v1distil_fold4"),
+        ),
+        infer_slug="knee-infer-v1distil",
+        infer_directory="70_infer_v1distil",
     ),
     Lineage(
         # A ONE-FOLD PROBE, not a campaign. Every architecture lever this

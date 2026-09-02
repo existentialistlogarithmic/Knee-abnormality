@@ -1,0 +1,26 @@
+{
+  "title": "Knee MRI \u2014 distilled soft labels",
+  "subtitle": "Report labels united with the model they trained: +0.0261 on the 58",
+  "description": "The twelve soft targets of `knee-phase1-public`, rank-united with the **out-of-fold predictions of the five-fold model those labels trained**.\n\n**Why this combination and not another.** Scored on the 58 expert-labelled studies: the public report labels reach 0.8927 and the model they produced reaches 0.8980. The student is ahead of its teacher, and by 0.005 \u2014 which makes the two *comparable*, and comparability is what decides whether a union pays. A union of two readers 0.002 apart was worth +0.070 on this corpus; four later unions each added a member 0.03-0.06 behind the incumbent and were worth +0.0046, +0.0022, +0.0036 and +0.0027, none of them separated from zero.\n\n**The union reaches 0.9188**, a paired +0.0261 over the report labels, 95% CI [+0.009, +0.046] \u2014 separated.\n\n**The combination rule has no free parameters.** Ranks are averaged 50/50. The full weight curve was computed (0.8972, 0.9116, 0.9188, 0.9140, 0.8980 at w_model = 0, 0.25, 0.5, 0.75, 1) and deliberately not used to choose a weight: an argmax over five points on 58 studies is a parameter fitted to 58 studies. That the parameter-free midpoint is also the maximum is a fact about the curve, not a tuning result.\n\n**How the predictions were made.** Every one of the 4,407 studies was predicted exactly once, by the one fold model that held it out. The run recomputed the pooled gold macro from the gold subset as a check and reproduced 0.8980 with all twelve per-finding values matching the training-time record \u2014 so the fold split matches the trainer's and the predictions are genuinely out-of-fold. A study appearing in two folds is refused outright rather than quietly averaged.\n\n**What this measurement cannot see.** Gold-58 asks how well a teacher agrees with 58 expert answers. It cannot say whether the union is a better *training target* on the other 4,349 studies, which is what a distilled teacher is actually for. Only the leaderboard can price that.\n\n**Access:** private. Keyed by competition StudyInstanceUIDs; competition-derived data may not be redistributed.",
+  "id": "achelijndiamantidis/knee-phase1-distilled",
+  "licenses": [
+    {
+      "name": "other"
+    }
+  ],
+  "keywords": [
+    "healthcare",
+    "medicine",
+    "computer vision"
+  ],
+  "resources": [
+    {
+      "path": "soft_labels.parquet",
+      "description": "One row per training study (4,407). Twelve soft targets, each the 50/50 rank union of the public report label and the held-out model prediction, plus the __channel and __weight columns the trainer reads. No report text."
+    },
+    {
+      "path": "series_headers.parquet",
+      "description": "DICOM header scan, headers only \u2014 no pixels. Carries the scanner fields the fold-grouping fingerprint is built from. Copied unchanged from knee-phase1-public so the trainer finds both markers in one mounted dataset."
+    }
+  ]
+}

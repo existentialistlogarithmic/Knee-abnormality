@@ -3362,3 +3362,86 @@ asserts both branches.
 
 - **nothing measured here changes.** The two checkpoints are unaffected; this is
   a change to what the next reader is told about them.
+
+
+### E069 — the distilled teacher separates: +0.0261, and E048's rule predicted it
+- **date**: 2026-09-02. CPU only, no GPU quota. Answers the pre-registration in
+  E065, which was written before any of these numbers existed.
+
+| source | gold macro, n=58 |
+|---|---:|
+| public report labels (teacher) | 0.8927 |
+| `v1public` out-of-fold (student) | 0.8980 |
+| **50/50 rank union** | **0.9188** |
+
+  **union − report labels = +0.0261, 95% CI [+0.009, +0.046] — SEPARATED.**
+  The pre-registered rule is met and a `v1pubdistil` lineage is wired.
+
+- **this is the first separated positive since the public labels**, and the
+  reason it separated was predicted in advance. E048's rule: *a union pays when
+  its members are comparable and imports errors when they are not.*
+
+| union | member gap to incumbent | result |
+|---|---|---|
+| E023 lexicon ∪ LLM | 0.002 | **+0.070** |
+| E033 fused ∪ lexicon labels | 0.03+ | worse at every weight |
+| E039 two architectures | ahead | +0.0022, not separated |
+| E046 ours ∪ public 0.917 system | 0.040 | +0.0036, not separated |
+| E048 four public readers | 0.03–0.06 | +0.0027, not separated |
+| E066 shingo257 ConvNeXt family | 0.044 | screened out, not run |
+| **E069 labels ∪ own model OOF** | **0.005** | **+0.0261, separated** |
+
+  Five consecutive failures shared one property and this candidate was the first
+  without it. The rule has now predicted an outcome rather than only explained
+  past ones.
+
+- **the run self-verified, and the check was not a formality.** `knee-oof-v1pub`
+  predicted all 4,407 studies on CPU in 223.7 minutes — 882+882+881+881+881, each
+  study exactly once, by the one model that held it out. It recomputed the
+  pooled gold macro from the gold subset and returned **0.8980**, with all
+  twelve per-finding values matching E044's record to three decimals (Synovitis
+  0.779, Lateral OA 0.822 … Baker's 0.984). So this kernel cut the folds exactly
+  as the trainer did and the predictions are genuinely out-of-fold. Had it
+  disagreed, the teacher would have carried leaked information, trained
+  cleanly, and scored worse for no visible reason.
+- **the weight curve, recorded and not used:**
+
+| w_model | 0.00 | 0.25 | **0.50** | 0.75 | 1.00 |
+|---|---:|---:|---:|---:|---:|
+| gold macro | 0.8972 | 0.9116 | **0.9188** | 0.9140 | 0.8980 |
+
+  The parameter-free midpoint is also the maximum. That is a **fact about the
+  curve, not a tuning result** — an argmax over five points on 58 studies is a
+  parameter fitted to 58 studies, which `dataset-metadata.fused.json` rejects by
+  name and E048 declined once already. A test asserts the script contains no
+  call that could pick one. It is reported because it is fortunate, not because
+  it was used.
+
+**WHAT THIS MEASUREMENT CANNOT SEE**, stated as E065 promised and as E062
+failed to:
+
+1. **Gold-58 measures agreement with 58 expert answers, not training-target
+   quality on the other 4,349 studies** — which is the entire job of a
+   distilled teacher. A better teacher on the 58 is a reason to train, not
+   evidence that the trained model improves.
+2. **The student's advantage is partly borrowed from expert labels.** Each fold
+   model trained on the other ~46 gold studies at `GOLD_WEIGHT=8.0`, so it has
+   learned what expert labelling looks like in a way the report labels have not.
+   That generalises to any study, but the 58 are the population that weighting
+   optimised agreement with, so the +0.0261 may read larger here than the effect
+   the corpus as a whole will see.
+
+Neither caveat weakens the decision — the pre-registered rule was about whether
+to spend GPU, and it is met. Both bound what the number may later be claimed to
+have shown.
+
+- **the teacher is published** as `achelijndiamantidis/knee-phase1-distilled`,
+  private, keyed by competition StudyInstanceUIDs, carrying `soft_labels.parquet`
+  and a copy of `series_headers.parquet` so one mounted dataset satisfies both
+  markers the trainer looks for.
+- **`v1pubdistil` is wired and generated**: five folds, byte-identical to
+  `v1public` in cache, geometry and every hyperparameter, so the **teacher is
+  the single variable** — exactly the shape that paid +0.077 when the public
+  labels replaced the fused ones.
+- **it cannot run yet.** The weekly GPU quota is spent (E067) and resets
+  ~2026-09-05. ~7.5 GPU-h, then one submission.

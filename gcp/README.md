@@ -12,6 +12,13 @@ rather than reimplementing anything.
 anyway are that it has **no session cap** (Colab reclaims sessions mid-fold),
 **no 15 GB Drive ceiling** (the cache alone is ~10 GB), and it runs unattended.
 
+**MEASURED 2026-09-03 on this project: `GPUS_ALL_REGIONS = 0`.** No GPU VM
+can start, Spot included. The request is a human review taking hours to
+days, which on that date was *longer* than the wait it would have avoided —
+the Kaggle quota reset was ~2 days out and delivers 30 GPU-h against the
+7.5 the distilled lineage needs. File the increase for later weeks; do not
+wait on it for a run the weekly reset already covers.
+
 **A new GCP project has zero GPU quota.** `GPUS_ALL_REGIONS` starts at 0 and an
 increase is a request that can take hours or days to approve. Check it *first* —
 if it is not already granted, waiting for the Kaggle weekly reset is likely to

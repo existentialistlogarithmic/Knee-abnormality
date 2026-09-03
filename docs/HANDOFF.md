@@ -131,8 +131,11 @@ does. Weights return as a private Kaggle Dataset and inference mounts them.
 This is worth doing for throughput, not for the calendar: it is a second GPU
 stream for the remaining weeks, not a way to save the ~3 days until a reset.
 
-**Paid GPU is also wired**: `gcp/` runs the same generated trainer on a GCE
-VM, unattended, and stops the machine on exit. It beats Colab on session cap
+**Paid GPU is wired but BLOCKED**: `gcp/` runs the same generated trainer on a
+GCE VM, unattended, and stops the machine on exit — but this project's GCP
+quota was measured at **`GPUS_ALL_REGIONS = 0` on 2026-09-03**, so no GPU VM
+can start until an increase is granted. Check before assuming it is an
+option. It beats Colab on session cap
 and disk but is not free, and **a new GCP project has zero GPU quota** — an
 increase can take days, so check it before assuming it is faster than
 waiting for the weekly reset. `gcp/README.md` has the costs and the trap.

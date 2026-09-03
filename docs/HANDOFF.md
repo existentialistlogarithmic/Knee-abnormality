@@ -107,6 +107,30 @@ fault in the assigned card's memory, before any batch trained. That is the one
 case where re-pushing is the right response rather than an excuse. Anything else
 that fails is this project's bug until proven otherwise.
 
+## 4c. Free GPU elsewhere — allowed, and already wired
+
+`colab/train_fold_on_colab.ipynb` runs **the same generated `run.py`**,
+byte-identical, on Colab free's T4. Only the paths and the machine change, so a
+fold trained there pools with one trained on Kaggle. It is currently aimed at
+the five `v1pubdistil` folds, which is the only queued lineage with a separated
+measurement behind it (E069).
+
+**The rules split cleanly and both halves matter** (`FINDINGS.md` 2.7 and 2.15):
+
+| | |
+|---|---|
+| free GPU elsewhere for **training** | **allowed** — only inference must be a Kaggle notebook, internet off |
+| a **second Kaggle account** for more quota | **forbidden**, verbatim: *"you cannot enter or submit from multiple accounts"* |
+| teaming | the sanctioned route — max 5, merger deadline 2026-10-15, share datasets not credentials |
+
+**What it actually costs**, so the setup is not a surprise: ~2.5–3 h per fold on
+one T4 against ~1.4 h on Kaggle's two, one fold per session, and a **~10 GB
+cache against free Drive's 15 GB total**. The Drive quota binds before the GPU
+does. Weights return as a private Kaggle Dataset and inference mounts them.
+
+This is worth doing for throughput, not for the calendar: it is a second GPU
+stream for the remaining weeks, not a way to save the ~3 days until a reset.
+
 ## 4b. SUBMITTING — the API cannot do it
 
 **`kaggle competitions submit` fails with HTTP 400:**

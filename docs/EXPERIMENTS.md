@@ -3497,3 +3497,69 @@ system is 0.012 behind it.**
   carrying the DATE it was measured on, and a leaderboard position decays faster
   than any other number in this log. Every board-position claim in the docs now
   carries its measurement date.
+
+
+### E071 — the distilled gain is broad, and it breaks the Synovitis text ceiling
+- **date**: 2026-09-03. CPU only, no quota. Per-finding breakdown of E069's
+  +0.0261, run before spending 7.5 GPU-h on the lineage it authorises.
+
+| finding | teacher | model | union | union − teacher | positives |
+|---|---:|---:|---:|---:|---:|
+| MCL | 0.968 | 0.882 | 0.955 | **−0.0136** | 9 |
+| ACL | 0.987 | 0.962 | 0.987 | −0.0006 | 24 |
+| Lateral OA | 0.833 | 0.822 | 0.836 | +0.0029 | 11 |
+| PF OA | 0.902 | 0.858 | 0.911 | +0.0097 | 21 |
+| Lateral Meniscus | 0.879 | 0.851 | 0.889 | +0.0106 | 23 |
+| Medial Meniscus | 0.948 | 0.929 | 0.962 | +0.0132 | 26 |
+| Fracture | 0.793 | 0.885 | 0.826 | +0.0333 | 18 |
+| Baker's | 0.944 | 0.984 | 0.982 | +0.0380 | 12 |
+| **Synovitis** | **0.790** | 0.779 | **0.830** | **+0.0400** | 27 |
+| Medial OA | 0.932 | 0.980 | 0.974 | +0.0419 | 15 |
+| Contusion | 0.860 | 0.915 | 0.910 | +0.0499 | 19 |
+| Effusion | 0.877 | 0.929 | 0.965 | +0.0882 | 35 |
+
+- **the gain is broad, which is the thing that had to be checked.** It improves
+  **10 of 12** findings; the median (+0.0233) sits close to the mean (+0.0261),
+  so no outlier is carrying it. The largest single finding, Effusion at +0.0882,
+  contributes **+0.0073 of the +0.0261 macro — 28%**. Delete Effusion entirely
+  and the gain is still +0.019. A macro number carried by one easy finding would
+  not have survived the trip to the board; this is not that.
+- **the two losses are small and both are where the teacher was already
+  excellent**: MCL −0.0136 from 0.968, ACL −0.0006 from 0.987. Averaging a
+  0.882 model into a 0.968 reader costs a little at the top. Correcting it
+  per-finding would be twelve choices fitted to 58 studies, which
+  `dataset-metadata.fused.json` rejects by name; it is recorded and not acted on.
+
+**SYNOVITIS REACHES 0.830 AND THE TEXT CEILING IS 0.8076.**
+
+E059 computed that ceiling as arithmetic, not estimate: of the 58 gold studies
+only 21 mention Synovitis at all, so a reader with flawless negation, flawless
+multilingual coverage and no errors whatever caps at
+
+    AUC = [13x31 + 14x8 + 0.5x14x23] / (27x31) = 0.8076
+
+and E059 concluded the Synovitis route was "closed before it was opened".
+
+**That conclusion was right about readers and is now superseded about teachers.**
+The bound constrains anything that reads the *reports*. This teacher is not a
+reader — it is a union of the reports with a model that reads *pixels*, and the
+pixels separate the 37 studies the reports are silent on. Exceeding 0.8076 is
+therefore not a contradiction of E059 but the first demonstration of what E059
+implied: **the only way past the text ceiling is to stop the teacher being
+text-only.**
+
+- **why this matters more than the number.** `PATH.md` §3 held that board 0.94
+  needs no finding below ~0.870, that Synovitis at 0.779 was the only one below
+  0.80, and that E059 had closed it — so 0.94 "does not come from fixing the
+  weakest finding". The distilled teacher moves that finding **0.790 → 0.830**,
+  which is the first movement on it in the project's history and reopens the
+  route `PATH.md` had written off.
+- **what is still unmeasured, and it is the whole thing.** This is the TEACHER
+  on 58 studies. Whether a model trained on it beats 0.924 is a board question
+  and nothing here answers it. The two limits recorded in E069 stand unchanged:
+  gold-58 scores agreement with 58 expert answers rather than training-target
+  quality on the other 4,349, and the student's edge is partly borrowed from
+  gold labels it trained on at 8x weight.
+- **the check is now permanent.** `eda/distill_teacher.py` prints the per-finding
+  table, flags when one finding carries the macro, and flags a Synovitis score
+  above the E059 ceiling with the reason it is not a contradiction.

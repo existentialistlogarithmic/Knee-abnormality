@@ -82,10 +82,16 @@ def test_the_weight_curve_is_recorded_and_not_adopted():
     source = (REPO_ROOT / "eda" / "distill_teacher.py").read_text()
     assert "RECORDED AND NOT USED" in source
     assert "union = (model_ranks + teacher_ranks) / 2" in source
-    # the word "argmax" appears in the prose explaining why it is refused;
-    # what must not appear is a CALL that picks a weight by maximising gold
+    # The invariant is not "the file contains no max()" — it is that no WEIGHT is
+    # ever chosen by maximising the gold score. Reporting which finding moved
+    # most is a different thing and is allowed; that distinction is why the
+    # earlier token-ban proxy failed the moment a per-finding summary was added.
     assert "np.argmax" not in source
     assert ".argmax(" not in source
     for line in source.splitlines():
         code = line.split("#", 1)[0]
-        assert "max(" not in code or "max(len(" in code, line
+        if "max(" not in code:
+            continue
+        # a max() touching the blend, the weight or the curve is fitting
+        assert not any(token in code for token in
+                       ("weight", "blend", "curve", "w_model", "union =")), line

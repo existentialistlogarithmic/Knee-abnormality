@@ -158,6 +158,47 @@ def main(argv=None) -> int:
     point, low, high = paired("union   ", union[is_gold],
                               "teacher ", teacher[is_gold], expert)
 
+    # Per finding, because a macro gain carried by ONE finding is fragile and a
+    # broad one is real, and 7.5 GPU-h should not be spent without knowing which
+    # this is. It also catches the specific way a union can flatter itself: a
+    # single easy finding moving a long way while the rest go nowhere.
+    print(f"\n{'finding':18s} {'teacher':>8s} {'model':>8s} {'union':>8s} "
+          f"{'union-teach':>12s} {'pos':>5s}")
+    deltas = []
+    for i, finding in enumerate(FINDINGS):
+        y = (expert[:, i] > 0.5).astype(int)
+        if not 0 < y.sum() < len(y):
+            continue
+        t = auc(y, teacher[is_gold][:, i])
+        m = auc(y, model[is_gold][:, i])
+        u = auc(y, union[is_gold][:, i])
+        deltas.append((finding, t, m, u, u - t, int(y.sum())))
+    for finding, t, m, u, d, n in sorted(deltas, key=lambda r: r[4]):
+        mark = "  <-- WORSE" if d < 0 else ""
+        print(f"{finding:18s} {t:8.3f} {m:8.3f} {u:8.3f} {d:+12.4f} {n:5d}{mark}")
+    if deltas:
+        values = np.array([d[4] for d in deltas])
+        gained = int((values > 0).sum())
+        top = max(deltas, key=lambda r: r[4])
+        print(f"\n  union beats the teacher on {gained} of {len(deltas)} findings; "
+              f"median {np.median(values):+.4f}, mean {values.mean():+.4f}")
+        print(f"  largest single finding: {top[0]} at {top[4]:+.4f}, which is "
+              f"{top[4] / len(deltas):+.4f} of the macro — "
+              f"{'BROAD, not carried by one finding' if abs(top[4] / len(deltas)) < values.mean() * 0.6 else 'CHECK: one finding carries much of this'}")
+
+        # E059 computed a hard ceiling for Synovitis: 37 of the 58 studies never
+        # mention it, so a PERFECT text reader caps at 0.8076. A teacher that
+        # exceeds it is not contradicting E059 — it is no longer a text reader.
+        # The model separates studies the reports are silent on, which is the
+        # whole reason a distilled teacher can go where a better lexicon cannot.
+        syn = next((d for d in deltas if d[0] == "Synovitis"), None)
+        if syn and syn[3] > 0.8076:
+            print(f"\n  SYNOVITIS {syn[3]:.4f} EXCEEDS THE 0.8076 TEXT CEILING (E059).")
+            print("  Not a contradiction: E059 bounds what any READER of the reports "
+                  "can do,\n  and this teacher is no longer text-only. The pixels "
+                  "separate the 37 studies\n  the reports are silent on. Synovitis "
+                  "was PATH.md's named blocker for 0.94.")
+
     # Printed in full and deliberately not adopted: an argmax over this curve is
     # a free parameter fitted to 58 studies. E048 declined exactly this and the
     # reasoning has not changed.

@@ -158,9 +158,15 @@ only **Synovitis (0.779)** sits below 0.80, and E059 closed it — the finding i
 unwritten in the reports rather than badly read, and the text ceiling is 0.8076
 against a model already at 0.790.
 
-So 0.94 does not come from fixing the weakest finding. It comes from more data
-per model, which is exactly what §2.1 is testing, or from a label set that has
-not appeared yet.
+**SUPERSEDED IN PART, 2026-09-03 (E071).** That reasoning was correct while the
+teacher could only read text. The distilled teacher is a union of the reports
+with a model that reads pixels, and it moves Synovitis **0.790 → 0.830** — above
+E059's 0.8076 ceiling, because that ceiling bounds *readers* and this is no
+longer one. It is the first movement on that finding in the project's history.
+
+So the route runs through the teacher rather than around it. 0.94 now has two
+candidate mechanisms rather than one: more data per model (§2.1), and a teacher
+that is not text-limited (§2.2). Both are unpriced on the board.
 
 ## 4. About 0.95, plainly
 
@@ -186,7 +192,14 @@ legitimate inputs, with attribution.
 
 - **0.924 is banked**, and it clears the top-200 cut of 0.917.
 - **0.93–0.94 is plausible** if the full-fit lineage pays at full weight, or if
-  the distilled teacher separates. Those are the two routes with a mechanism.
+  the distilled teacher transfers. The teacher HAS separated (+0.0261, E069) and
+  its gain is broad across 10 of 12 findings (E071), which is the strongest
+  offline position this project has been in since the public labels.
+- **0.945+ requires that teacher gain to transfer at roughly the historical
+  rate.** Label changes have transferred favourably before — the rig called the
+  fused labels +0.0508 and the board paid +0.089, about 1.75x. At half that
+  multiplier +0.0261 becomes ~+0.023 and lands at 0.947; at zero it lands at
+  0.924. **That spread is the honest forecast**, and only the board closes it.
 - **0.945 needs both to pay near the top of their band AND a new public asset to
   appear.** It sits 0.007 under the field top, which is top-handful territory in
   a 1,866-team field. There is no measured path to it and this file will not

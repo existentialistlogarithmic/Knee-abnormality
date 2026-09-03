@@ -3648,3 +3648,76 @@ agreement with 58 expert answers, not training-target quality on the other
 4,349. And `knee-oof-v1pubb` must reproduce v1publicB's **0.8827** on the gold
 subset or its folds were cut differently from the trainer's and its predictions
 are not out-of-fold. Result in E074.
+
+
+### E074 — the union gains where the sources AGREE, which inverts the usual rule and still does not help
+- **date**: 2026-09-03. CPU only, no quota. Premise test, pre-registration and
+  A/B, in that order.
+
+**The observation, and it is the interesting part.** For each finding, correlate
+the model's and the report labels' rankings **over all 4,407 studies**, and
+compare that against how much the union beats its own better member on the 58:
+
+| finding | corr(model, teacher) | best member | union | union − best |
+|---|---:|---:|---:|---:|
+| Fracture | 0.355 | 0.885 | 0.826 | **−0.0583** |
+| MCL | 0.364 | 0.968 | 0.955 | **−0.0136** |
+| ACL | 0.466 | 0.987 | 0.987 | −0.0006 |
+| Lateral Meniscus | 0.483 | 0.879 | 0.889 | +0.0106 |
+| Lateral OA | 0.497 | 0.833 | 0.836 | +0.0029 |
+| Baker's | 0.512 | 0.984 | 0.982 | −0.0018 |
+| Contusion | 0.535 | 0.915 | 0.910 | −0.0054 |
+| PF OA | 0.567 | 0.902 | 0.911 | +0.0097 |
+| Medial OA | 0.620 | 0.980 | 0.974 | −0.0062 |
+| Synovitis | 0.637 | 0.790 | 0.830 | **+0.0400** |
+| Effusion | 0.669 | 0.929 | 0.965 | **+0.0360** |
+| Medial Meniscus | 0.725 | 0.948 | 0.962 | +0.0132 |
+
+  **r = +0.744, p = 0.0055.** The union gains MORE where the two sources are
+  MORE correlated — the **opposite** of the standard ensembling intuition that
+  decorrelated members blend best.
+
+- **the mechanism, once the sign is taken seriously**: correlation here measures
+  **shared signal, not redundancy**. Where the model and the reports agree they
+  are reading the same true thing, and averaging cancels the independent noise
+  on each while preserving it. Where they disagree, one of them is simply wrong,
+  and averaging drags the good one toward the bad. **This explains E071's two
+  losses exactly**: Fracture and MCL are the two lowest-correlation findings in
+  the corpus, and they are the two the union hurts.
+- **so, unlike E072, the premise passed and the A/B was earned.** Pre-registered
+  before running: adopt a correlation-weighted union — `w_model = corr/2`, so
+  corr→1 gives the full 50/50 union and corr→0 falls back to the incumbent
+  report labels, with corr measured corpus-wide and **nothing fitted to the 58**
+  — only if it beats the 50/50 union with a 95% interval excluding zero **and**
+  a point estimate of at least +0.01. The size condition was added because E072
+  noted comparisons against these 58 studies are accumulating.
+
+| teacher | gold macro, n=58 |
+|---|---:|
+| report labels | 0.8927 |
+| **50/50 union** | **0.9188** |
+| correlation-weighted union | 0.9144 |
+
+  **corr-weighted − 50/50 = −0.0044, 95% CI [−0.013, +0.004]. NOT SEPARATED,
+  and negative. The rule says do not adopt.**
+
+- **why it lost, which the weights make obvious**: `corr/2` peaks at 0.363
+  (Medial Meniscus) and bottoms at 0.177 (Fracture), so it down-weights the
+  model **everywhere** relative to 50/50 — it is not "weight by agreement", it
+  is "trust the reports more overall". And the model is the *better* member on
+  Fracture (0.885 vs 0.793), Contusion, Medial OA, Baker's and Effusion. The
+  parameterisation punishes the arm it should have been protecting.
+- **the descriptive finding survives the failed intervention and is worth
+  keeping.** "Blend where the sources agree; do not blend where they disagree"
+  is now a measured property of this corpus with p = 0.0055 behind it, and it is
+  a better-founded blending rule than E048's comparability heuristic, which
+  operates on whole systems rather than findings. A parameterisation that acts
+  on it *without* uniformly demoting the model has not been found; one that
+  needed the per-finding better member would be twelve choices fitted to 58
+  studies, which this project rejects by name.
+- **the practical result: the 50/50 union has now been attacked twice and held.**
+  E072 killed a coverage weighting at its premise; this killed a correlation
+  weighting at its A/B. Two principled, zero-parameter reweightings rejected is
+  the strongest argument yet for shipping the parameter-free teacher as it
+  stands. **The `v1pubdistil` lineage trains on the 50/50 union.**
+- *(The two-lineage teacher of E073 is still pending and will be **E075**.)*

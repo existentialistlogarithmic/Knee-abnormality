@@ -64,6 +64,19 @@ def test_it_verifies_the_gpu_and_the_pipeline_before_training():
     assert "generate_kernels.py --check" in body, "a drifted run.py is not the pipeline"
 
 
+def test_it_waits_for_the_driver_before_declaring_no_gpu():
+    """DLVM images install the NVIDIA driver on first boot, after the startup
+    script has already begun. A bare `nvidia-smi ||` exits in the first minute on
+    a machine that has a perfectly good GPU, and the error reads like a wrong
+    accelerator flag."""
+    body = text()
+    assert "for attempt in $(seq 1 60)" in body
+    assert "sleep 10" in body
+    # the fatal must be inside the retry, not before it
+    before_loop = body.split("for attempt in")[0]
+    assert "FATAL: no GPU" not in before_loop
+
+
 def test_no_credential_is_committed():
     for path in (SCRIPT, README):
         body = path.read_text()

@@ -37,7 +37,21 @@ log() { echo "[$(date -u +%H:%M:%S)] $*"; }
 trap 'log "shutting down"; shutdown -h +1' EXIT
 
 log "fold=$FOLD lineage=$LINEAGE branch=$BRANCH"
-nvidia-smi || { echo "FATAL: no GPU on this VM — check the accelerator flag"; exit 1; }
+
+# Deep Learning VM images install the NVIDIA driver on FIRST BOOT, and a startup
+# script runs before that finishes. Checking nvidia-smi immediately reports no
+# GPU on a machine that has one, kills the run in its first minute, and looks
+# exactly like a wrong --accelerator flag. Wait for the driver, then fail.
+for attempt in $(seq 1 60); do
+  if nvidia-smi >/dev/null 2>&1; then
+    log "GPU ready after ${attempt} attempt(s)"; nvidia-smi; break
+  fi
+  [ "$attempt" -eq 60 ] && {
+    echo "FATAL: no GPU after 10 minutes — check --accelerator and the image family"
+    exit 1
+  }
+  sleep 10
+done
 
 # --- environment ----------------------------------------------------------
 export DEBIAN_FRONTEND=noninteractive

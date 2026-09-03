@@ -25,9 +25,22 @@ if it is not already granted, waiting for the Kaggle weekly reset is likely to
 be faster than waiting for the quota:
 
 ```bash
-gcloud compute regions describe us-central1 \
-  --format="value(quotas[].metric,quotas[].limit)" | tr ';' '\n' | grep -i gpu
+gcloud compute project-info describe --flatten="quotas[]" --format="csv[no-heading](quotas.metric,quotas.limit)" | grep -i gpu
+gcloud compute regions describe us-central1 --flatten="quotas[]" --format="csv[no-heading](quotas.metric,quotas.limit)" | grep -i gpu
 ```
+
+**Two quotas are needed, not one**, and asking for only the first is the usual
+way this fails a second time after the wait:
+
+| quota | scope | why |
+|---|---|---|
+| `GPUS_ALL_REGIONS` | global | necessary, not sufficient |
+| `NVIDIA_T4_GPUS` | the region you create in | the VM will not start without it |
+| `PREEMPTIBLE_NVIDIA_T4_GPUS` | same region | separate quota, and the create command above uses Spot |
+
+A quota increase on a project with **no billing account is auto-denied**, so
+check that first — `gcloud beta billing projects describe PROJECT_ID` must say
+`billingEnabled: true`. A free-trial credit counts as an account.
 
 **Costs are approximate and change — check current pricing before committing.**
 An n1-standard-8 with one T4 is on the order of $0.70–0.80/hour on demand and

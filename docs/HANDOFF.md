@@ -131,6 +131,12 @@ does. Weights return as a private Kaggle Dataset and inference mounts them.
 This is worth doing for throughput, not for the calendar: it is a second GPU
 stream for the remaining weeks, not a way to save the ~3 days until a reset.
 
+**Paid GPU is also wired**: `gcp/` runs the same generated trainer on a GCE
+VM, unattended, and stops the machine on exit. It beats Colab on session cap
+and disk but is not free, and **a new GCP project has zero GPU quota** — an
+increase can take days, so check it before assuming it is faster than
+waiting for the weekly reset. `gcp/README.md` has the costs and the trap.
+
 ## 4b. SUBMITTING — the API cannot do it
 
 **`kaggle competitions submit` fails with HTTP 400:**

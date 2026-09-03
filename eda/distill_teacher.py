@@ -112,21 +112,56 @@ def main(argv=None) -> int:
     parser.add_argument("--out", default="artifacts/distilled")
     args = parser.parse_args(argv)
 
-    predictions: dict[str, list[float]] = {}
-    folds_seen = []
+    # Files are grouped by their PARENT DIRECTORY, one directory per lineage.
+    #
+    # Within a lineage a study must appear exactly once — twice means the folds
+    # overlap, the predictions are not out-of-fold, and a teacher built on them
+    # would leak. Across lineages a study SHOULD appear once per lineage, and
+    # those are averaged: a second independent prediction cuts the single-model
+    # variance the model arm otherwise carries in full.
+    #
+    # Grouping on the directory rather than the file is deliberate. Both OOF
+    # kernels write `oof_all_fold{n}_{tag}.json` with the same tag, so two
+    # lineages downloaded into one directory would silently collide and the
+    # second would look like a fold overlap. Keep them in separate directories.
+    by_lineage: dict[str, dict[str, list[float]]] = {}
+    folds_seen: dict[str, list[int]] = {}
     for path in sorted(args.oof):
-        blob = json.loads(Path(path).read_text())
+        path = Path(path)
+        blob = json.loads(path.read_text())
         if blob["findings"] != FINDINGS:
             raise SystemExit(f"{path}: finding order differs from the schema")
-        folds_seen.append(blob["fold"])
+        lineage = path.parent.name
+        rows = by_lineage.setdefault(lineage, {})
+        folds_seen.setdefault(lineage, []).append(blob["fold"])
         for study, row in zip(blob["studies"], blob["predicted"], strict=True):
-            if study in predictions:
+            if str(study) in rows:
                 raise SystemExit(
-                    f"{study} predicted twice — the folds overlap, so these "
-                    "predictions are not out-of-fold and must not be used")
-            predictions[str(study)] = row
-    print(f"folds {sorted(folds_seen)}; {len(predictions):,} studies predicted "
-          "exactly once each")
+                    f"{study} predicted twice within {lineage} — the folds "
+                    "overlap, so these predictions are not out-of-fold and "
+                    "must not be used")
+            rows[str(study)] = row
+
+    for lineage, rows in sorted(by_lineage.items()):
+        print(f"{lineage}: folds {sorted(folds_seen[lineage])}, "
+              f"{len(rows):,} studies predicted exactly once each")
+
+    # Average across lineages, keeping only studies EVERY lineage predicted, so
+    # no study is scored from a smaller ensemble than its neighbours.
+    shared = set.intersection(*(set(rows) for rows in by_lineage.values()))
+    dropped = max(len(rows) for rows in by_lineage.values()) - len(shared)
+    if dropped:
+        print(f"note: {dropped} studies are missing from at least one lineage "
+              "and are excluded, so every study is averaged over the same "
+              "number of models")
+    predictions = {
+        study: np.mean([by_lineage[lineage][study] for lineage in by_lineage],
+                       axis=0).tolist()
+        for study in shared
+    }
+    if len(by_lineage) > 1:
+        print(f"averaging {len(by_lineage)} lineages over {len(predictions):,} "
+              "studies")
 
     train = pd.read_csv(args.train).set_index("StudyInstanceUID")
     soft = pd.read_parquet(args.labels).set_index("StudyInstanceUID")

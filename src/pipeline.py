@@ -1119,6 +1119,47 @@ EXTRAS = [
              "two-hour CPU run that would have to be repeated to revisit it.",
     ),
     Kernel(
+        slug="knee-oof-v1pubb",
+        directory="71_oof_v1pubb",
+        template="gold_eval",
+        gpu=False,          # 4,407 forward passes; CPU is a separate allowance
+        internet=False,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3",
+                 "knee-train-v1pubB", "knee-train-v1pubB-fold1",
+                 "knee-train-v1pubB-fold2", "knee-train-v1pubB-fold3",
+                 "knee-train-v1pubB-fold4"],
+        datasets=[PUBLIC_DATASET],
+        constants={**V1.constants(), "TTA_VIEWS": ("identity",),
+                   "OOF_SCOPE": "all"},
+        note="A SECOND out-of-fold prediction per study, from the reseeded\n"
+             "lineage, to strengthen the model arm of the distilled teacher.\n"
+             "\n"
+             "E069's teacher is the rank union of the public report labels\n"
+             "(0.8927 gold) with ONE prediction per study from v1public\n"
+             "(0.8980). Each study is predicted once, by the single fold model\n"
+             "that held it out, so that arm carries the full single-model\n"
+             "variance. Averaging a second independent prediction reduces it\n"
+             "without changing anything else.\n"
+             "\n"
+             "The reason to expect it to pay is E048's rule rather than\n"
+             "optimism: a union pays when its members are COMPARABLE. E061\n"
+             "pooled v1publicB at 0.8827 against v1public's 0.8980 — 0.015\n"
+             "apart, inside the 0.02 band, where E023's union paid +0.070 and\n"
+             "the five unions with a member 0.03-0.06 behind paid nothing.\n"
+             "\n"
+             "CPU only, so it costs ZERO GPU quota — which matters because the\n"
+             "weekly allowance is spent and the distilled lineage is queued\n"
+             "behind the reset. If this improves the teacher, it improves it\n"
+             "BEFORE those five folds train, not after.\n"
+             "\n"
+             "Self-verifying like knee-oof-v1pub: the gold macro is still\n"
+             "computed from the gold subset, so this run must reproduce\n"
+             "v1publicB's 0.8827. If it does not, the folds were cut\n"
+             "differently from the trainer and the predictions are not\n"
+             "out-of-fold.",
+    ),
+    Kernel(
         slug="knee-llm-labeler",
         directory="16_llm_labeler",
         template="llm_label",

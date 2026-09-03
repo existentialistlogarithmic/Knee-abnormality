@@ -3563,3 +3563,88 @@ text-only.**
 - **the check is now permanent.** `eda/distill_teacher.py` prints the per-finding
   table, flags when one finding carries the macro, and flags a Synovitis score
   above the E059 ceiling with the reason it is not a contradiction.
+
+
+### E072 — a principled reweighting killed by its own premise, for the cost of a correlation
+- **date**: 2026-09-03. CPU only, no quota, **no A/B run**.
+- **the idea**: E069's teacher weights the reports and the model 50/50 on every
+  finding. E071 shows the model is far better on some (Effusion +0.052, Contusion
+  +0.055, Medial OA +0.048) and far worse on others (MCL −0.086, PF OA −0.043).
+  E059's argument suggests the mechanism: a report label is weak exactly where
+  the reports do not mention the finding. So weight the text by its **corpus
+  mention rate** — a statistic measured on all 4,407 reports, with **zero free
+  parameters** and nothing fitted to the 58.
+- **the premise was tested before the A/B, and it does not hold:**
+
+| finding | corpus mention | model − teacher |
+|---|---:|---:|
+| Synovitis | 13.8% | **−0.0114** |
+| Fracture | 19.1% | +0.0917 |
+| Lateral OA | 33.6% | −0.0106 |
+| Medial OA | 36.9% | +0.0481 |
+| Baker's | 40.8% | +0.0399 |
+| Contusion | 41.6% | +0.0553 |
+| PF OA | 55.5% | −0.0431 |
+| MCL | 61.2% | −0.0862 |
+| Lateral Meniscus | 62.8% | −0.0280 |
+| Medial Meniscus | 64.6% | −0.0192 |
+| ACL | 73.2% | −0.0251 |
+| Effusion | 73.2% | **+0.0522** |
+
+  **Pearson r = −0.423, p = 0.171. Spearman r = −0.357, p = 0.255.** The
+  direction is right and the effect is not separated at n=12 findings, and the
+  two extremes contradict it outright: the thinnest-covered finding (Synovitis,
+  13.8%) is one where the model is *worse*, and the richest (Effusion, 73.2%) is
+  where it is most *better*.
+- **so the A/B was not run.** A comparison on 58 gold studies with no mechanism
+  behind it is how a false positive gets manufactured, and this project has
+  overturned eight claims that arrived that way. Killing it cost one correlation
+  and no measurement budget.
+- **it also says something useful about the 50/50 union**: the obvious
+  principled improvement to it is not available, which is a reason to ship the
+  parameter-free version rather than keep hunting for a better weighting.
+- **a methodological note now worth making.** Several comparisons have now been
+  run against the same 58 studies. E069 is a single **pre-registered** test and
+  stands; E071 is descriptive; this is a premise check. But the count is rising,
+  and nothing in this project's rules guards against multiple comparisons on one
+  small evaluation set. Treat any future unpre-registered positive on gold-58
+  with more suspicion than its interval alone suggests.
+
+
+### E073 — PRE-REGISTRATION: a second prediction per study, to sharpen the teacher
+- **date**: 2026-09-03. CPU only, no quota. **Written before the numbers exist.**
+- **the gap**: E069's teacher unions the report labels with **one** prediction
+  per study — from the single fold model that held that study out. That arm
+  therefore carries the full single-model variance, and E060 measured that
+  variance at **±0.03** on fine-tuned gold comparisons, which is larger than the
+  +0.0261 the teacher gained.
+- **the fix costs no GPU**: `knee-oof-v1pubb` runs the same CPU kernel over the
+  **reseeded** `v1publicB` checkpoints, which already exist. Every study gets a
+  second independent prediction; averaging the two cuts the variance without
+  changing anything else about the teacher.
+- **why expect it to pay — E048's rule, not optimism.** A union pays when its
+  members are comparable. E061 pooled `v1publicB` at **0.8827** against
+  `v1public`'s **0.8980** — **0.015 apart, inside the 0.02 band** where E023's
+  union paid +0.070, and outside the 0.03-0.06 range where five consecutive
+  unions paid nothing.
+- **the timing is the point.** The distilled lineage is queued behind the GPU
+  quota reset. If the teacher can be sharpened, it must happen **before** those
+  five folds train, not after — otherwise the 7.5 GPU-h buys the weaker teacher.
+
+**PRE-REGISTERED ACCEPTANCE RULE.** Rebuild the teacher from the average of both
+lineages' out-of-fold predictions and score it against the 58. Ship the
+two-lineage teacher to the `v1pubdistil` lineage only if:
+
+> two-lineage union − one-lineage union is **positive**, and the two-lineage
+> union still separates from the report labels at 95%.
+
+No size threshold: this is a variance reduction with a known mechanism, not a
+new hypothesis, and the one-lineage teacher is already authorised. A negative
+means ship the E069 teacher unchanged. Either way the lineage trains at the
+reset; the only question is which teacher it trains on.
+
+**What this cannot see**, stated first as E065 established: gold-58 scores
+agreement with 58 expert answers, not training-target quality on the other
+4,349. And `knee-oof-v1pubb` must reproduce v1publicB's **0.8827** on the gold
+subset or its folds were cut differently from the trainer's and its predictions
+are not out-of-fold. Result in E074.

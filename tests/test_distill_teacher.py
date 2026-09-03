@@ -95,3 +95,58 @@ def test_the_weight_curve_is_recorded_and_not_adopted():
         # a max() touching the blend, the weight or the curve is fitting
         assert not any(token in code for token in
                        ("weight", "blend", "curve", "w_model", "union =")), line
+
+
+# --------------------------------------------------------------------------- #
+# averaging several lineages
+# --------------------------------------------------------------------------- #
+def _lineage(root: Path, name: str, fold: int, studies: list[str], value: float):
+    """One lineage's OOF dump, with every prediction set to `value`."""
+    d = root / name
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"oof_all_fold{fold}_tag.json").write_text(json.dumps({
+        "fold": fold, "epoch": 20, "backbone": "resnet34", "source": "tag",
+        "findings": FINDINGS, "studies": studies,
+        "predicted": [[value] * len(FINDINGS) for _ in studies],
+    }))
+    return d
+
+
+def test_two_lineages_are_averaged_not_rejected(tmp_path, capsys):
+    """A study predicted once per lineage is the intended case, and averaging a
+    second independent prediction is the whole point — it cuts the single-model
+    variance the model arm otherwise carries in full."""
+    _lineage(tmp_path, "a", 0, ["s1", "s2"], 0.2)
+    _lineage(tmp_path, "b", 0, ["s1", "s2"], 0.8)
+    # it reaches the missing train.csv, which is past the grouping we are testing
+    with pytest.raises((SystemExit, FileNotFoundError)):
+        main(["--oof", str(tmp_path / "a" / "oof_all_fold0_tag.json"),
+              str(tmp_path / "b" / "oof_all_fold0_tag.json"),
+              "--train", str(tmp_path / "missing.csv")])
+    out = capsys.readouterr().out
+    assert "averaging 2 lineages" in out
+
+
+def test_overlap_within_one_lineage_is_still_refused(tmp_path):
+    """Two folds of the SAME lineage predicting one study means the split
+    leaked. Averaging that would hide it."""
+    d = _lineage(tmp_path, "a", 0, ["s1", "s2"], 0.2)
+    _lineage(tmp_path, "a", 1, ["s2", "s3"], 0.3)      # s2 twice, same lineage
+    with pytest.raises(SystemExit) as caught:
+        main(["--oof", str(d / "oof_all_fold0_tag.json"),
+              str(d / "oof_all_fold1_tag.json"),
+              "--train", str(tmp_path / "missing.csv")])
+    assert "predicted twice within a" in str(caught.value)
+
+
+def test_a_study_missing_from_one_lineage_is_dropped(tmp_path, capsys):
+    """Otherwise some studies are averaged over two models and others over one,
+    which is a quietly uneven teacher."""
+    _lineage(tmp_path, "a", 0, ["s1", "s2", "s3"], 0.2)
+    _lineage(tmp_path, "b", 0, ["s1", "s2"], 0.8)
+    with pytest.raises((SystemExit, FileNotFoundError)):
+        main(["--oof", str(tmp_path / "a" / "oof_all_fold0_tag.json"),
+              str(tmp_path / "b" / "oof_all_fold0_tag.json"),
+              "--train", str(tmp_path / "missing.csv")])
+    out = capsys.readouterr().out
+    assert "1 studies are missing from at least one lineage" in out

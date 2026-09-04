@@ -3721,3 +3721,58 @@ compare that against how much the union beats its own better member on the 58:
   the strongest argument yet for shipping the parameter-free teacher as it
   stands. **The `v1pubdistil` lineage trains on the 50/50 union.**
 - *(The two-lineage teacher of E073 is still pending and will be **E075**.)*
+
+
+### E075 — the second lineage adds nothing to the teacher, and that is now three instruments agreeing
+- **date**: 2026-09-04. CPU only, no quota. Answers E073's pre-registration.
+- **the run verified first.** `knee-oof-v1pubb` predicted all 4,407 studies from
+  the reseeded checkpoints, one prediction per study from the model that held it
+  out, and its pooled gold macro came back at **0.8827** — exactly E061's figure
+  for `v1publicB`. So the folds were cut as the trainer cut them and the
+  predictions are genuinely out-of-fold.
+
+| | gold macro, n=58 |
+|---|---:|
+| `v1public` alone | **0.8980** |
+| `v1publicB` alone | 0.8827 |
+| mean of the two models | **0.8966** |
+| report labels | 0.8927 |
+| **ONE-lineage teacher (E069)** | **0.9188** |
+| two-lineage teacher | 0.9172 |
+
+  **two-lineage − one-lineage = −0.0017, 95% CI [−0.007, +0.003]. NOT
+  SEPARATED, and negative. The pre-registered rule says ship E069 unchanged,
+  and it is shipped unchanged.**
+
+- **the mechanism is in the third row.** Averaging the two models gives 0.8966,
+  which is *below* `v1public` alone at 0.8980. The variance reduction happened —
+  the average did not collapse to the midpoint of 0.890 — but it never overcame
+  the 0.015 strength gap. A second opinion from a weaker model is not free.
+- **so E048's comparability band does not transfer, and that is worth writing
+  down.** E073 justified this experiment by noting the two lineages sit 0.015
+  apart, inside the 0.02 band where E023's union paid +0.070. But **that band
+  was measured on unions of DIFFERENT KINDS of source** — a lexicon and an LLM,
+  or reports and a model — which fail on different studies and therefore
+  denoise each other. Averaging **same-kind members** is a different operation:
+  two runs of one configuration make correlated errors, so the average inherits
+  the weaker member's bias without cancelling it. The band is a rule about
+  *complementarity*, not about closeness, and E073 applied it to the wrong
+  operation.
+- **three independent instruments now agree that `v1publicB` adds nothing**:
+
+| instrument | result |
+|---|---|
+| gold pool (E061) | 0.8827 vs 0.8980, all five folds below their counterparts |
+| **the board** (E064) | ten members scored **0.923**, exactly what five scored |
+| teacher averaging (this) | −0.0017, not separated |
+
+  A reseed of this configuration is simply a weaker draw, and it is weaker
+  everywhere it has been looked at. **That question is closed.**
+- **cost**: 4.5 h of CPU on a separate allowance, zero GPU. What it bought: the
+  five distilled folds train on Friday knowing the teacher is the best one
+  available, rather than on a suspicion that a better one existed and was not
+  built.
+- **the E069 teacher has now survived three challenges** — a coverage weighting
+  (E072, killed at its premise), a correlation weighting (E074, killed at its
+  A/B), and a second lineage (this). It ships as published:
+  `achelijndiamantidis/knee-phase1-distilled`, unchanged.

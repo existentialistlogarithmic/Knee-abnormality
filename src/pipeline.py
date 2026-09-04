@@ -458,6 +458,47 @@ LINEAGES = [
         infer_directory="70_infer_v1distil",
     ),
     Lineage(
+        # A ONE-FOLD PROBE of the LAST untested region, not a campaign.
+        #
+        # E046 ended its list with the observation that every geometry and
+        # architecture lever this project tested — 288px, DINOv2, focal top-k,
+        # per-finding pooling — was measured against a 0.78 teacher and came
+        # back zero or negative, and that NONE had been retested against a good
+        # one. The teacher is now 0.9188 (E069), which is 0.14 better than the
+        # one that judged 288px in E019.
+        #
+        # The premise is measured rather than hoped, and it is in this file:
+        # V2's own note records that native pixel spacing has a median of
+        # 0.312 mm and 96% of series are finer than 0.60, so V1 downsamples
+        # almost every study about 2x. This lineage is the same ~115 mm field of
+        # view at 1.5x the in-plane detail — it does not crop differently, it
+        # stops discarding what the scanner recorded.
+        #
+        # Why the answer might differ now: against a noisy teacher, extra
+        # resolution is extra capacity to fit label noise, which is what E019
+        # measured (0.688 against 192px's 0.725). Against a clean teacher the
+        # same capacity can carry signal. That is a mechanism, not a hope, and
+        # it is the only reason to revisit a lever the board already rejected.
+        #
+        # ONE FOLD, because a single fold's gold subset is n~12 and E031 put its
+        # interval at ~0.19. This probe cannot confirm a gain. It can only rule
+        # out a disaster — DINOv2 failed by 0.07 and that was visible at one
+        # fold — which is exactly what E046's dinov2pub probe was for, and that
+        # probe saved ~20 GPU-h.
+        name="v2distil",
+        cache=CACHE_V2,
+        labels=DISTILLED_DATASET,
+        train=TrainConfig(
+            backbone="resnet34", epochs=24, batch=16, lr=6e-4, accum=4,
+            note="The distilled teacher at v2 geometry. Against v1pubdistil the\n"
+                 "geometry is the single variable; against v1public it is two,\n"
+                 "so the comparison that counts is against v1pubdistil fold 0.",
+        ),
+        trainers=(
+            Trainer(0, "knee-train-v2distil", "72_train_v2distil_fold0"),
+        ),
+    ),
+    Lineage(
         # A ONE-FOLD PROBE, not a campaign. Every architecture lever this
         # project tested — 288px, DINOv2, focal top-k, per-finding pooling —
         # was measured against a 0.78 teacher and came back zero or negative

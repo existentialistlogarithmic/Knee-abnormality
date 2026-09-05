@@ -489,14 +489,23 @@ LINEAGES = [
         cache=CACHE_V2,
         labels=DISTILLED_DATASET,
         train=TrainConfig(
-            # batch 4 x accum 4 = EFFECTIVE 16, matching v1distil's batch 16 x
-            # accum 1. The first attempt used batch 16 x accum 4 and died on a
-            # CUDA OOM: 288px activations are 2.25x a 192px batch, so a per-step
-            # 16 does not fit on a T4. It was also wrong on its own terms —
-            # effective 64 against v1distil's 16 would have made the batch a
-            # SECOND variable and destroyed the comparison this probe exists for.
-            # E017 hit the same wall and resolved it the same way.
-            backbone="resnet34", epochs=24, batch=4, lr=6e-4, accum=4,
+            # Two variables had to be pinned, and finding the second cost two
+            # OOMs. Both are held EQUAL to v1distil so that RESOLUTION is the
+            # only thing that differs:
+            #
+            #   effective batch  2 x 8 = 16, matching v1distil's 16 x 1.
+            #   slices per study slice_subsample=20 x 3 planes = 60, matching
+            #                    v1distil's 20 x 3 = 60.
+            #
+            # V2 geometry carries 24 slices per plane against V1's 20, so
+            # leaving slice_subsample None fed 72 slices and made SLICE COUNT a
+            # silent second variable — as well as OOMing, because memory scales
+            # with per-step batch x slices. The historical 288px runs that DID
+            # fit (07_train_v2, 14_train_v2_long) used batch 4 with
+            # slice_subsample 18, i.e. 216 slice-units per step; this is 120,
+            # comfortably inside that.
+            backbone="resnet34", epochs=24, batch=2, lr=6e-4, accum=8,
+            slice_subsample=20,
             note="The distilled teacher at v2 geometry, effective batch 16 via\n"
                  "4-step accumulation so it matches v1distil exactly. Against\n"
                  "v1pubdistil the geometry is then the single variable; against\n"

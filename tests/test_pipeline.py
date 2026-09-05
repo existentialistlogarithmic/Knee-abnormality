@@ -910,3 +910,20 @@ def test_the_two_geometries_train_at_the_same_effective_batch():
         return values["RUN_BATCH"] * values["ACCUM_STEPS"]
 
     assert effective("72_train_v2distil_fold0") == effective("65_train_v1distil_fold0")
+
+
+def test_the_two_geometries_feed_the_same_number_of_slices():
+    """Resolution is the probe's variable. Slice count must NOT be a second one.
+
+    V2 carries 24 slices per plane against V1's 20, so leaving the subsample
+    unset silently feeds 72 slices against 60 — a confound invisible in a gold
+    score, and the reason two runs died on CUDA OOM before anyone looked, since
+    memory scales with per-step batch x slices.
+    """
+    def slices(directory: str) -> int:
+        source = (KAGGLE / directory / "run.py").read_text()
+        per_plane = int(re.search(r"^SLICES_PER_PLANE\s*=\s*(\d+)", source, re.M).group(1))
+        sub = re.search(r"^SLICE_SUBSAMPLE\s*=\s*(\d+|None)", source, re.M).group(1)
+        return (per_plane if sub == "None" else int(sub)) * 3
+
+    assert slices("72_train_v2distil_fold0") == slices("65_train_v1distil_fold0")

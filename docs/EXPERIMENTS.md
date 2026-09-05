@@ -3877,3 +3877,81 @@ OOM was luck; the test is the guard.
   one: do not predict the reset, push the thing you want and read the refusal.
 - **cost of being wrong: nothing.** Four refusals, each free, and the work
   started 16 minutes after the quota actually returned.
+
+
+### E078 — Kaggle changed its input mount layout, and a hardcoded path cost two runs
+- **date**: 2026-09-05. Two failed inference runs, ~0.1 GPU-h.
+- **the symptom**: `knee-infer-v1distil` exited twice with `no checkpoints
+  mounted (checkpoint_fold*.pt)` while all five checkpoints existed, were
+  downloadable by the API, and were listed correctly in `kernel_sources`. The
+  metadata was **byte-identical in structure** to `58_infer_v1pubfull`, which
+  had mounted six checkpoints without complaint four days earlier.
+- **the evidence was one line of the log, in both runs:**
+
+| kernel | printed |
+|---|---|
+| `knee-infer-v1pubfull`, 2026-09-01 | `competition root: /kaggle/input/**competitions**/rsna-…` |
+| `knee-infer-v1distil`, 2026-09-05 | `competition root: /kaggle/input/rsna-…` |
+
+  **Kaggle's input layout went flat between those dates.** The competition moved
+  out of `competitions/`, and mounted notebooks moved out of
+  `notebooks/<user>/<slug>/` with it. The template globbed that path literally,
+  so it matched nothing.
+- **why one finder survived and the other did not.** `find_marker("test.csv")`
+  kept working through the change because it **searches** the mounted tree; the
+  checkpoint glob **assumed** a shape. Both were written at the same time; only
+  one encoded an external system's convention as fact.
+- **the fix**: checkpoint discovery now uses `find_all_markers`, the same
+  recursive finder. Confirmed on the next run — `weights:
+  /kaggle/input/knee-train-v1distil` (flat, as predicted) and **`checkpoints
+  mounted: 5`**.
+- **the test was pinning the bug.** It asserted the hardcoded glob was
+  *present*, so it would have passed forever while the kernel failed. It now
+  asserts the opposite: discovery must search, and a literal `notebooks/` path
+  must not appear. It immediately caught the explanatory comment quoting the old
+  call verbatim, which is the assertion working.
+- **the general lesson, worth more than the fix**: `docs/` is full of rules
+  about not trusting our own single observations. This was a single observation
+  about *someone else's* system — a mount path seen once and written into code
+  as though permanent. An external convention is exactly the kind of fact that
+  changes without notice, and the cheap defence is to discover rather than
+  assume.
+
+
+### E079 — full resolution against a good teacher looks worse, not better
+- **date**: 2026-09-05. Three attempts; the third produced the signal before
+  dying. ~3 GPU-h across all three.
+- **the question** (E046's "one large untested region"): every geometry lever
+  here was measured against a 0.78 teacher. The teacher is now 0.9188. V2's own
+  manifest note records that native pixel spacing has a median of 0.312 mm and
+  **96% of series are finer than 0.60**, so the standing geometry downsamples
+  almost every study ~2×. Does full resolution pay once the labels are clean?
+- **two confounds had to be removed first, and finding the second cost two
+  CUDA OOMs.** The probe shipped `batch=16, accum=4` (effective 64 against
+  v1distil's 16) and `slice_subsample=None`, which feeds **72 slices against
+  60** because V2 carries 24 per plane to V1's 20. Memory scales with per-step
+  batch × slices, which is why halving the batch alone did not help. Corrected
+  to `batch=2, accum=8, slice_subsample=20` — effective batch **16** and
+  **60** slices, both matching `v1distil` exactly, so resolution is the single
+  variable. Tests now assert both.
+- **the third run trained 18 epochs and then died with no error line in its
+  log** — not the time budget (153 min against a 450 min cap) and not an OOM
+  this time. Cause unknown and recorded as unknown. It is not needed: the
+  curve had already answered.
+
+| | v1distil fold 0 | v2distil fold 0 |
+|---|---:|---:|
+| **val macro AUC**, n=881 held-out | **0.9067** | 0.8094 (best 0.8188) |
+| gold, n≈12 | 0.8896 | 0.7632 (best 0.8007) |
+
+- **the val figure is the one that carries weight**: 881 held-out studies, same
+  fold, same split, same teacher, geometry the only difference. **−0.088**, and
+  the gold column agrees at −0.089 on its best epoch. The gold subset alone
+  could not settle this — n≈12 with a ~0.19 interval — but it does not have to.
+- **the gold curve was falling, not rising**: 0.781, 0.801, 0.776, 0.763 across
+  epochs 15–18. This is not a run that needed more time.
+- **verdict: the region is tested and it is negative.** E019 measured 288px at
+  0.688 against 192px's 0.725 with a 0.78 teacher; the honest doubt was that a
+  noisy teacher punished the extra capacity. With a 0.9188 teacher it is
+  **worse by more**, which removes that explanation. E046's last untested region
+  is now tested. **Do not spend the four remaining folds.**

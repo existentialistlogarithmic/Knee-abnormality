@@ -149,6 +149,7 @@ a future session does not re-derive them as ideas:
 | TTA | −0.0006 [−0.006, +0.005], the sharpest null in the log (E050) |
 | 288px geometry | 0.668 on the board against 0.725 |
 | architecture A/Bs generally | **the instrument cannot resolve them.** Four seeds of five folds is 30 GPU-h — a whole weekly quota for one A/B |
+| **full resolution (288px) against a good teacher** | **closed by E079** — val macro 0.8094 against 0.9067 on 881 held-out studies, same fold and teacher, geometry the only variable. E046's "one large untested region" is tested and negative |
 
 ## 3. What 0.94 would require
 

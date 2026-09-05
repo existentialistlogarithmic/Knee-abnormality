@@ -12,6 +12,7 @@ These tests pin the properties that replaced it.
 from __future__ import annotations
 
 import ast
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -888,3 +889,24 @@ def test_full_fit_never_calls_its_monitor_set_held_out():
     # and a fold run must keep saying "held out", because it truly is
     fold = (KAGGLE / "37_train_v1pub_fold0" / "run.py").read_text()
     assert "gold studies held out in this fold" in fold
+
+
+def test_the_two_geometries_train_at_the_same_effective_batch():
+    """v2distil exists to make GEOMETRY the single variable against v1distil.
+
+    Batch size is invisible in a gold score and fatal to the comparison: a
+    different effective batch means the probe measures two things at once and
+    its answer is unattributable. The first v2distil attempt shipped batch 16 x
+    accum 4 — effective 64 against v1distil's 16 — and died on a CUDA OOM before
+    anyone had to notice the confound, which was luck rather than a guard.
+    """
+    def effective(directory: str) -> int:
+        source = (KAGGLE / directory / "run.py").read_text()
+        values = {}
+        for name in ("RUN_BATCH", "ACCUM_STEPS"):
+            match = re.search(rf"^{name}\s*=\s*(\d+)", source, re.M)
+            assert match, f"{directory}: no {name}"
+            values[name] = int(match.group(1))
+        return values["RUN_BATCH"] * values["ACCUM_STEPS"]
+
+    assert effective("72_train_v2distil_fold0") == effective("65_train_v1distil_fold0")

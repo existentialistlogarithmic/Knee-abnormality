@@ -45,16 +45,18 @@ import pandas as pd
 # Edit the manifest, not this file. Everything outside this block is shared by
 # every kernel rendered from this template.
 # --------------------------------------------------------------------------- #
-# The distilled teacher at v2 geometry. Against v1pubdistil the
-# geometry is the single variable; against v1public it is two,
-# so the comparison that counts is against v1pubdistil fold 0.
+# The distilled teacher at v2 geometry, effective batch 16 via
+# 4-step accumulation so it matches v1distil exactly. Against
+# v1pubdistil the geometry is then the single variable; against
+# v1public it is two, so the comparison that counts is against
+# v1pubdistil fold 0.
 #
 RUN_FOLD            = 0
 TARGET_MM_PER_PIXEL = 0.4
 TARGET_SIZE         = 288
 SLICES_PER_PLANE    = 24
 RUN_EPOCHS          = 24
-RUN_BATCH           = 16
+RUN_BATCH           = 4
 ACCUM_STEPS         = 4
 RUN_LR              = 0.0006
 RUN_BACKBONE        = "resnet34"

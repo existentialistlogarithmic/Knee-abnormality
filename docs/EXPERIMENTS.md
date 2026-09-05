@@ -3776,3 +3776,66 @@ compare that against how much the union beats its own better member on the 58:
   (E072, killed at its premise), a correlation weighting (E074, killed at its
   A/B), and a second lineage (this). It ships as published:
   `achelijndiamantidis/knee-phase1-distilled`, unchanged.
+
+
+### E076 — the distilled lineage separates on gold: 0.9201 against 0.8980
+- **date**: 2026-09-05. Five folds, ~7.5 GPU-h. The pre-registered follow-through
+  from E069.
+
+| | gold macro, n=58 |
+|---|---:|
+| `v1public` (the 0.923 board system) | 0.8980 |
+| **`v1pubdistil`** | **0.9201** |
+
+  **Paired on the 58 shared studies: +0.0221, 95% CI [+0.003, +0.041] — A is
+  better.** All five folds verified from their logs: each mounted
+  `/kaggle/input/knee-phase1-distilled`, ran 24 epochs, and emitted its
+  checkpoint and gold dump.
+
+**Per finding, eleven of twelve improve:**
+
+| finding | v1public | v1pubdistil | delta |
+|---|---:|---:|---:|
+| MCL | 0.882 | 0.873 | **−0.009** |
+| Medial OA | 0.980 | 0.980 | +0.000 |
+| Baker's | 0.984 | 0.982 | −0.002 |
+| ACL | 0.962 | 0.978 | +0.016 |
+| Medial Meniscus | 0.929 | 0.915 | −0.014 |
+| Contusion | 0.915 | 0.923 | +0.008 |
+| Fracture | 0.885 | 0.917 | +0.032 |
+| PF OA | 0.858 | 0.865 | +0.007 |
+| Lateral OA | 0.822 | 0.876 | +0.054 |
+| **Synovitis** | 0.779 | **0.827** | **+0.048** |
+| Lateral Meniscus | 0.851 | 0.912 | +0.061 |
+| **Effusion** | 0.929 | **0.995** | **+0.066** |
+
+- **Synovitis reaches 0.827 in the trained student**, above E059's 0.8076 text
+  ceiling. E071 showed the *teacher* clearing it; this shows the property
+  survives distillation into a model that never sees a report. The ceiling
+  bounds readers, and the student is not one.
+
+**WHAT THIS DOES NOT ESTABLISH, and the caution is the point.** The paired
+interval excludes zero, but **the point estimate of +0.0221 sits inside the
+±0.03 magnitude that seed draw alone has produced here.** E060 changed nothing
+but an RNG seed and got −0.0284. This lineage differs from `v1public` in the
+teacher *and* in being a fresh draw, and the two are not separated by this
+experiment. The nearest control available is E061's reseed, `v1publicB` at
+0.8827 — a draw spread of −0.0153 from the same configuration. **+0.0221 is
+larger than that observed spread and of the same order.** So: suggestive,
+separated on this instrument, and not proof. Only the board settles it, and gold
+OOF has never forecast a score — it ranks.
+
+- **`knee-infer-v1distil` is queued** behind concurrency and will be pushed as a
+  slot frees. **Submitting requires a human click** (`HANDOFF.md` §4b).
+
+**A bug worth recording, caught by hardware rather than by a guard.**
+`knee-train-v2distil` — the 288px resolution probe — died on a CUDA OOM. The
+cause was mine: it shipped `batch=16, accum=4`, copied from the 192px config.
+288px activations are 2.25× a 192px batch, so a per-step 16 does not fit a T4.
+It was also **wrong on its own terms**: effective batch 64 against `v1distil`'s
+16 would have made the batch a *second* variable and destroyed the one-variable
+comparison the probe exists for. E017 hit the same wall and resolved it the same
+way. Corrected to `batch=4, accum=4` — effective 16, matching exactly — and a
+test now asserts the two lineages train at the same effective batch, because a
+batch difference is invisible in a gold score and fatal to the comparison. The
+OOM was luck; the test is the guard.

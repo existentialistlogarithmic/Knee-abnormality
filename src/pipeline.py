@@ -489,10 +489,19 @@ LINEAGES = [
         cache=CACHE_V2,
         labels=DISTILLED_DATASET,
         train=TrainConfig(
-            backbone="resnet34", epochs=24, batch=16, lr=6e-4, accum=4,
-            note="The distilled teacher at v2 geometry. Against v1pubdistil the\n"
-                 "geometry is the single variable; against v1public it is two,\n"
-                 "so the comparison that counts is against v1pubdistil fold 0.",
+            # batch 4 x accum 4 = EFFECTIVE 16, matching v1distil's batch 16 x
+            # accum 1. The first attempt used batch 16 x accum 4 and died on a
+            # CUDA OOM: 288px activations are 2.25x a 192px batch, so a per-step
+            # 16 does not fit on a T4. It was also wrong on its own terms —
+            # effective 64 against v1distil's 16 would have made the batch a
+            # SECOND variable and destroyed the comparison this probe exists for.
+            # E017 hit the same wall and resolved it the same way.
+            backbone="resnet34", epochs=24, batch=4, lr=6e-4, accum=4,
+            note="The distilled teacher at v2 geometry, effective batch 16 via\n"
+                 "4-step accumulation so it matches v1distil exactly. Against\n"
+                 "v1pubdistil the geometry is then the single variable; against\n"
+                 "v1public it is two, so the comparison that counts is against\n"
+                 "v1pubdistil fold 0.",
         ),
         trainers=(
             Trainer(0, "knee-train-v2distil", "72_train_v2distil_fold0"),

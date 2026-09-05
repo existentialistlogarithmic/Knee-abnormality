@@ -78,10 +78,18 @@ ensemble size is limited by *training* quota alone, never by the submission.
 
 ## 4. Quota state
 
-The weekly window turns over in an 18:17–00:17 UTC band, seven days apart from
-2026-08-22, so the next reset is **~2026-09-05**. Kaggle's API reports neither
-the balance nor the reset moment — only the account page does — so the only test
-is to attempt the push and read the refusal.
+**The reset time is `UNVERIFIED` and the band below is two observations, not a
+rule** (E077). Measured: refused 2026-08-21 18:17 and accepted 2026-08-22 00:17;
+then refused 2026-09-04 at 18:20, 20:30 and 22:37 and accepted **2026-09-05
+00:36** — past the edge the first observation implied. All that is known is that
+on two occasions it fell somewhere between 18:17 and 00:36 UTC, six hours wide
+from two points. This file previously stated the band as fact from a single
+observation, which is the error the standing rule exists to prevent.
+
+Kaggle's API reports neither the balance nor the reset moment. **Only the account
+page does** — `https://www.kaggle.com/settings` shows hours remaining and when
+they reset. **Do not predict the reset: push the thing you want and read the
+refusal** (E039). A refused push costs nothing.
 
 Two limits exist and both refusals begin with "Maximum"; confusing them has cost
 real time before:

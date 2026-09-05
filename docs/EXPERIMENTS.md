@@ -3839,3 +3839,41 @@ way. Corrected to `batch=4, accum=4` — effective 16, matching exactly — and 
 test now asserts the two lineages train at the same effective batch, because a
 batch difference is invisible in a gold score and fatal to the comparison. The
 OOM was luck; the test is the guard.
+
+
+### E077 — CORRECTION: the quota reset band was one observation read as a rule
+- **date**: 2026-09-05. No compute; four free refusals and one acceptance.
+- **`HANDOFF.md` §4 stated the weekly GPU allowance turns over "in an
+  18:17–00:17 UTC band".** That came from exactly **one** observation: a push
+  refused at 2026-08-21 18:17 and accepted at 2026-08-22 00:17. Nothing else
+  ever tested it.
+- **measured, by pushing and reading the refusal** (E039's rule — the push is
+  the probe and costs nothing when it fails):
+
+| attempt | result |
+|---|---|
+| 2026-09-04 18:20 | `Maximum weekly GPU quota` |
+| 2026-09-04 20:30 | `Maximum weekly GPU quota` |
+| 2026-09-04 22:37 | `Maximum weekly GPU quota` |
+| **2026-09-05 00:36** | **pushed successfully** |
+
+  So the true turnover is between **00:17 and 00:36 UTC on 2026-09-05** — past
+  the edge of the predicted band, and the band's own upper bound only survives
+  because it happens to sit 19 minutes earlier than the first success.
+- **the shape is the familiar one.** A single observation was written into the
+  entry-point document as a rule, in a project whose standing rule is that a
+  claim carries the interval it was measured with. An interval was never
+  attached because there was only ever one point. This is the same error as
+  "imaging inverts the CV-to-LB gap" (generalised from n=1) and "the 288px curve
+  is still climbing" — the ninth time it has appeared.
+- **what is now known, and it is deliberately weak**: on the two occasions it
+  has been observed, the reset happened somewhere between 18:17 and 00:36 UTC,
+  and the second was later than the first predicted. The interval is **six
+  hours wide from two points**, and Kaggle's API reports neither the balance nor
+  the reset moment, so **only the account page can settle it**
+  (`https://www.kaggle.com/settings` shows hours remaining and when they reset).
+- **`HANDOFF.md` §4 now carries the band as UNVERIFIED with its measurement
+  dates**, and the practical instruction is unchanged and was always the right
+  one: do not predict the reset, push the thing you want and read the refusal.
+- **cost of being wrong: nothing.** Four refusals, each free, and the work
+  started 16 minutes after the quota actually returned.

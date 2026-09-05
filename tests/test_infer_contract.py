@@ -344,8 +344,12 @@ def test_inference_discovers_full_fit_checkpoints():
         "inference must not require a numbered fold: full-fit members are "
         "written as checkpoint_foldall.pt"
     )
-    assert 'glob("notebooks/*/*/checkpoint_fold*.pt")' in source, (
-        "checkpoint discovery must stay a wildcard glob"
+    assert 'find_all_markers("checkpoint_fold*.pt")' in source, (
+        "checkpoint discovery must SEARCH, not assume a mount path"
+    )
+    assert 'glob("notebooks/' not in source, (
+        "a hardcoded notebooks/ path encodes Kaggle's mount layout; it went "
+        "flat between 2026-09-01 and 2026-09-05 and cost two inference runs"
     )
     # and the wildcard has to actually admit the full-fit filename
     import fnmatch

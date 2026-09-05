@@ -68,6 +68,32 @@ FALLBACK_PRIOR = 0.3     # used only if a study cannot be read at all
 # --------------------------------------------------------------------------- #
 # from kaggle/_templates/_shared/discovery.py
 # --------------------------------------------------------------------------- #
+def find_all_markers(pattern: str, max_depth: int = 4) -> list[Path]:
+    """Every mounted directory containing a file matching `pattern`.
+
+    The cache is built as four shard kernels and mounted as four separate
+    inputs. Finding only the first would silently train on a quarter of the
+    data at full apparent success — the worst kind of bug, because the loss
+    curve would look fine.
+    """
+    found = []
+    frontier = [(Path("/kaggle/input"), 0)]
+    while frontier:
+        directory, depth = frontier.pop(0)
+        if depth > max_depth:
+            continue
+        try:
+            entries = sorted(directory.iterdir())
+        except (FileNotFoundError, PermissionError):
+            continue
+        if any(e.is_file() and e.match(pattern) for e in entries):
+            found.append(directory)
+        for entry in entries:
+            if entry.is_dir() and entry.name not in SKIP_DIRECTORIES:
+                frontier.append((entry, depth + 1))
+    return found
+
+
 def find_marker(marker: str, max_depth: int = 4):
     frontier = [(Path("/kaggle/input"), 0)]
     while frontier:
@@ -430,7 +456,22 @@ def main() -> int:
     # contains no checkpoint_fold0.pt anywhere. An earlier version guarded on
     # that exact filename before reaching this line and would have refused to
     # start with five perfectly good checkpoints mounted.
-    checkpoints = sorted(Path("/kaggle/input").glob("notebooks/*/*/checkpoint_fold*.pt"))
+    # DISCOVERED, not a hardcoded path. This used to glob a fixed
+    # notebooks/<user>/<slug>/ path under /kaggle/input, which encoded Kaggle's
+    # mount layout as of 2026-09-01. Between then and
+    # 2026-09-05 that layout went FLAT — the competition moved from
+    # /kaggle/input/competitions/<comp> to /kaggle/input/<comp>, and mounted
+    # notebooks with it — so the glob silently matched nothing and two
+    # inference runs died with "no checkpoints mounted" while five perfectly
+    # good checkpoints sat one directory away.
+    #
+    # find_marker("test.csv") never broke, because it searches rather than
+    # assumes. This now does the same, so a future layout change costs nothing.
+    checkpoints = sorted(
+        path
+        for directory in find_all_markers("checkpoint_fold*.pt")
+        for path in sorted(directory.glob("checkpoint_fold*.pt"))
+    )
     if not checkpoints:
         raise SystemExit("no checkpoints mounted (checkpoint_fold*.pt)")
     print(f"weights: {checkpoints[0].parent}")

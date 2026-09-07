@@ -189,6 +189,43 @@ Verified 2026-09-01 against two finished inference kernels holding valid
 change rather than something wrong with the file — **do not waste time debugging
 the CSV.**
 
+**The cause is now named rather than inferred.** The competition's own metadata
+carries `is_kernels_submissions_only = True`, read from the API on 2026-09-07:
+
+```python
+from kaggle.api.kaggle_api_extended import KaggleApi
+a = KaggleApi(); a.authenticate()
+c = a.competitions_list(search='rsna-knee-abnormality').competitions[0]
+c.is_kernels_submissions_only   # True
+c.max_daily_submissions         # 5
+c.deadline                      # 2026-10-22 23:59
+```
+
+  So the 400 is **by design and permanent**, not a transient change that might
+  revert. Do not retry it periodically hoping it was a glitch. The same call
+  confirms `max_daily_submissions = 5`, `max_team_size = 5`, the 2026-10-22
+  deadline and the 2026-10-15 merger deadline, all first-hand rather than from
+  the rules page.
+
+## 4e. FINAL SUBMISSION SELECTION — `UNVERIFIED`, and it decides the result
+
+Nothing in this repo has ever checked how the private leaderboard picks which
+submissions count. **The API does not expose it** — there is no field for the
+selection cap in the competition metadata, and `privateScore` is empty on every
+row of `kaggle competitions submissions`, as expected before the reveal.
+
+What is known: `FINDINGS.md` §2.13 quotes the efficiency prize as requiring a
+**selected** submission, so selection exists and is not automatic for that
+prize. What is not known is how many may be selected, and what happens on
+2026-10-22 if none are.
+
+**Check the competition's My Submissions page before the deadline and record the
+answer as a finding.** This is cheap now and unrecoverable afterwards: every
+board result in `STATUS.md` §1A is a *public* score, and the private score is
+the one that is paid.
+
+
+
 **The only route is the browser**, once per submission:
 
 1. open `https://www.kaggle.com/code/achelijndiamantidis/<kernel-slug>`

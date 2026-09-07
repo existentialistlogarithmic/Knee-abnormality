@@ -3955,3 +3955,74 @@ OOM was luck; the test is the guard.
   noisy teacher punished the extra capacity. With a 0.9188 teacher it is
   **worse by more**, which removes that explanation. E046's last untested region
   is now tested. **Do not spend the four remaining folds.**
+
+### E080 — PRE-REGISTRATION: a new public label set that is not the answer key, and beats the incumbent
+- **date**: 2026-09-07. Free, CPU only. Written **before** the deciding arm was
+  computed, and committed before the number existed.
+- **the weekly survey (`PATH.md` §2.3) found three new label sets** since E062
+  found none. All three are CC0-1.0, so E043's licence rule admits them. Scored
+  against the 58 expert studies, with E047's answer-key screen attached:
+
+| label set | gold macro, n=58 | verdict |
+|---|---:|---|
+| INCUMBENT public report labels | 0.8927 | the teacher that trained the 0.923 system |
+| `mohammadsaidulislam/rsna-knee-super-labels-v1` | 1.0000 | **answer key** — 100.0% of gold cells reproduce the expert value exactly |
+| `shingo257/…/calibrated_silver_labels.csv` | 1.0000 | **answer key**, same test |
+| `shingo257/…/labels_llm_v4_goldhard.csv` | 1.0000 | **answer key**, same test |
+| **`tsuyu122/rsna-knee-mri-balanced-labels-public`** | **0.9124** | **not the answer key** |
+
+  E047 saw two such sets in five; this survey saw three in four. **A gold macro
+  of 1.0000 is unevaluable, not good**, and the screen is now the exact-cell
+  test rather than the score alone: a set can be built from the answer key
+  without reproducing it perfectly, and the score alone would not say so.
+
+- **`tsuyu122` passes every integrity check that can be run for free.** 0.0% of
+  its gold cells match the expert value exactly; 52,887 distinct values in
+  [0,1], so genuinely soft rather than a thresholded copy; all 4,407 competition
+  studies covered. It is 8,631 studies across four cohorts (RSNA, MRNet, OAI
+  3D-DESS, fastMRI), of which our 4,407 are one.
+
+- **it is a DIFFERENT KIND of source, which is the property E075 says decides
+  this.** Mean per-finding Spearman against the incumbent over all 4,407 studies
+  is **0.665** — not a re-derivation of the same reading. The disagreement is
+  structured, not noise:
+
+| better than incumbent | worse than incumbent |
+|---|---|
+| Fracture **+0.135**, Contusion +0.059, Effusion +0.052, Medial OA +0.045, Lateral OA +0.032, Baker's +0.027 | PF OA −0.055, ACL −0.053, MCL −0.009, Synovitis −0.002 |
+
+  Complementary strength on different findings is the mechanism E023's +0.070
+  union ran on. **E075's correction does not bite**: that correction was about
+  averaging SAME-kind members (two reseeds of one config), which make correlated
+  errors. This is the different-kind case the 0.02 comparability band was
+  measured on.
+
+- **the incumbent for this test is the E069 distilled teacher at 0.9188**, not
+  the report labels at 0.8927. Comparing against 0.8927 would credit this
+  candidate with a gain the project already banked. The candidate sits **0.0064
+  behind** that teacher — comparable, and the first outside member since E023 to
+  be within the band rather than 0.03–0.06 adrift.
+
+**PRE-REGISTERED, and binding:**
+
+1. **Deciding arm**: an **equal-weight rank union of three members** — public
+   report labels, `v1public` out-of-fold, `tsuyu122` — scored on the 58 gold and
+   paired-bootstrapped against the shipped two-member E069 teacher. Equal weight
+   is chosen because it is **parameter-free**; every other split is a free
+   parameter fitted to 58 studies, which E048 declined and E069 declined again.
+2. **Spend GPU only if that union beats the E069 teacher with a 95% interval
+   excluding zero.** If it does not separate, the E069 teacher ships unchanged
+   and this entry closes as a negative — as E072, E074 and E075 each did.
+3. Any other weighting is **printed and not used**, exactly as E069's weight
+   curve was. No argmax.
+
+**WHAT THIS SCREEN CANNOT SEE, stated now rather than discovered later:**
+
+1. **A set built from a model trained on the 58 would score high here for a
+   reason that does not transfer.** 0.9124 measures agreement with 58 expert
+   answers; the job of a teacher is the targets on the other 4,349. Nothing free
+   distinguishes those two, and E069 carried the same caveat about our own OOF.
+2. **Three of four sets in this survey were contaminated.** That base rate is
+   the reason the exact-cell test runs before anything else, and it is not
+   evidence that the fourth is clean — only that the one test that can be run
+   did not fail.

@@ -4333,3 +4333,72 @@ submissions mounted: 1
   immediately**: `50_tta_eval` has referenced an undefined `OOF_SCOPE` since
   that constant was added to `gold_eval` for the distillation dumps, and would
   have died the same way on its next run. Set to `"gold"`.
+
+### E086 — PRE-REGISTRATION: the full-fit export epoch was read off the wrong models
+- **date**: 2026-09-07. Five full-fit runs, ~7.5 GPU-h, both arms from the same
+  five trajectories. Written **before** either arm reached the board.
+
+**THE ERROR, if it is one.** `FULL_FIT_EPOCH = 20` is documented as *"measured
+rather than chosen: across the five v1public folds the mean val AUC peaks at
+epoch 20"* (E055). Those folds train on **3,526** studies. A full-fit model
+trains on **4,407**. The same epoch number therefore buys a full-fit model **25%
+more optimisation steps**:
+
+| | studies | epochs | study-visits |
+|---|---:|---:|---:|
+| fold model at its measured peak | 3,526 | 20 | **70,520** |
+| full-fit model at the same epoch | 4,407 | 20 | 88,140 |
+| full-fit model at equal visits | 4,407 | **16.0** | 70,520 |
+
+  E055 also measured the fold curves **decaying past 21**. So if the peak is
+  governed by optimisation steps rather than passes over the data, **every
+  full-fit member behind the 0.926 board score is a quarter past its best.**
+
+  The opposite reading is equally defensible and is why this is measured rather
+  than changed: more data per pass can support more passes, in which case 20 is
+  right and 16 is undertrained. **A full-fit model cannot be validated offline
+  by construction** — it trains on all 58 gold studies — so gold cannot answer
+  this even if it were trusted, and E083 says it is not.
+
+**THE DESIGN, and it is the point.** Both exports come from **one trajectory**:
+`checkpoint_foldall.pt` at epoch 20 and `early_foldall.pt` at epoch 16, same
+seed, same data order, same weights up to epoch 16. Two separate runs would have
+differed in seed as well as epoch, and E060 measured a pure reseed at −0.0284 on
+gold — larger than any effect expected here. **The export epoch is the only
+difference between the arms.** The early export is written during a run that was
+happening anyway, so the second arm costs nothing: E039's rule that a probe must
+not cost something when it succeeds.
+
+**VERIFIED BEFORE ANY SUBMISSION**, on `s11`:
+
+```
+epoch 16  ... full-fit EARLY export written at epoch 16 -> early_foldall.pt
+epoch 20  ... full-fit export taken at epoch 20
+```
+
+  `best_epoch` reads 16 and 20 respectively, and **all 186 float tensors differ
+  between the two files** (mean |Δ| 0.035, none identical). A silent no-op here
+  would have produced two identical ensembles and a confident null.
+
+**PRE-REGISTERED READINGS. Three, and the second is free:**
+
+1. `v1pubfe-early` **vs** `v1pubfe` — the export epoch, one variable.
+   *early > late*: the fold-derived epoch was overtraining every full-fit member
+   and 0.926 was left short. *early < late*: more data per pass supports more
+   passes and the step-count argument is wrong. *within 0.001*: flat here as
+   E055 found it flat over 18–21, and the epoch does not matter.
+2. `v1pubfe` **vs** the standing 0.926 — **seeds 11–15 against seeds 3–7, same
+   everything else.** The board has never seen a like-for-like reseed of a
+   full-weight ensemble. E061 priced one on gold at 0.8827 against 0.8980 and
+   E064 priced ten members against five, but neither is this. **Whatever it
+   returns bounds how much of any full-fit result is draw rather than lever** —
+   including the +0.003 that E083 credited to full fit.
+3. Whichever arm wins is submittable on its own merits.
+
+**AN OBSERVATION THAT IS NOT EVIDENCE, recorded so it is not mistaken for some
+later.** The monitor set is *in training*, so its figures are memorisation. They
+moved anyway: gold 0.9922 at epoch 16 against **1.0000** at epoch 20, val macro
+0.9153 against 0.9428. That confirms only that the model is **still actively
+fitting** between 16 and 20 rather than sitting on a plateau. Whether that
+fitting generalises or overfits is the entire question, and training-set
+memorisation cannot distinguish them. **It is not support for either arm.**

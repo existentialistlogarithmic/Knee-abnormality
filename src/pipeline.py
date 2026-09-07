@@ -1135,6 +1135,65 @@ EXTRAS = [
              "five is ~1.0 h against a 9 h cap.",
     ),
     Kernel(
+        slug="knee-infer-v1pubmix",
+        directory="73_infer_v1pubmix",
+        template="infer",
+        gpu=True,
+        internet=False,     # a submission kernel
+        # Ten members: the five fold models behind 0.923 and the five full-fit
+        # models behind 0.926. No training — every checkpoint already exists,
+        # so this costs inference and a free submission and nothing else.
+        depends=["knee-train-v1pub", "knee-train-v1pub-fold1",
+                 "knee-train-v1pub-fold2", "knee-train-v1pub-fold3",
+                 "knee-train-v1pub-fold4",
+                 "knee-train-v1pubfull", "knee-train-v1pubfull-s4",
+                 "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
+                 "knee-train-v1pubfull-s7"],
+        constants={**V1.constants(),
+                   "BATCH_STUDIES": V1.infer_batch,
+                   "SLICE_SUBSAMPLE_EXPECTED": None,
+                   "INPUT_NORM_EXPECTED": False,
+                   "MEMBERS_EXPECTED": 10},
+        note="The two ensembles the board has priced, united. E083 put the\n"
+             "fold five at 0.923 and the full-fit five at 0.926.\n"
+             "\n"
+             "WHY THIS IS NOT E064's TEN-MEMBER NULL, which scored 0.923 for\n"
+             "ten members against 0.923 for five. Those ten were v1public and\n"
+             "a RESEED of v1public — same configuration, same data exposure,\n"
+             "same kind. E075 established what that costs: same-kind members\n"
+             "make correlated errors, so averaging inherits the weaker one's\n"
+             "bias without cancelling anything, and the reseed was weaker\n"
+             "everywhere it was looked at. These ten differ in the one thing\n"
+             "the board says matters — 80% of the corpus per member against\n"
+             "100% — which is the different-kind case.\n"
+             "\n"
+             "AND THE COMPARABILITY IS THE TIGHTEST IN THE LOG. E048's rule is\n"
+             "that a union pays when its members are comparable: E023's two\n"
+             "readers sat 0.0025 apart and their union beat BOTH of them by\n"
+             "0.070. These sit 0.003 apart. Every union that failed since added\n"
+             "a member 0.03-0.06 adrift.\n"
+             "\n"
+             "THE HONEST CASE AGAINST, because one data point already argues\n"
+             "the other way. Five folds plus ONE full-fit scored 0.924 (E064).\n"
+             "Linear interpolation on mixing fraction predicts 0.9235 for that\n"
+             "point and ~0.9245 here — below the 0.926 that pure full-fit\n"
+             "already banks. If the ensemble is linear in mixture, this is a\n"
+             "dilution and not a union. What that single point cannot do is\n"
+             "separate linear from mildly super-additive: the board reports\n"
+             "three decimals, and 0.9235 and 0.924 are the same number to it.\n"
+             "E023 is this project's proof that unions here are not always\n"
+             "linear, so the question is open and cheap.\n"
+             "\n"
+             "PRE-REGISTERED READING, so the answer is not chosen afterwards:\n"
+             "  > 0.926  the mix wins and different-kind ensembling is live\n"
+             "  0.924-0.926  linear dilution; pure full-fit stands and the\n"
+             "               mixing question is closed for good\n"
+             "  < 0.923  suspect the kernel, not the science, and read the log\n"
+             "\n"
+             "Cost: no training at all. E050 measured 0.037 h per member, so\n"
+             "ten is ~1.2 h against a 9 h cap, out of 10.75 h left this week.",
+    ),
+    Kernel(
         slug="knee-oof-v1pub",
         directory="64_oof_v1pub",
         template="gold_eval",

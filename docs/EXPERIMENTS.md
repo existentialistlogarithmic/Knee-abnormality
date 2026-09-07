@@ -4026,3 +4026,50 @@ OOM was luck; the test is the guard.
    the reason the exact-cell test runs before anything else, and it is not
    evidence that the fourth is clean — only that the one test that can be run
    did not fail.
+
+### E081 — the new label set does not separate, and the pre-registered rule says no
+- **date**: 2026-09-07. Free, CPU only. Answers E080's pre-registration, which
+  was committed before this number existed.
+
+| source | gold macro, n=58 |
+|---|---:|
+| public report labels | 0.8927 |
+| `v1public` out-of-fold | 0.8980 |
+| `tsuyu122` balanced labels | 0.9124 |
+| **E069 teacher (SHIPPED, 2 members)** | **0.9188** |
+| equal-weight 3-member union | 0.9250 |
+
+  **3-member − E069 = +0.0062, 95% CI [−0.000, +0.014]. NOT SEPARATED.**
+  **The pre-registered rule says do not spend GPU, and no GPU is spent.** The
+  E069 teacher ships unchanged, as it did through E072, E074 and E075.
+
+- **this is a marginal null, and the distinction is worth keeping.** The lower
+  edge sits at −0.000 rather than well inside, which is not the shape of E074's
+  or E075's clear nulls. Nine of twelve findings improve, Fracture by +0.043 —
+  the finding tsuyu122 reads best and the teacher reads worst. **None of that
+  changes the answer.** A rule written before the data is binding after it, and
+  the whole reason to write one down is the case where it is close and the
+  result is one you wanted.
+- **what would have been the mistake.** The recorded-and-not-used curve peaks at
+  `w=0.40` with 0.9254, and a weighting fitted to 58 studies would have been
+  reported as a separation. That is the argmax E048 declined, E069 declined, and
+  a test asserts this script cannot take. The number is printed because it is
+  informative about the curve's shape, not because it is available.
+
+| w_tsuyu122 | 0.00 | 0.10 | 0.20 | **0.33** | 0.40 | 0.50 |
+|---|---:|---:|---:|---:|---:|---:|
+| gold macro | 0.9188 | 0.9225 | 0.9248 | **0.9250** | 0.9254 | 0.9248 |
+
+- **the instrument, not the candidate, is what ran out.** n=58 is every expert
+  label the competition provides; a +0.006 effect against a ±0.03 seed floor is
+  under a fifth of the noise this rig can resolve, so a real gain of this size
+  and no gain at all look the same here. That is the same limit E046 hit on
+  blending, and it is not fixable by measuring more carefully.
+- **cost: zero.** Four downloads, minutes of CPU. E039's rule held — the probe
+  cost nothing when it succeeded and nothing when it failed.
+
+**What it did buy, and it is not nothing:** `tsuyu122` is the first outside
+member since E023 to land inside the comparability band rather than 0.03–0.06
+adrift, and E048's rule now has a case where the precondition was met and the
+union still did not separate. The rule predicts *which unions are worth trying*,
+not which ones pay. E069 remains the only union that has separated since E023.

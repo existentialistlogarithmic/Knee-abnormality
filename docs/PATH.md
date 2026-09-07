@@ -2,12 +2,14 @@
 
 Standing: **0.926 on the leaderboard** (2026-09-07, E083 — five full-fit
 members), up from 0.924, 0.923, 0.846 and 0.725.
-Leaderboard top **0.952**. 1,866 teams. Final submission **2026-10-22**.
+Leaderboard top **0.954**. 3,263 teams. Final submission **2026-10-22**.
 
-**Rank #866 was measured at 0.924 on 2026-09-02 (E070) and is now stale**; 0.926
-has not been re-ranked. 477 teams sat at exactly 0.936 — one public notebook,
-forked — so the free public baseline is still ahead of this project's
-independently built system.
+**Rank 1,104 of 3,263, measured 2026-09-07 (E085).** The field grew 75% in five
+days, which is why E070's "#866 of 1,866" went stale almost immediately — a rank
+is a measurement with a date on it. **492 teams sit at exactly 0.936 and 163 at
+0.937**, forks of two public notebooks, so the free public baseline is 0.010+
+ahead of this project's independently built system. E043's licence rule excludes
+every asset those notebooks depend on; see §2.0.
 
 Last rewritten 2026-09-07. If this header ever reads more than a week old,
 distrust the priorities below before distrusting the numbers.
@@ -39,6 +41,21 @@ watching −0.0284 come out. Every architecture effect ever hypothesised here is
 smaller than that. Only DINOv2's −0.148 ever cleared it.
 
 ## 2. What is left, in priority order
+
+### 0. The public-notebook route — **the largest gap, blocked on a decision**
+655 teams are 0.010+ ahead of us by forking a public notebook, which the rules
+permit. **E043's licence rule excludes every asset they use** (`other`, or
+CC-BY-NC-SA), so 0.936 is not reachable under that rule as written.
+
+The strongest admissible arm is `dreaddevelopment/raptor-knee-widedense` — CC0,
+0.924 upstream from one model, 0.9167 on the 58 gold with gold held out. Against
+our 0.926 full-fit ensemble that is **0.002 apart and maximally different in
+kind** — the best-shaped union in this log, better than E023's 0.0025 pair that
+paid +0.070. The blend kernel is written and tested.
+
+It is blocked because upstream persists no outputs, so the arm must be *run*,
+which means forking someone else's notebook under this account. **That is the
+account owner's decision** — `HANDOFF.md` §4d has the steps and the control arm.
 
 ### 1. The full-fit lineage — **PAID, and it is the standing score**
 Each fold model trains on 80% of the corpus and never sees ~12 of the 58 expert

@@ -4240,3 +4240,96 @@ fallback for checkpoints written before that key existed, and a test pins it.
 disappointing full-fit result would have found "epoch 23" on every member and
 had a ready, wrong explanation for it — and E083 is a fresh reminder of what a
 plausible wrong explanation costs.
+
+### E085 — the leaderboard was read wrong for a week, and the best remaining lever needs a decision this repo cannot make
+- **date**: 2026-09-07. Free: leaderboard download, five notebook pulls, a
+  licence audit, and one CPU kernel that refused to run.
+
+**1. THE STANDING RANK WAS WRONG, and not by a little.** `PATH.md` and
+`HANDOFF.md` both carried "#866 of 1,866, clears the top-200 cut of 0.917".
+Downloaded and counted:
+
+| | claimed | actual, 2026-09-07 |
+|---|---|---|
+| field size | 1,866 | **3,263** |
+| top score | 0.952 | **0.954** |
+| our rank at 0.926 | — | **1,104** |
+| teams above us | — | **1,094** |
+
+  E070 already corrected the "top-200" line once and the corrected figure went
+  stale in five days, because the field grew by 75%. **A rank is a measurement
+  with a date on it, and this file will now say so every time it quotes one.**
+
+**2. THE PUBLIC NOTEBOOKS ARE AHEAD OF US, and by more than any lever left.**
+
+| cluster | teams | what it is |
+|---|---:|---|
+| 0.936 | **492** | forks of `prvsiyan/head-and-shoulders-knees-and-toes` |
+| 0.937 | 163 | forks of `renta0426/rsna-knee-0-937-weak-label-dinov2-meniscus-resid` |
+| 0.939 | 65 | a further fork of the same family |
+
+  **655 teams are 0.010–0.011 ahead of this project by clicking Copy & Edit.**
+  E046 closed "borrowing public weights" — but it priced the **0.917-era**
+  family, on the gold rig **E083 just caught getting a sign wrong**. Both halves
+  of that closure are stale, so the route is reopened.
+
+**3. THE LICENCE AUDIT IS WHAT MAKES THIS HARD.** Every notebook at 0.936+
+mounts at least one asset E043's rule excludes:
+
+| asset | licence | admissible |
+|---|---|---|
+| `dreaddevelopment/raptor-knee-*` (widedense, maxspan, arms, arms-x, native384) | CC0-1.0 | **yes** |
+| `mattiaangeli/knee-mri-fold-weights`, `pilkwang/rsna-knee-weights` | CC0-1.0 | **yes** |
+| `renta0426/…-meniscus-bag-v1` | apache-2.0 | **yes** |
+| `tonylica/rsna-knee-bend-dinov3-0917-repro-assets` | **other** | no |
+| `prvsiyan/rsna-knee-v52-radimagenet-heads` | **other** | no |
+| `marwanmath/…`, `antoinegg1/…` RadImageNet heads | **CC-BY-NC-SA** | no |
+
+  So **0.936 is not reachable under E043 as written.** The strongest admissible
+  arm is `dreaddevelopment/raptor-knee-widedense`: CC0, upstream-reported 0.924
+  from ONE model with no ensembling and no TTA, and 0.9167 on the same 58 gold
+  studies with gold held out of its training.
+
+**4. THE UNION IS THE RIGHT SHAPE — the best this log has ever had.**
+
+| union | gap | different kind? | result |
+|---|---|---|---|
+| E023 lexicon ∪ LLM | 0.0025 | yes | **+0.070** |
+| E064 folds ∪ reseed | ~0 | **no** | 0.923, exactly the five |
+| E069 labels ∪ own OOF | 0.005 | yes | offline +0.0261, **board −0.013** |
+| **Raptor ∪ our full-fit** | **0.002** | **yes, maximally** | **unpriced** |
+
+  CoAtNet over 64 slices in five fixed plane slots at 336px on a 140 mm
+  physical crop, against resnet34 2.5D at 192px on our own report labels. No
+  shared architecture, geometry, slice selection or label source.
+
+**5. IT DID NOT RUN, AND THE GUARD IS WHY THAT IS NOT A LOSS.** Upstream's
+notebook **persists no output files** — the API returns `files: []`, only a log
+— so mounting its `submission.csv` is impossible. `knee-blend-raptor` mounted
+one member and stopped:
+
+```
+submissions mounted: 1
+  /kaggle/input/notebooks/achelijndiamantidis/knee-infer-v1pubfull5/submission.csv
+```
+
+  Without `MEMBERS_EXPECTED` it would have written our own submission under the
+  blend's name, scored exactly 0.926, and been recorded as *"different-kind
+  blending is a null"* — a false negative that would have closed a live route
+  for good. E078 added that guard for a different failure and it caught this one.
+
+- **the blocker is a decision, not an engineering problem.** Getting the Raptor
+  arm means running it, which means a fork of upstream's notebook under this
+  account. The rules permit it with attribution and 655 teams have done it.
+  Reimplementing it instead is not a way around that: `RaptorClassifier`,
+  `build_backbone`, `eval_windows` and the five-slot selection would have to be
+  reproduced, which is copying the notebook while claiming otherwise, and it
+  adds silent-skew risk with no way to check it. **The account owner decides.**
+  `HANDOFF.md` §4d carries the steps.
+- **a bug the blend's failure exposed**, recorded in E084's spirit: the splice
+  pulled `find_all_markers` without `SKIP_DIRECTORIES`, which each template must
+  declare. A new test now walks every generated `run.py` and asserts each
+  ALL-CAPS name it loads is defined — and **found a second, older instance
+  immediately**: `50_tta_eval` has referenced an undefined `OOF_SCOPE` since
+  that constant was added to `gold_eval` for the distillation dumps, and would
+  have died the same way on its next run. Set to `"gold"`.

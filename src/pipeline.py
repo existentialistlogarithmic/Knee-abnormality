@@ -1275,6 +1275,22 @@ EXTRAS = [
         # its own, that requires forking the upstream notebook under this
         # account, which is the account owner's decision to make and not
         # something this file should quietly assume.
+        # BLOCKED, and the blocker is not technical. Upstream's notebook
+        # persists NO output files — the API reports `files: []`, only a log —
+        # so mounting its submission.csv is impossible, and E085 confirmed it by
+        # running: the kernel mounted one member and refused, exactly as
+        # MEMBERS_EXPECTED is there to make it do.
+        #
+        # The Raptor arm therefore has to be RUN, which means a fork of the
+        # upstream notebook living under this account. That is ordinary Kaggle
+        # practice and the rules permit it with attribution — 655 teams sit at
+        # 0.936/0.937 having done exactly that — but it republishes someone
+        # else's code under the account owner's name, and that is the owner's
+        # call to make rather than something this file should assume. See
+        # HANDOFF.md §4d for the exact steps if the answer is yes.
+        #
+        # Left mounted at upstream so the declaration stays honest about where
+        # the arm comes from. Do not push this kernel until a Raptor arm exists.
         depends=["knee-infer-v1pubfull5"],
         external_kernels=[
             "dreaddevelopment/knee-mri-twelve-findings-from-a-single-model"],

@@ -183,6 +183,53 @@ verify `checkpoints mounted: N` in its log — and the click is not. Budget for
 it: a run that nobody clicks is a run that scored nothing. Submitting the same
 notebook twice returns the same score and spends two of the five daily slots.
 
+## 4d. The public-notebook route, and the one decision it needs
+
+**Measured 2026-09-07 (E085).** The field is **3,263 teams**, top **0.954**, and
+0.926 is **rank 1,104**. 492 teams sit at exactly 0.936 and 163 at 0.937 — forks
+of two public notebooks. **655 teams are 0.010+ ahead of this project by
+clicking Copy & Edit.** The rules allow it: *"It's okay to share code if made
+available to all Participants on the forums."*
+
+**E043's licence rule is what stands between here and there.** Every notebook at
+0.936+ mounts `tonylica/rsna-knee-bend-dinov3-0917-repro-assets` or
+`prvsiyan/rsna-knee-v52-radimagenet-heads` (both `other`), or the `marwanmath` /
+`antoinegg1` RadImageNet heads (CC-BY-NC-SA). **0.936 is not reachable under
+that rule as written.**
+
+The strongest admissible arm is **`dreaddevelopment/raptor-knee-widedense`** —
+CC0-1.0, upstream 0.924 from one model with no ensembling or TTA, 0.9167 on the
+58 gold with gold held out. Blended with our 0.926 full-fit ensemble it is the
+best-shaped union in the log: 0.002 apart, maximally different in kind
+(CoAtNet / 64 slices / five plane slots / 336px / 140 mm crop against resnet34
+2.5D / 192px / our labels). `knee-blend-raptor` and `_templates/rank_blend.py.in`
+are written, tested and ready.
+
+**What is blocked, and why it is not an engineering problem.** Upstream's
+notebook persists no output files (`files: []`), so its submission cannot be
+mounted — E085 ran the blend and it correctly refused with one member. The arm
+has to be RUN, which means a fork of someone else's notebook under this account.
+Reimplementing it instead is not a way around that: it means reproducing
+`RaptorClassifier`, `build_backbone`, `eval_windows` and the five-slot
+selection, which is copying the notebook while claiming otherwise, with silent
+train/inference skew and no way to check it.
+
+**So it is the account owner's call.** If the answer is yes:
+
+1. Open `kaggle.com/code/dreaddevelopment/knee-mri-twelve-findings-from-a-single-model`
+   and **Copy & Edit**. Keep the attribution cell.
+2. Confirm it mounts `dreaddevelopment/raptor-knee-widedense` and the
+   competition, GPU on, internet **off**, then **Save & Run All**.
+3. Submit that run on its own first. **It is the control**: if it does not come
+   back near 0.924, the blend has an untrustworthy member and no reading of the
+   blend means anything.
+4. Set `external_kernels` on `knee-blend-raptor` to the new fork's `owner/slug`,
+   regenerate, push, submit. The pre-registered reading is in the kernel note.
+
+If the answer is no, Raptor is out and **0.926 is close to the ceiling of what
+this project can reach on its own work** — §2.1's full-fit lever paid +0.003 and
+E064 says a second helping of the same kind does not compound.
+
 ## 5. The next action
 
 **THE WEEKLY GPU QUOTA IS SPENT** (2026-09-02, E067). It resets ~2026-09-05.

@@ -195,6 +195,26 @@ class Kernel:
     gpu: bool = False
     internet: bool = False
     depends: list[str] = field(default_factory=list)     # slugs
+    external_kernels: list[str] = field(default_factory=list)
+    """Public kernels owned by SOMEONE ELSE, as full "owner/slug" strings.
+
+    Separate from `depends` because the manifest check resolves every entry in
+    `depends` against this file and must keep doing so — an unknown slug there
+    is a typo or a deleted kernel, and silently allowing foreign names would
+    turn that check off. These are deliberately outside the manifest: nothing
+    here can regenerate them, and their contents can change without notice
+    because another account owns them.
+
+    Mounting a public notebook's output is Kaggle's own mechanism for reusing
+    shared work, and the competition rules allow publicly shared code and data
+    as inputs for every participant with attribution. It is preferred over
+    republishing someone else's code under this account: no copy is taken, the
+    upstream author keeps their authorship, and the credit is unambiguous.
+
+    A foreign kernel can be deleted, made private, or re-run with different
+    outputs at any time, so anything mounting one MUST verify what it got
+    rather than assume — see `MEMBERS_EXPECTED` in `rank_blend`.
+    """
     datasets: list[str] = field(default_factory=list)
     constants: dict[str, object] = field(default_factory=dict)
     note: str = ""
@@ -213,7 +233,8 @@ class Kernel:
             "machine_shape": T4 if self.gpu else "",
             "dataset_sources": list(self.datasets),
             "competition_sources": [COMPETITION],
-            "kernel_sources": [f"{ACCOUNT}/{d}" for d in self.depends],
+            "kernel_sources": ([f"{ACCOUNT}/{d}" for d in self.depends]
+                               + list(self.external_kernels)),
             "model_sources": [],
         }
 
@@ -1192,6 +1213,88 @@ EXTRAS = [
              "\n"
              "Cost: no training at all. E050 measured 0.037 h per member, so\n"
              "ten is ~1.2 h against a 9 h cap, out of 10.75 h left this week.",
+    ),
+    Kernel(
+        slug="knee-blend-raptor",
+        directory="74_blend_raptor",
+        template="rank_blend",
+        gpu=False,          # two CSVs and a rank average; there is nothing to accelerate
+        internet=False,     # a submission kernel
+        # THE ONE UNION LEFT THAT MEETS BOTH HALVES OF E048's RULE.
+        #
+        # `knee-infer-raptor` is the public CC0 Raptor widedense model, which
+        # upstream reports at 0.924 on the board from ONE model with no
+        # ensembling and no TTA, and at 0.9167 on the same 58 expert studies
+        # (gold held out of its training). `knee-infer-v1pubfull5` is this
+        # project's five full-fit members at 0.926.
+        #
+        # 0.002 apart is the tightest comparability in the log — E023's pair sat
+        # 0.0025 apart and paid +0.070 — and they are maximally different in
+        # kind: 64 slices in five fixed plane slots at 336px on a 140 mm
+        # physical crop against our 2.5D resnet34 at 192px on our own report
+        # labels. E075's correction is the reason that matters: E064's ten
+        # members failed because the extra five were a RESEED, and same-kind
+        # members make correlated errors. Nothing about these two is same-kind.
+        #
+        # WHY NOT THE STRONGER PUBLIC SYSTEMS. The 0.936 cluster (492 teams) and
+        # 0.937 cluster (163) both mount `tonylica/rsna-knee-bend-dinov3-0917-
+        # repro-assets`, licensed `other`. The four-arm ensembles add
+        # `prvsiyan/...radimagenet-heads` (`other`) and `marwanmath` /
+        # `antoinegg1` RadImageNet heads (CC-BY-NC-SA). E043's licence rule
+        # excludes all of them, as it already excluded
+        # `mattiaangeli/rsna-knee-cnx-m448-f0-public`. Raptor is the strongest
+        # arm that clears the gate, not the strongest arm on the board.
+        #
+        # PRE-REGISTERED READING, so it is not chosen after the score lands:
+        #   > 0.926   the union pays and borrowing public work is a live lever
+        #   0.924-0.926  dilution between two members; both stand alone and the
+        #                blend adds nothing, which closes different-kind
+        #                ensembling the way E064 closed the same-kind case
+        #   < 0.924   below BOTH members, which means the blend is broken
+        #             rather than useless — read the agreement numbers it prints
+        #
+        # WHAT STANDS IN FOR A CONTROL ARM, and its limit. Upstream's 0.924 is
+        # self-reported rather than measured here, and this project does not
+        # own a submission of the Raptor arm alone — mounting a public
+        # notebook's output takes no copy, but it also produces no standalone
+        # score. So the Raptor member is trusted on upstream's word plus the
+        # 900+ teams whose board positions corroborate the family, and NOT on
+        # anything measured in this repo.
+        #
+        # That is a real weakness and it shapes the reading below: a blend that
+        # lands under BOTH members is the signature of a bad member, not of a
+        # bad blend, and the per-finding agreement numbers the kernel prints
+        # are what distinguish them. If the Raptor arm ever needs a score of
+        # its own, that requires forking the upstream notebook under this
+        # account, which is the account owner's decision to make and not
+        # something this file should quietly assume.
+        depends=["knee-infer-v1pubfull5"],
+        external_kernels=[
+            "dreaddevelopment/knee-mri-twelve-findings-from-a-single-model"],
+        constants={"MEMBERS_EXPECTED": 2},
+        note="A 50/50 rank blend of the public CC0 Raptor model and this\n"
+             "project's full-fit ensemble. No model, no GPU, no training —\n"
+             "two finished submission.csv files and a rank average.\n"
+             "\n"
+             "ATTRIBUTION, required by the competition rules and by E043:\n"
+             "the Raptor arm is Dread Development's, reproduced from the\n"
+             "public notebook `knee-mri-twelve-findings-from-a-single-model`\n"
+             "with weights from `dreaddevelopment/raptor-knee-widedense`,\n"
+             "licensed CC0-1.0. The rules permit publicly shared code and\n"
+             "data as inputs for every participant, with credit.\n"
+             "\n"
+             "Every member here has already been priced by the board, so no\n"
+             "offline instrument is in the loop and there is nothing for a\n"
+             "leak to get into. That is deliberate: E083 is three days old and\n"
+             "cost a board point to the gold rig separating something at\n"
+             "+0.0221 that the board scored at −0.013.\n"
+             "\n"
+             "The weight is 0.5 and nothing is fitted. E048, E069 and E081\n"
+             "each declined a weight chosen on 58 studies; this declines it a\n"
+             "fourth time. The blend ranks each finding before averaging\n"
+             "because the metric reads ordering only, and the two members are\n"
+             "calibrated differently enough that raw averaging would let the\n"
+             "wider-spread member decide the order.",
     ),
     Kernel(
         slug="knee-oof-v1pub",

@@ -927,3 +927,46 @@ def test_the_two_geometries_feed_the_same_number_of_slices():
         return (per_plane if sub == "None" else int(sub)) * 3
 
     assert slices("72_train_v2distil_fold0") == slices("65_train_v1distil_fold0")
+
+
+def test_external_kernels_reach_the_metadata_but_not_the_manifest_check():
+    """A foreign kernel source must mount without switching the manifest off.
+
+    `depends` is resolved against this file, so an unknown slug there is a typo
+    or a deleted kernel and must stay an error. Foreign "owner/slug" mounts
+    cannot be resolved that way, so they live in their own field — and the risk
+    is that the field becomes a hole anyone can post a bad `depends` through.
+    """
+    blend = next(k for k in pipeline.all_kernels() if k.slug == "knee-blend-raptor")
+    sources = blend.metadata()["kernel_sources"]
+    assert "dreaddevelopment/knee-mri-twelve-findings-from-a-single-model" in sources
+    assert f"{pipeline.ACCOUNT}/knee-infer-v1pubfull5" in sources
+
+    # Every external entry is owner-qualified; a bare slug here would silently
+    # mount nothing rather than failing, because Kaggle would not resolve it.
+    for kernel in pipeline.all_kernels():
+        for source in kernel.external_kernels:
+            assert source.count("/") == 1 and not source.startswith(pipeline.ACCOUNT), \
+                f"{kernel.slug}: {source!r} is not a foreign owner/slug"
+
+    # The manifest check still resolves every `depends` against this file, so
+    # the escape hatch did not become a way to smuggle an unresolvable name in.
+    known = {k.slug for k in pipeline.all_kernels()}
+    for kernel in pipeline.all_kernels():
+        for dependency in kernel.depends:
+            assert dependency in known, \
+                f"{kernel.slug} mounts unknown kernel {dependency}"
+    assert not pipeline.check(), pipeline.check()
+
+
+def test_a_blend_refuses_a_short_mount():
+    """A kernel that never ran mounts as an EMPTY directory rather than failing.
+
+    E078 cost two runs to that failure mode. For a blend it is worse than for an
+    ensemble: blending one member produces that member's own submission wearing
+    the blend's name, scoring exactly what it already scored, and looking like a
+    null result about blending.
+    """
+    source = (KAGGLE / "74_blend_raptor" / "run.py").read_text()
+    assert "MEMBERS_EXPECTED = 2" in source
+    assert "!= MEMBERS_EXPECTED" in source, "the blend must count what it mounted"

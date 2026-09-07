@@ -114,10 +114,19 @@ cache and no GPU (E066). Compare a foreign **single fold** against our
 wrong by the entire width of the ensembling effect. And read every fold — fold 0
 of that family reads 0.8677 and the mean is 0.8034.
 
-**Score any candidate against the 58 gold first.** Two sets score 1.0000 because
-they *contain the answer key* (E047), which makes them unevaluable rather than
-good. The incumbent scores 0.8927, which is why its measurement means what it
-appears to mean.
+**Score any candidate against the 58 gold first, and run the exact-cell test
+before the score.** Contamination is the norm, not the exception: E047 saw two
+answer-key sets in five, and **E081's survey saw three in four**. A set can be
+built from the answer key without reproducing it perfectly, so the screen is
+"what fraction of gold cells equal the expert value exactly", not the AUC alone.
+
+**The bar is the E069 teacher at 0.9188, not the report labels at 0.8927.**
+Comparing a candidate against 0.8927 credits it with a gain already banked.
+E081's `tsuyu122` set — clean, four cohorts, 0.9124, Spearman 0.665 against ours
+— is the first outside member since E023 to land *inside* the comparability
+band, and the three-way union still came back **+0.0062, CI [−0.000, +0.014],
+not separated**. E048's rule says which unions are worth an afternoon; it does
+not say they pay.
 
 ### 4. Board-test a blend once — the offline nulls do not settle it
 **One submission, ~1 GPU-h, no training.**
@@ -138,6 +147,7 @@ a future session does not re-derive them as ideas:
 
 | route | status |
 |---|---|
+| **new public label sets, 2026-09-07 survey** | **three of four are answer keys** (E080); the clean fourth does not separate in union, +0.0062 CI [−0.000, +0.014] (E081) |
 | auxiliary report targets | **null against its own control**, twice, sign flipping (E063) |
 | more seeds of the 5-fold config | **closed by E064** — ten members scored 0.923, exactly the five |
 | borrowing public weights | **closed by E046** for the family it priced; re-opened as a question by E066 and closed again for shingo257's CC0 ConvNeXt family at 0.8034 vs our 0.8477 |
@@ -193,9 +203,16 @@ legitimate inputs, with attribution.
 
 - **0.924 is banked**, and it clears the top-200 cut of 0.917.
 - **0.93–0.94 is plausible** if the full-fit lineage pays at full weight, or if
-  the distilled teacher transfers. The teacher HAS separated (+0.0261, E069) and
-  its gain is broad across 10 of 12 findings (E071), which is the strongest
-  offline position this project has been in since the public labels.
+  the distilled teacher transfers. Both were submitted on 2026-09-07 and **both
+  are being scored now**; whichever way they land, they settle §2.1 and §2.2 in
+  one go.
+- **the offline case for the teacher is weaker than it looked, and E082 says
+  why.** Both lineages cut the same folds, so fold 0's expert labels reach fold
+  0's training targets through the other folds' models. `v1public`'s gold OOF
+  has no such path. So E076's +0.0221 compares a clean arm against a leaked one
+  and is biased toward the distilled arm. Not fatal, not quantifiable for free,
+  and **the board is the instrument with no such path** — which is why the
+  number to quote for this lineage is the board's, not 0.9201.
 - **0.945+ requires that teacher gain to transfer at roughly the historical
   rate.** Label changes have transferred favourably before — the rig called the
   fused labels +0.0508 and the board paid +0.089, about 1.75x. At half that

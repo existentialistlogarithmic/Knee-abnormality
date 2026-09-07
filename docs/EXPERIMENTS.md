@@ -4126,3 +4126,75 @@ outside the held-out fold. Its gold OOF is clean.
 
 Either way the number to quote for the distilled lineage is the board's, not
 0.9201. This entry exists so that whichever arrives, it was called in advance.
+
+### E083 — the board answers both: full fit pays at full weight, and the distilled teacher goes BACKWARDS
+- **date**: 2026-09-07. Two submissions, no new compute. Kernel attribution taken
+  from the submissions API `url` field, not inferred from click order — the two
+  landed 11 seconds apart with blank descriptions, and guessing which was which
+  would have assigned a +0.002 and a −0.014 to the wrong lineages.
+
+| submission | members | board |
+|---|---|---:|
+| `v1public` five folds (E044) | 5 fold models | 0.923 |
+| `v1public` + one full-fit (E064) | 6 | 0.924 |
+| `v1public` ten members (E064) | 10, same kind | 0.923 |
+| **`knee-infer-v1distil`** | **5 distilled folds** | **0.910** |
+| **`knee-infer-v1pubfull5`** | **5 full-fit models** | **0.926** |
+
+**1. Full fit pays at full weight. NEW STANDING SCORE 0.926.**
+Against the five-fold ensemble the single variable is how much data each member
+saw: **+0.003**. E064 priced one full-fit member inside six at +0.001 and could
+not tell dilution from a small effect; at full weight it is three times that and
+in the same direction. `PATH.md` §2.1 called this the last lever with a positive
+board reading, and it delivered.
+
+**2. The distilled teacher does not transfer. It reverses.**
+`v1distil` and `v1public` are both five folds over the same cache, geometry and
+hyperparameters; the teacher is the only variable. **0.910 against 0.923 is
+−0.013.**
+
+| instrument | distilled teacher's verdict |
+|---|---|
+| gold pool, n=58 (E076) | **+0.0221**, CI [+0.003, +0.041], separated |
+| **the board** | **−0.013** |
+
+**The rig did not merely overstate the effect. It got the sign wrong**, on a
+measurement whose 95% interval excluded zero. That is worse than any previous
+gold-to-board miss in this log, and it is the first time an interval that
+excluded zero pointed the wrong way.
+
+**E082 called the mechanism before this number existed**, and the pre-registered
+consequence fires:
+
+> *flat → E076's gold gain was some mixture of this leak and the seed draw, and
+> **gold OOF stops being trusted for teacher comparisons** until the leak is
+> removed.*
+
+The board did not come back flat. It came back **negative**, which is the
+stronger form of that branch. Both lineages cut the same folds, so fold 0's
+expert labels reach fold 0's training targets through the other folds' models,
+while `v1public`'s report-text targets carry no such path — E076 scored a leaked
+arm against a clean one and read the bias as a result.
+
+**CONSEQUENCES, binding from here:**
+
+1. **Gold-58 is retired for teacher comparisons**, as E060 retired single-seed
+   gold for architecture. It ranks; it does not price; and on the distilled
+   lineage it did not even rank correctly.
+2. **Every claim resting on E076's +0.0221 is withdrawn**, including E076's own
+   Synovitis-above-the-text-ceiling reading. Synovitis scored 0.827 in a model
+   whose evaluation leaked; the ceiling-breaking claim is not supported by a
+   clean measurement and should not be repeated.
+3. **E069's teacher separated on the same compromised instrument.** Its +0.0261
+   is now suspect for the identical reason, and the board has priced what that
+   teacher produced at −0.013. The distillation route is **closed**, not
+   pending.
+4. **A union that separates offline is not a lever.** E048's rule earns another
+   correction: comparability predicts which unions are worth trying, and this
+   log now has one that met the precondition, separated offline, and lost on the
+   board.
+
+**What survives.** The full-fit result is measured on the board with one
+variable and no leak path available. **0.926 is the standing score**, and the
+lever that produced it is *more data per member* — the same family as the
++0.089 and +0.077 that built this project, and not architecture.

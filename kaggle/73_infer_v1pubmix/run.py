@@ -595,8 +595,17 @@ def main() -> int:
                              f"unexpected={len(unexpected)}; refusing to predict")
         model.eval()
         models.append(model)
+        # best_epoch, NOT epoch. The trainer exports the best-scoring weights
+        # but writes the LOOP's final epoch under "epoch", so printing that
+        # labelled every checkpoint "epoch 23" — which is exactly the bug the
+        # trainer's own comment says it fixed (fold 1 peaked at 18 and epoch 23
+        # got saved, giving away 0.005). A future session reading this log would
+        # have concluded the regression was back. The weights were always right;
+        # the label was not. Fall back to "epoch" for checkpoints written before
+        # best_epoch existed.
+        exported = state.get("best_epoch", state.get("epoch"))
         print(f"  {path.parent.parent.name}/{path.name}: {backbone}, "
-              f"epoch {state.get('epoch')}, val macro AUC "
+              f"epoch {exported}, val macro AUC "
               f"{state.get('macro_auc', float('nan')):.4f}")
     print(f"ensembling {len(models)} models")
     model.eval()

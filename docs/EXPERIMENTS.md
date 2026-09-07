@@ -4198,3 +4198,45 @@ arm against a clean one and read the bias as a result.
 variable and no leak path available. **0.926 is the standing score**, and the
 lever that produced it is *more data per member* — the same family as the
 +0.089 and +0.077 that built this project, and not architecture.
+
+### E084 — the two priced ensembles united, for no training at all, and a log line that was lying
+- **date**: 2026-09-07. ~1.0 h of GPU inference, no training. Ten members: the
+  five `v1public` folds (0.923) and the five full-fit models (0.926), every
+  checkpoint already in existence.
+
+- **the run verified, and the guard that mattered was the member count.**
+  `checkpoints mounted: 10`, `failures: 0`, and the log names five distinct fold
+  checkpoints (`fold0`–`fold4`, val macro 0.8551 / 0.8383 / 0.8725 / 0.8233 /
+  0.8448) alongside five distinct `foldall` seeds. `MEMBERS_EXPECTED=10` would
+  have refused the run otherwise — the failure mode E078 introduced it for is a
+  kernel that never ran mounting as an empty notebook and scoring a short
+  ensemble that nobody notices.
+- **projected 1.048 h on 1,300 studies**, 0.033 h per extra member, against a
+  9 h cap. The three-study count in the manifest is Kaggle's interactive-save
+  sample, not the graded run.
+- **the reading is pre-registered in the kernel note and is repeated here so it
+  cannot be chosen afterwards**: above 0.926 the mix wins and different-kind
+  ensembling is live; 0.924–0.926 is linear dilution and closes the mixing
+  question; below 0.923 means suspect the kernel rather than the science.
+- **awaiting a human click.** `HANDOFF.md` §4b — this competition takes
+  submissions only from notebooks.
+
+**A log line that was lying, found while verifying the above.** Every checkpoint
+printed `epoch 23`, including the fold models, and the trainer's own comment
+says exactly that would be a bug:
+
+> *Fold 1 of the 192px run peaked at 0.7334 on epoch 18 and drifted down to
+> 0.7282 by epoch 23 — and epoch 23 is what got saved, so 0.005 was given away
+> for nothing.*
+
+**The weights were never wrong.** The trainer exports `best_state` and writes
+two different keys beside it: `best_epoch`, the epoch that was exported, and
+`epoch`, the loop's final iteration. Inference printed `epoch`. So the log
+labelled correctly-selected weights with the wrong number, and read as though
+the regression the trainer fixed had come back. Corrected to `best_epoch` with a
+fallback for checkpoints written before that key existed, and a test pins it.
+
+**This changes no score and is recorded anyway.** A future session diagnosing a
+disappointing full-fit result would have found "epoch 23" on every member and
+had a ready, wrong explanation for it — and E083 is a fresh reminder of what a
+plausible wrong explanation costs.

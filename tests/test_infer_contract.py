@@ -443,3 +443,19 @@ def test_the_guard_refuses_rather_than_warns():
     """Printing a count is what E061 did, and reading a log is not a guard."""
     source = _source(REPO_ROOT / "kaggle" / "63_infer_v1pubfull5" / "run.py")
     assert "raise SystemExit(" in source.split("MEMBERS_EXPECTED is not None")[1][:400]
+
+
+def test_infer_reports_the_exported_epoch_not_the_last_one():
+    """The trainer saves the BEST weights but writes the loop's final epoch.
+
+    Printing state["epoch"] therefore labelled every checkpoint with the last
+    epoch trained, which reads exactly like the regression the trainer's own
+    comment says it fixed: fold 1 peaked at 18, epoch 23 got saved, 0.005 given
+    away. The weights were never wrong; a future session reading the log would
+    have thought they were.
+    """
+    source = (REPO_ROOT / "kaggle" / "_templates" / "infer.py.in").read_text()
+    assert 'state.get("best_epoch"' in source, \
+        "inference must report the epoch it actually exported"
+    assert "f\"epoch {state.get('epoch')}\"" not in source, \
+        "reporting the loop's last epoch mislabels every checkpoint"

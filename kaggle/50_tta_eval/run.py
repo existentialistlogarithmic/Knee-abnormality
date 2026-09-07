@@ -53,6 +53,7 @@ import numpy as np
 TARGET_MM_PER_PIXEL = 0.6
 TARGET_SIZE         = 192
 SLICES_PER_PLANE    = 20
+OOF_SCOPE           = "gold"
 TTA_VIEWS           = ('identity', 'reverse', 'shift_pos', 'shift_neg')
 # --------------------------------------------------------------------------- #
 

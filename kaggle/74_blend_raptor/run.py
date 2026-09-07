@@ -77,6 +77,16 @@ FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
             "Lateral OA", "PF OA", "Effusion", "Synovitis", "Baker's",
             "Contusion", "Fracture"]
 
+# Defined per template rather than in `_shared/discovery.py`, which references
+# it but does not own it. Omitting it here cost this kernel a run: the splice
+# brought in the function and not the constant, and the NameError only appeared
+# on Kaggle because nothing local runs a generated kernel.
+#
+# It also has to be right, not merely present. The competition mount holds one
+# directory per study under these two names, so walking into them turns a scan
+# of a handful of mounted outputs into a walk over thousands of DICOM folders.
+SKIP_DIRECTORIES = {"train_series", "test_series"}
+
 
 # --------------------------------------------------------------------------- #
 # from kaggle/_templates/_shared/discovery.py

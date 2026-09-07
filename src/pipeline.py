@@ -883,7 +883,14 @@ EXTRAS = [
         # artifacts labels here would score each v1public checkpoint on studies
         # it had trained on, and the number would look held-out and not be.
         datasets=[PUBLIC_DATASET],
+        # OOF_SCOPE="gold" restores what this kernel did before the constant
+        # existed. It was added to the gold_eval template for the OOF dumps the
+        # distillation work needed, and this kernel — which predates it — was
+        # never given a value, so its generated run.py has referenced an
+        # undefined name ever since. It reads held-out gold only, which is what
+        # a TTA measurement wants: the 58 expert studies and nothing else.
         constants={**V1.constants(),
+                   "OOF_SCOPE": "gold",
                    "TTA_VIEWS": ("identity", "reverse", "shift_pos", "shift_neg")},
         note="Test-time augmentation, measured out-of-fold on the 58 expert\n"
              "studies, for zero GPU hours.\n"

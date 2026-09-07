@@ -970,3 +970,45 @@ def test_a_blend_refuses_a_short_mount():
     source = (KAGGLE / "74_blend_raptor" / "run.py").read_text()
     assert "MEMBERS_EXPECTED = 2" in source
     assert "!= MEMBERS_EXPECTED" in source, "the blend must count what it mounted"
+
+
+def test_no_generated_kernel_references_an_undefined_constant():
+    """A spliced helper can reference a constant the template does not define.
+
+    `_shared/discovery.py` uses SKIP_DIRECTORIES but does not own it: each
+    template declares its own. `@@INCLUDE discovery:find_all_markers@@` brings
+    the function and not the constant, so a template that forgets it generates a
+    file that imports cleanly, passes every local check, and dies with a
+    NameError on Kaggle -- which is exactly what it did, because nothing here
+    executes a generated kernel.
+
+    ALL-CAPS names are checked because that is precisely the splice-dependency
+    class: shared helpers read configuration through module constants.
+    """
+    import builtins
+
+    problems = []
+    for directory in sorted(KAGGLE.glob("*/")):
+        run = directory / "run.py"
+        if not run.exists():
+            continue
+        tree = ast.parse(run.read_text())
+        defined = set(dir(builtins))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+                defined.add(node.id)
+            elif isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+                defined.add(node.name)
+            elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                for alias in node.names:
+                    defined.add(alias.asname or alias.name.split(".")[0])
+            elif isinstance(node, ast.Global):
+                defined.update(node.names)
+
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+                    and node.id.isupper() and node.id not in defined):
+                problems.append(f"{directory.name}/run.py:{node.lineno} {node.id}")
+
+    assert not problems, "generated kernels reference undefined constants:\n" + \
+        "\n".join(sorted(set(problems)))

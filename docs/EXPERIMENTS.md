@@ -4402,3 +4402,34 @@ moved anyway: gold 0.9922 at epoch 16 against **1.0000** at epoch 20, val macro
 fitting** between 16 and 20 rather than sitting on a plateau. Whether that
 fitting generalises or overfits is the entire question, and training-set
 memorisation cannot distinguish them. **It is not support for either arm.**
+
+### E087 — the two priced ensembles blend to exactly what the better one already scored
+- **date**: 2026-09-07. Ten members, ~1.2 GPU-h of inference, no training.
+  Answers E084's pre-registration.
+
+| submission | members | board |
+|---|---|---:|
+| `v1public` five folds | 5 fold models | 0.923 |
+| `v1public` + one full-fit (E064) | 6 | 0.924 |
+| **`knee-infer-v1pubmix`** | **5 folds + 5 full-fit** | **0.926** |
+| `knee-infer-v1pubfull5` | 5 full-fit | **0.926** |
+
+  **The blend equals the better member exactly.** E084 pre-registered
+  0.924–0.926 as *"linear dilution; pure full-fit stands and the mixing question
+  is closed for good"*, and that is the band it landed in. **Closed.**
+
+- **the linear reading E084 flagged as the case against was right.** Five folds
+  plus one full-fit scored 0.924, which is what interpolation predicts at a
+  sixth weight; at half weight it predicts ~0.9245, and the board reports three
+  decimals. Nothing here is super-additive. **E023 remains the only union in
+  this project's history that beat both of its members.**
+- **so different-kind is necessary and not sufficient.** These two ensembles met
+  the tightest comparability the log has ever had — 0.002 apart — and differ in
+  the one property the board says matters, how much data each member saw. It
+  still bought nothing. E048's rule survives as a filter on what is *worth
+  trying*; it has now failed twice as a predictor of what *pays* (E081 offline,
+  this on the board).
+- **what it cost and what it bought**: 1.2 GPU-h and a free submission, to close
+  a route that would otherwise have stayed open as "surely worth one more try".
+  The standing score is unchanged at **0.926** and the standing system is still
+  `knee-infer-v1pubfull5`, five full-fit members and nothing else.

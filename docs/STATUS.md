@@ -1,11 +1,11 @@
 # Project status — everything, categorised by how well it is known
 
-This file exists because the project accumulated 28 experiments, 31 generated
-kernels and 62 tagged claims, and the single most expensive mistakes in it came
+This file exists because the project accumulated 88 experiments, 90 generated
+kernels and 58 tagged claims, and the single most expensive mistakes in it came
 from **treating a weakly-known number as a well-known one**. So the organising
 axis here is not topic. It is *evidence strength*.
 
-Last updated 2026-09-02 (E064).
+Last updated 2026-09-07 (E087, and E086 still open).
 
 ---
 
@@ -17,34 +17,59 @@ Last updated 2026-09-02 (E064).
 |---|---:|---|
 | constant priors | 0.500 | the benchmark the efficiency metric uses |
 | scanner metadata, no pixels | 0.531 | the bar the images must clear |
-| imaging, resnet34 2.5D, 192px, 1 fold | 0.725 | the previous standing result |
+| imaging, resnet34 2.5D, 192px, 1 fold | 0.725 | the first imaging model |
 | imaging, 288px, effective batch 4 | 0.668 | confounded run |
 | imaging, 288px, effective batch 16 | 0.688 | the confound corrected; still behind 192px |
 | imaging, 192px, 5-fold, lexicon labels | 0.757 | the control (E036) |
 | imaging, 192px, 5-fold, FUSED labels | 0.846 | E034 |
 | imaging, 192px, 5-fold, PUBLIC CC0 labels | 0.923 | E045 |
 | 5-fold PUBLIC + 5 reseeded folds (10 members) | 0.923 | **a second seed buys nothing** (E064) |
-| **5-fold PUBLIC + one FULL-FIT member** | **0.924** | **the standing result** (E064) |
+| 5-fold PUBLIC + one FULL-FIT member | 0.924 | E064 |
+| 5-fold PUBLIC, DISTILLED teacher | 0.910 | **the offline rig had the sign wrong** (E083) |
+| 5 folds + 5 full-fit (10 members) | 0.926 | equals pure full fit exactly (E087) |
+| **five FULL-FIT members, nothing else** | **0.926** | **the standing result** (E083) |
 
-**The whole +0.199 decomposes on ground truth:** own fused labels **+0.089**,
-public CC0 labels **+0.077**, ensembling **+0.032**, full fit (as one member in
-six) +0.001, **architecture 0.000 every time it has been measured**. Labels and
-data are +0.166 of +0.199.
+**The whole +0.201 decomposes on ground truth:** own fused labels **+0.089**,
+public CC0 labels **+0.077**, ensembling one fold → five **+0.032**, full fit at
+full weight **+0.003**, a distilled teacher **−0.013**, **architecture 0.000
+every time it has been measured**. Labels and data are +0.166 of +0.201.
 
-**Leaderboard position: 0.924**, up from 0.923 on 2026-09-02, 0.846 on
-2026-08-29 and 0.725 on 2026-08-22. **This clears the top-200 cut of 0.917.**
-Field top 0.952.
+**Leaderboard position: 0.926**, up from 0.924 on 2026-09-02, 0.923, 0.846 on
+2026-08-29 and 0.725 on 2026-08-22. **Rank 1,104 of 3,263, measured 2026-09-07
+(E085).** Field top **0.954**.
 
-**Two board results closed levers rather than opening them.** Ten members scored
-exactly what five did, so E036's +0.032 for one fold → five was the end of the
-ensembling lever and not the first term of a series. The full fit moved +0.001
-at a sixth of the weight, which is a direction and not a size; `v1pubfull5`
-measures it at full weight.
+**A rank is a measurement with a date on it.** E070 read #866 of 1,866 on
+2026-09-02 and this file carried "clears the top-200 cut of 0.917" from it. The
+field then grew 75% in five days and both statements went stale without anything
+about this project changing. 492 teams now sit at exactly 0.936 and 163 at
+0.937, forks of two public notebooks — **655 teams are 0.010+ ahead by clicking
+Copy & Edit**, and E043's licence rule excludes every asset they mount.
+
+**Three board results closed levers rather than opening them.**
+
+- **Ensembling is not a series.** Ten members scored exactly what five did, so
+  E036's +0.032 for one fold → five was the end of that lever (E064).
+- **Mixing families is linear.** Five folds plus one full-fit member scored
+  0.924, which is what interpolation predicts at a sixth weight; all five
+  full-fit members mixed in scored 0.926, exactly what pure full fit already
+  scored (E087). **E023 remains the only union in this log that beat both of
+  its members.**
+- **Full fit pays once, and +0.003 is a measurement rather than a rate.** The
+  same lever read +0.001 diluted to a sixth and +0.003 at full weight, same
+  direction. Nothing says a second helping pays again.
+
+**E086 is open and unresolved.** `FULL_FIT_EPOCH = 20` was read off the *fold*
+models, which train on 3,526 studies against full fit's 4,407, so the same epoch
+buys 25% more optimisation steps. Two arms are built and verified from the same
+five trajectories — epoch 20 and epoch 16 — and **neither has been submitted.**
+It also carries the board's first like-for-like reseed of a full-weight
+ensemble, which bounds how much of the +0.003 is draw rather than lever.
 
 **Gold OOF is not a calibrated predictor of the board.** E026 measured the
 offset at +0.005 on one model and concluded no correction was needed; the second
 point came in at **+0.054**. It ranked the two correctly, which is what it is
 for. It does not forecast a score — see §3.
+
 
 ### B — measured against expert labels out-of-fold (n = 46, CI ±0.05)
 
@@ -159,6 +184,10 @@ pattern matters more than any individual entry.
 | "Synovitis is the best remaining label lever" | **half wrong** — right that it is the weakest finding, wrong that reports can fix it. Radiologists in this corpus mostly do not report synovitis (tr 4.0%, hr 1.2%, bg 0.5%), and the model already beats its teacher there, 0.616 vs 0.520 | nothing; a day of CPU that also found the cue bug |
 | "DINOv2 had not flattened at epoch 34; run it to convergence" | **contradicted** — run to 40 epochs it peaks at **epoch 23** and decays, and is 0.074 behind resnet34 on gold. The plan's largest lever was chosen on noise from a truncated run | **~20 GPU-hours**, the most expensive error in the log |
 | "focal top-k pooling is worth +0.060" | **contradicted** — +0.060 was the model-to-teacher *headroom* on focal findings, not a gain; measured, top-k gives +0.006 with an interval eight times its width | nothing; the rig caught it for 8 min of CPU |
+| "the distilled student is worth +0.0221, interval excluding zero" | **contradicted** — the board priced the finished lineage at **0.910 against 0.923, −0.013**, with the teacher the only variable. E082 found the mechanism first: both lineages cut the same folds, so fold 0's expert labels reach fold 0's training targets through the other folds' models. The rig was scoring a leaked arm against a clean one | a board point, ~9 GPU-h, and the whole distillation route |
+| "Synovitis clears the report-text ceiling under a distilled teacher" (E076) | **withdrawn** — it rested on the leaked evaluation above. Synovitis stands where E059 left it, unwritten in the reports rather than badly read | nothing further; withdrawn with the lineage |
+| "a union that separates offline is a lever" (E048's comparability rule) | **not a predictor** — it has now failed twice at forecasting what pays: E081 offline (+0.0062, CI touching zero) and E087 on the board (0.926, exactly the better member). It survives as a filter on what is *worth an afternoon*, not on what pays | two afternoons and 1.2 GPU-h |
+| "all five full-fit runs are complete and both arms are verified" (a session handoff, 16:30 UTC) | **contradicted** — `s15` was 20 minutes into a 97-minute run and neither arm had started. `lastRunTime` in Kaggle's kernel listing is when a run **starts**, not when it ends | nothing; caught before a click, and the arms have since run for real |
 
 The common shape: **a small number of observations read as a trend.** The
 countermeasure now in place is that every comparison is one-variable by

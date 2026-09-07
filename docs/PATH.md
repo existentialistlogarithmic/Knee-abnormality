@@ -11,8 +11,9 @@ is a measurement with a date on it. **492 teams sit at exactly 0.936 and 163 at
 ahead of this project's independently built system. E043's licence rule excludes
 every asset those notebooks depend on; see §2.0.
 
-Last rewritten 2026-09-07. If this header ever reads more than a week old,
-distrust the priorities below before distrusting the numbers.
+Last rewritten 2026-09-07, revised 23:20 UTC the same day to add §2 NOW (E086's
+two arms, built and unsubmitted) and E087. If this header ever reads more than a
+week old, distrust the priorities below before distrusting the numbers.
 
 ---
 
@@ -41,6 +42,26 @@ watching −0.0284 come out. Every architecture effect ever hypothesised here is
 smaller than that. Only DINOv2's −0.148 ever cleared it.
 
 ## 2. What is left, in priority order
+
+### NOW. The export epoch — **built, verified, and owed two clicks**
+**Zero further cost. Both arms already exist.** E086 found that
+`FULL_FIT_EPOCH = 20` was read off the *fold* models, which train on 3,526
+studies where full fit trains on 4,407 — so the same epoch buys a full-fit
+member **25% more optimisation steps**, and E055 measured the fold curves
+decaying past 21. Either every member behind 0.926 is a quarter past its peak,
+or more data per pass supports more passes and 16 is undertrained. **A full-fit
+model cannot be validated offline by construction**, so only the board answers
+it.
+
+`knee-infer-v1pubfe` (epoch 20) and `knee-infer-v1pubfe-early` (epoch 16) ran on
+2026-09-07 at ~17:52 UTC and were verified end to end at 23:20 — five
+checkpoints each, matched back to their five trainers by val macro AUC, no
+cross-contamination in either direction. **Neither has been submitted.** The
+three readings are pre-registered in E086 and the second is the one that matters
+beyond this test: `v1pubfe` against the standing 0.926 is **seeds 11–15 against
+seeds 3–7 with nothing else changed**, the board's first like-for-like reseed of
+a full-weight ensemble, and it bounds how much of §2.1's +0.003 is draw rather
+than lever.
 
 ### 0. The public-notebook route — **the largest gap, blocked on a decision**
 655 teams are 0.010+ ahead of us by forking a public notebook, which the rules
@@ -150,6 +171,7 @@ a future session does not re-derive them as ideas:
 | auxiliary report targets | **null against its own control**, twice, sign flipping (E063) |
 | self-distillation, the whole route | **closed by E083** — separated offline at +0.0261 and +0.0221, scored −0.013 on the board; the offline rig was leaking (E082) |
 | more seeds of the 5-fold config | **closed by E064** — ten members scored 0.923, exactly the five |
+| **mixing fold and full-fit members** | **closed by E087** — ten mixed members scored 0.926, exactly what five full-fit already scored. Purely linear, nothing super-additive |
 | borrowing public weights | **closed by E046** for the family it priced; re-opened as a question by E066 and closed again for shingo257's CC0 ConvNeXt family at 0.8034 vs our 0.8477 |
 | `mattiaangeli/rsna-knee-cnx-m448-f0-public` | licensed **`other`**, so excluded by E043's rule despite shipping complete geometry and model code |
 | blending anything with anything | three attempts: +0.0046, +0.0022, +0.0036, none separated |

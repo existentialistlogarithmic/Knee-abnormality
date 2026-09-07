@@ -4403,6 +4403,83 @@ fitting** between 16 and 20 rather than sitting on a plateau. Whether that
 fitting generalises or overfits is the entire question, and training-set
 memorisation cannot distinguish them. **It is not support for either arm.**
 
+
+**ADDENDUM 2026-09-07 23:20 UTC — THE ARMS RAN AFTER THE SESSION THAT ANNOUNCED
+THEM, AND THE CHECK ABOVE COVERED ONE TRAINER OF FIVE.**
+
+A handoff written at **16:30 UTC** stated that all five full-fit runs were
+COMPLETE and that both inference arms *"have RUN and been verified"* — five
+checkpoints mounted each, five distinct seeds, no cross-contamination.
+**Kaggle's own run times say that could not have been true when it was
+written.**
+
+`lastRunTime` is the moment a kernel *starts*, not the moment it finishes. The
+queue confirms that at five consecutive transitions on two GPU slots, each push
+beginning 1.5–8 min after a slot frees:
+
+| kernel | starts | runs | finishes |
+|---|---|---:|---|
+| `knee-train-v1pubfe-s11` | 12:36:26 | 99.2 min | 14:15 |
+| `knee-train-v1pubfe-s12` | 12:36:28 | 104.8 min | 14:21 |
+| `knee-train-v1pubfe-s13` | 14:17:07 | 111.1 min | 16:08 |
+| `knee-train-v1pubfe-s14` | 14:29:29 | 111.6 min | 16:21 |
+| `knee-train-v1pubfe-s15` | 16:10:10 | 97.1 min | **17:47** |
+| `knee-infer-v1pubfe-early` | 17:48:58 | 3.3 min | 17:52 |
+| `knee-infer-v1pubfe` | 17:49:10 | 3.5 min | 17:53 |
+
+  At 16:30 `s15` was 20 minutes into a 97-minute run and neither inference arm
+  had started. **No earlier version of either arm could have passed either**:
+  `MEMBERS_EXPECTED = 5` raises at anything other than five mounted checkpoints,
+  and `s15` was the fifth. The claim was written ahead of its measurement, which
+  is exactly the shape the standing rule exists to catch. It has since become
+  true, but not for the reason given, and not at the time given.
+
+**RE-VERIFIED ON THE ARTIFACTS THAT NOW EXIST** — all five trainers, not `s11`
+alone, and the inference side as well as the export side. Every mounted
+checkpoint is matched back to the run that produced it by its monitor val macro
+AUC, which no other run in the lineage reproduces:
+
+| trainer | logs | epoch 20 | epoch 16 |
+|---|---|---:|---:|
+| `knee-train-v1pubfe-s11` | `seeded: 11` | 0.9428 | 0.9153 |
+| `knee-train-v1pubfe-s12` | `seeded: 12` | 0.9508 | 0.9252 |
+| `knee-train-v1pubfe-s13` | `seeded: 13` | 0.9452 | 0.9185 |
+| `knee-train-v1pubfe-s14` | `seeded: 14` | 0.9509 | 0.9258 |
+| `knee-train-v1pubfe-s15` | `seeded: 15` | 0.9481 | 0.9225 |
+
+- **the late arm** logs `checkpoints mounted: 5` and then those five **epoch 20**
+  figures in seed order, each from `checkpoint_foldall.pt`. It never names
+  `early_foldall.pt`.
+- **the early arm** logs `checkpoints mounted: 5` and then those five **epoch 16**
+  figures in the same seed order, each from `early_foldall.pt`. It never names
+  `checkpoint_foldall.pt`.
+- **so the arms are the same five trajectories read at two epochs**, which is
+  what the design above claims and what counting files cannot establish. Both
+  report `n_models: 5`, `failures: 0`, and wrote `submission.csv`.
+- all five trainers log `FULL FIT: train 4,407 (every study)`.
+- **the no-gold-dump guard held on all five.** Each trainer's output holds
+  exactly `checkpoint_foldall.pt`, `early_foldall.pt`, `history_foldall.json`
+  and its log. There is nothing `pool_gold_oof.py` can glob, which is required
+  because every one of these models trained on all 58 gold studies.
+- `rows=3` in both submission logs is the **visible slice of the hidden test
+  set**, not a truncated run; the manifest projects the real ~1,300 at 0.86 h
+  and 0.94 h.
+
+**NEITHER ARM HAS REACHED THE BOARD.** `kaggle competitions submissions` lists
+four on 2026-09-07 — 0.910 and 0.926 at 10:16 (E083), 0.926 at 14:20, and 0.926
+at 16:14:54. **The latest predates `s15` finishing**, so no submission can be
+either arm. E088 is still unwritten and both clicks are still owed.
+
+  **The 16:14:54 submission at 0.926 is unattributed.** E083 accounts for two
+  and E087 for one; the fourth matches no entry in this log. It scored what the
+  standing system scores, so the likeliest reading is a re-submission of an
+  existing 0.926 notebook, which returns the same score and spends a slot.
+  Recorded rather than guessed.
+
+  **Four of the five daily slots were spent on 2026-09-07.** The allowance
+  resets at 00:00 UTC, so both arms fit inside a single day from then, and
+  neither needs to be ordered ahead of the other.
+
 ### E087 — the two priced ensembles blend to exactly what the better one already scored
 - **date**: 2026-09-07. Ten members, ~1.2 GPU-h of inference, no training.
   Answers E084's pre-registration.

@@ -1,7 +1,7 @@
 # HANDOFF — read this first
 
 The session entry point. Everything here is either a live instruction or a
-pointer to the file that holds the detail. Last updated **2026-09-02**.
+pointer to the file that holds the detail. Last updated **2026-09-07**.
 
 Read order: **this file**, then `docs/STATUS.md` (what is known, by evidence
 strength), then `docs/PATH.md` (what is left and what it is worth).
@@ -15,10 +15,17 @@ bash eda/preflight.sh
 ```
 
 Four gates, the same four `.github/workflows/tests.yml` runs, in the same
-order: **lint**, **183 tests**, **kernel drift**, **no patient-derived file
+order: **lint**, **218 tests**, **kernel drift**, **no patient-derived file
 tracked**. Green here is green there. The drift gate is the one that matters
 most — `kaggle/*/run.py` is generated from `src/pipeline.py` and a hand-edited
 kernel still pushes and still runs, it just is not the pipeline any more.
+
+**It covers 90 of the 96 kernel directories.** Six predate the generator and are
+outside it: `00_dicom_header_scan`, `01_submission_baseline`,
+`02_metadata_submission`, `05_infer`, `05_infer_cpu`, `09_infer_ensemble`. All
+six are superseded and nothing in the current lineage mounts them, but the gate
+is silent about them, so do not read a green drift check as covering everything
+under `kaggle/`.
 
 `ruff` is pinned exactly in `requirements.txt`, not floated. Minor ruff
 releases add lint rules, and a float means CI can fail on a commit that changed
@@ -39,15 +46,28 @@ package is installed. Check `which kaggle` instead.
 
 ## 3. Where the work stands
 
-**0.926 on the leaderboard** as of 2026-09-07 (E083), up from 0.924, 0.923,
-0.846 and 0.725. **Rank #866 was measured at 0.924 on 2026-09-02 (E070)** and
-0.926 has not been re-ranked. **477 teams sit at exactly 0.936**, one forked
-public notebook. Field top 0.952, 1,866 teams, final submission 2026-10-22.
+**0.926 on the leaderboard**, up from 0.924, 0.923, 0.846 and 0.725. **Rank
+1,104 of 3,263, measured 2026-09-07 (E085).** Field top **0.954**. Final
+submission 2026-10-22. The field grew 75% in five days, so E070's "#866 of
+1,866" went stale almost immediately — **a rank is a measurement with a date on
+it.** 492 teams sit at exactly 0.936 and 163 at 0.937, forks of two public
+notebooks; see §4d.
 
-**The standing system is now five FULL-FIT members and nothing else**
-(`knee-infer-v1pubfull5`) — every member trained on all 4,407 studies. E083
-priced that against the five-fold ensemble's 0.923 at **+0.003**, with data
-exposure the only variable.
+**The standing system is `knee-infer-v1pubfull5` — five FULL-FIT members and
+nothing else**, every member trained on all 4,407 studies: resnet34 2.5D at
+192px on **publicly shared CC0 report labels**
+(`stevenleehans/rsna-knee-llm-report-labels`, repackaged with attribution as
+`knee-phase1-public`), rank-mean. E083 priced it against the five-fold
+ensemble's 0.923 at **+0.003**, with data exposure the only variable. **A
+full-fit model cannot be scored offline by construction** — it trains on all 58
+gold studies. The five-fold ensemble it replaced reads 0.8980 gold OOF.
+
+**Two board results closed mixing rather than opening it.** E064: five folds
+plus one full-fit member scored 0.924, which is what linear interpolation
+predicts at a sixth weight. E087: five folds plus all five full-fit members
+scored **0.926 — exactly what pure full fit already scored.** Nothing here is
+super-additive, and E023 remains the only union in this log that beat both of
+its members.
 
 **Self-distillation is closed and the way it closed is the thing to read first.**
 It separated offline twice — teacher +0.0261 (E069), student +0.0221 with a 95%
@@ -58,16 +78,11 @@ expert labels reach fold 0's training targets through the other folds' models,
 and `v1public`'s report-text targets carry no such path. **Gold-58 is retired
 for teacher comparisons**, and E076's Synovitis-ceiling claim is withdrawn.
 
-The standing system is `v1public` + one full-fit member: resnet34 2.5D at 192px,
-five folds trained on **publicly shared CC0 report labels**
-(`stevenleehans/rsna-knee-llm-report-labels`, repackaged with attribution as
-`knee-phase1-public`), rank-mean, plus one model trained on every study. Gold
-OOF for the five folds alone is 0.8980; the full-fit member cannot be scored
-offline by construction.
-
-**Labels and data are the whole story.** Of the +0.199 from the first imaging
-model: own fused labels +0.089, public CC0 labels +0.077, ensembling +0.032,
-full fit (as one member in six) +0.001, **architecture 0.000, every time**.
+**Labels and data are the whole story.** Of the **+0.201** from the first
+imaging model at 0.725 to 0.926: own fused labels **+0.089**, public CC0 labels
+**+0.077**, ensembling one fold → five **+0.032**, full fit at full weight
+**+0.003**, a distilled teacher **−0.013**, **architecture 0.000, every time.**
+Labels and data are +0.166 of the +0.201.
 
 **Two numbers govern every decision here. Read them before planning anything.**
 
@@ -87,6 +102,7 @@ full fit (as one member in six) +0.001, **architecture 0.000, every time**.
 Consequence: **the board is the only trustworthy instrument.** Five submissions
 a day. Inference is ~1.0 h of a 9 h cap plus 0.037 h per extra member, so
 ensemble size is limited by *training* quota alone, never by the submission.
+
 
 ## 4. Quota state
 
@@ -232,40 +248,53 @@ E064 says a second helping of the same kind does not compound.
 
 ## 5. The next action
 
-**THE WEEKLY GPU QUOTA IS SPENT** (2026-09-02, E067). It resets ~2026-09-05.
-`s4` is COMPLETE, `s6` is running, **`s5` errored on an ECC fault and `s7` was
-never pushed** — so the full-fit lineage is 3 of 5. At the reset, push both:
+**TWO SUBMISSIONS ARE OWED A CLICK, AND NOTHING ELSE IS BLOCKING.** Both
+inference arms of E086 finished on 2026-09-07 at ~17:52 UTC and were verified
+end to end at 23:20 UTC — five checkpoints each, matched back to their five
+trainers by val macro AUC, no cross-contamination in either direction. **Neither
+has reached the board.** The API cannot submit (§4b), so:
 
-```bash
-kaggle kernels push -p kaggle/60_train_v1pubfull_s5
-kaggle kernels push -p kaggle/62_train_v1pubfull_s7
-```
+1. open `https://www.kaggle.com/code/achelijndiamantidis/knee-infer-v1pubfe`
+   → **Submit to Competition** — five full-fit members at **epoch 20**
+2. open `https://www.kaggle.com/code/achelijndiamantidis/knee-infer-v1pubfe-early`
+   → **Submit to Competition** — the same five models at **epoch 16**
 
-**Then push `kaggle/63_infer_v1pubfull5` and click submit.** Five full-fit members and
-nothing else — the data lever at full weight instead of the sixth-weight
-mixture E064 priced at +0.001. Check with:
+Four of five daily slots were spent on 2026-09-07 and the allowance resets at
+00:00 UTC, so from then both fit in one day and neither needs to go first.
+**Record the result as E088.** The three readings are pre-registered in E086 and
+must not be re-derived after the scores land:
 
-```bash
-for k in s4 s5 s6 s7; do kaggle kernels status achelijndiamantidis/knee-train-v1pubfull-$k; done
-bash eda/preflight.sh && kaggle kernels push -p kaggle/63_infer_v1pubfull5
-```
+1. `v1pubfe-early` vs `v1pubfe` — the export epoch, one variable, same five
+   trajectories. *early > late* → epoch 20 was overtraining every member and
+   0.926 was left short. *early < late* → the step-count argument is wrong.
+   *within 0.001* → the curve is flat here, as E055 found it flat over 18–21.
+2. **`v1pubfe` vs the standing 0.926** — seeds 11–15 against seeds 3–7, nothing
+   else changed. The board's first like-for-like reseed of a full-weight
+   ensemble. **It bounds how much of any full-fit result is draw rather than
+   lever, including the +0.003 E083 credited to full fit.** Do not skip it
+   because it is the uncomfortable arm.
+3. Whichever arm wins is submittable on its own merits.
 
-The kernel now **refuses to run** at anything other than five mounted members
-(`MEMBERS_EXPECTED`), so a missing checkpoint stops it instead of quietly
-submitting a three-member ensemble against a five-member claim.
+**The monitor-set figures are not evidence for either arm.** Epoch 16 reads
+0.918–0.926 and epoch 20 reads 0.943–0.951, but that set is *in training*, so
+those are memorisation. They establish only that the model is still actively
+fitting between 16 and 20, which is what makes the question live rather than
+what answers it.
 
-Each trainer must log `FULL FIT: train 4,407 (every study)` and emit
-`checkpoint_foldall.pt` with **no gold dump** — a model trained on all 58 gold
-studies must never produce a file `pool_gold_oof.py` can glob.
+**A caution the addendum to E086 records in full.** The handoff that announced
+these arms declared them run and verified at 16:30 UTC, when `s15` was 20
+minutes into a 97-minute run and neither arm had started. `lastRunTime` in
+Kaggle's kernel listing is the moment a run **starts**, not the moment it ends —
+confirmed at five consecutive queue transitions. Read it that way before
+concluding anything is finished.
 
-**The five-member full fit beat 0.924 — it scored 0.926 (E083)**, so the data
-lever is not spent. What that does not license is a second helping of the same
-lever: E064 showed ten same-kind members scoring exactly what five scored, so
-+0.003 is a measurement and not a rate.
+**After E088, the log is out of measured levers on its own work.** §4d's
+public-notebook route is the only remaining item with a large measured gap and
+it is blocked on an account-owner decision, not on engineering. **Do not spend
+GPU on architecture of any kind** — the instrument that made those ideas look
+promising is retired, and every board-level architecture test has returned zero
+or negative.
 
-**Do not spend GPU on architecture of any kind.** The instrument that made those
-ideas look promising is retired, and every board-level architecture test
-returned zero or negative.
 
 ## 6. What the CPU rig has already settled
 

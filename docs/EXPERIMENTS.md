@@ -4073,3 +4073,56 @@ member since E023 to land inside the comparability band rather than 0.03–0.06
 adrift, and E048's rule now has a case where the precondition was met and the
 union still did not separate. The rule predicts *which unions are worth trying*,
 not which ones pay. E069 remains the only union that has separated since E023.
+
+### E082 — CORRECTION: the distilled lineage's gold OOF is not clean, and E076 compared a leaked arm against a clean one
+- **date**: 2026-09-07. No compute. Written **before** the board scored the
+  pending submission, so that it is a stated mechanism and not an explanation
+  found afterwards to fit a disappointing number.
+
+**The path, and it is structural rather than a bug.** Both lineages cut the
+same scanner-grouped folds from the same shared cohort builder. So:
+
+1. `v1public` fold *j* trains on every fold except *j*, including fold 0 — and
+   the ~12 gold studies in fold 0 carry `GOLD_WEIGHT=8.0`.
+2. Study *Y* in fold *j* gets its out-of-fold prediction from that fold-*j*
+   model. **Its soft label therefore depends on fold 0's expert answers.**
+3. The E069 teacher's label for *Y* is a union containing that prediction.
+4. `v1pubdistil` fold 0 trains on folds 1–4 — that is, on *Y* and its
+   teacher label.
+5. Fold 0 then predicts fold 0's gold studies and those predictions are pooled
+   into the 0.9201.
+
+**Fold 0's own expert labels reach fold 0's training targets, by way of the
+other four folds' models.** Four hops and heavily diluted, but not zero, and
+not removable by any check `distill_teacher.py` performs: E069's
+self-verification proved no study was predicted twice *within* a lineage, which
+is a different property and was never this one.
+
+**`v1public`'s 0.8980 does NOT carry this path.** Its targets are report labels
+derived from text, which no expert label touches, plus gold weighting on studies
+outside the held-out fold. Its gold OOF is clean.
+
+- **so E076's +0.0221 is a comparison between a clean arm and a leaked arm, and
+  it is biased toward the distilled one.** E076 recorded the right caution for
+  the wrong reason: it said the gain sits inside the ±0.03 seed-draw magnitude,
+  which is true, and treated the residual risk as *noise*. There is also a
+  **mechanism** pushing the estimate up, and a mechanism and noise are not the
+  same kind of doubt. The honest statement of E076 is now: suggestive,
+  separated on an instrument that favours the arm it separated, and not proof.
+- **what it does not touch.** The board holds labels this project has never
+  seen, so no path of this kind exists there. **The pending submission is the
+  clean test**, and it was already the only instrument that prices a teacher.
+- **the fix is nested cross-validation and it is not affordable.** A leak-free
+  teacher for fold *k* needs out-of-fold predictions produced without fold *k* —
+  5 × 4 = 20 trainings, ~30 GPU-h, a whole weekly quota to re-measure one number
+  the board reports for free.
+
+**PRE-REGISTERED reading of the pending board score, written now:**
+
+- **pays clearly** → the teacher lever is real and the leak was second-order.
+- **flat** → E076's gold gain was some mixture of this leak and the seed draw,
+  and **gold OOF stops being trusted for teacher comparisons** until the leak is
+  removed, in the same way E060 retired single-seed gold for architecture.
+
+Either way the number to quote for the distilled lineage is the board's, not
+0.9201. This entry exists so that whichever arrives, it was called in advance.

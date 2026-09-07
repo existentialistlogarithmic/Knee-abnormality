@@ -39,12 +39,24 @@ package is installed. Check `which kaggle` instead.
 
 ## 3. Where the work stands
 
-**0.924 on the leaderboard** as of 2026-09-02 (E064), up from 0.923, 0.846 and
-0.725. **Rank #866 of the field as measured on 2026-09-02 (E070)** — the
-"clears the top-200 cut" line this file used to carry was read on 2026-08-18
-and is stale. 851 teams are above us and **477 sit at exactly 0.936**, one
-forked public notebook. Field top 0.952, 1,866 teams,
-final submission 2026-10-22.
+**0.926 on the leaderboard** as of 2026-09-07 (E083), up from 0.924, 0.923,
+0.846 and 0.725. **Rank #866 was measured at 0.924 on 2026-09-02 (E070)** and
+0.926 has not been re-ranked. **477 teams sit at exactly 0.936**, one forked
+public notebook. Field top 0.952, 1,866 teams, final submission 2026-10-22.
+
+**The standing system is now five FULL-FIT members and nothing else**
+(`knee-infer-v1pubfull5`) — every member trained on all 4,407 studies. E083
+priced that against the five-fold ensemble's 0.923 at **+0.003**, with data
+exposure the only variable.
+
+**Self-distillation is closed and the way it closed is the thing to read first.**
+It separated offline twice — teacher +0.0261 (E069), student +0.0221 with a 95%
+interval excluding zero (E076) — and the board scored the finished lineage at
+**0.910 against 0.923, −0.013**. The offline rig had the sign wrong. E082 found
+why before the score landed: both lineages cut the same folds, so fold 0's
+expert labels reach fold 0's training targets through the other folds' models,
+and `v1public`'s report-text targets carry no such path. **Gold-58 is retired
+for teacher comparisons**, and E076's Synovitis-ceiling claim is withdrawn.
 
 The standing system is `v1public` + one full-fit member: resnet34 2.5D at 192px,
 five folds trained on **publicly shared CC0 report labels**
@@ -119,9 +131,9 @@ that fails is this project's bug until proven otherwise.
 
 `colab/train_fold_on_colab.ipynb` runs **the same generated `run.py`**,
 byte-identical, on Colab free's T4. Only the paths and the machine change, so a
-fold trained there pools with one trained on Kaggle. It is currently aimed at
-the five `v1pubdistil` folds, which is the only queued lineage with a separated
-measurement behind it (E069).
+fold trained there pools with one trained on Kaggle. **It is currently aimed at
+the `v1pubdistil` folds, which E083 closed at −0.013 — retarget it before use.**
+The full-fit lineage (`knee-train-v1pubfull-s*`) is what the board pays for.
 
 **The rules split cleanly and both halves matter** (`FINDINGS.md` 2.7 and 2.15):
 
@@ -199,9 +211,10 @@ Each trainer must log `FULL FIT: train 4,407 (every study)` and emit
 `checkpoint_foldall.pt` with **no gold dump** — a model trained on all 58 gold
 studies must never produce a file `pool_gold_oof.py` can glob.
 
-If the five-member full fit does not beat 0.924, **the data lever is spent** and
-`PATH.md` §2.2 (the weekly label-set survey) is all that remains with a
-board-measured coefficient behind it.
+**The five-member full fit beat 0.924 — it scored 0.926 (E083)**, so the data
+lever is not spent. What that does not license is a second helping of the same
+lever: E064 showed ten same-kind members scoring exactly what five scored, so
++0.003 is a measurement and not a rate.
 
 **Do not spend GPU on architecture of any kind.** The instrument that made those
 ideas look promising is retired, and every board-level architecture test

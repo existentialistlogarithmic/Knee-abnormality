@@ -1,35 +1,34 @@
 # What is left, what it is worth, and what 0.95 actually requires
 
-Standing: **0.924 on the leaderboard** (2026-09-02, E064 — five `v1public`
-folds plus one full-fit member), up from 0.923, 0.846 and 0.725.
+Standing: **0.926 on the leaderboard** (2026-09-07, E083 — five full-fit
+members), up from 0.924, 0.923, 0.846 and 0.725.
 Leaderboard top **0.952**. 1,866 teams. Final submission **2026-10-22**.
 
-**Rank #866, measured 2026-09-02 (E070).** 851 teams are above us, and 477 of
-them sit at exactly 0.936 — one public notebook, forked. The free public
-baseline is 0.012 ahead of this project's independently built system, which
-makes E046's "we overtook what we were borrowing from" stale: it was measured
-against the 0.917-era family.
+**Rank #866 was measured at 0.924 on 2026-09-02 (E070) and is now stale**; 0.926
+has not been re-ranked. 477 teams sat at exactly 0.936 — one public notebook,
+forked — so the free public baseline is still ahead of this project's
+independently built system.
 
-Last rewritten 2026-09-02. The version before this one described the 0.846
-world and had gone two board jumps stale; if this header ever reads more than a
-week old, distrust the priorities below before distrusting the numbers.
+Last rewritten 2026-09-07. If this header ever reads more than a week old,
+distrust the priorities below before distrusting the numbers.
 
 ---
 
 ## 1. The one number that governs the plan
 
-Decomposed on ground truth, of the **+0.199** from this project's first imaging
-model (0.725) to now (0.924):
+Decomposed on ground truth, of the **+0.201** from this project's first imaging
+model (0.725) to now (0.926):
 
 | lever | board-measured contribution |
 |---|---:|
 | this project's own fused labels | **+0.089** |
 | public CC0 report labels | **+0.077** |
 | ensembling, one fold → five | **+0.032** |
-| full fit, as one member in six | +0.001 |
+| **full fit, at full weight (E083)** | **+0.003** |
+| **a distilled teacher (E083)** | **−0.013** |
 | **architecture, every attempt** | **0.000** |
 
-**Labels and data are +0.166 of the +0.199.** Architecture has contributed zero
+**Labels and data are +0.166 of the +0.201.** Architecture has contributed zero
 every time it has been measured, across 288px, DINOv2 twice, focal top-k,
 per-finding pooling, slice positional embeddings, TTA and two blend families.
 
@@ -41,57 +40,40 @@ smaller than that. Only DINOv2's −0.148 ever cleared it.
 
 ## 2. What is left, in priority order
 
-### 1. The full-fit lineage — **running now**, ~6 GPU-h
+### 1. The full-fit lineage — **PAID, and it is the standing score**
 Each fold model trains on 80% of the corpus and never sees ~12 of the 58 expert
-studies, the ones carrying `GOLD_WEIGHT=8.0` and the only labels known to match
-what the leaderboard scores. A full-fit model sees all 4,407 studies and all 58.
+studies. A full-fit model sees all 4,407 and all 58.
 
-E064 priced one full-fit member inside a six-model ensemble at **+0.001**, which
-is the smallest move the board can show and is diluted to a sixth. Four more
-seeds (`knee-train-v1pubfull-s4/5/6/7`) then `knee-infer-v1pubfull5` — five
-full-fit members and nothing else — measure the same lever at full weight.
-Against the 0.923 five-fold ensemble it varies exactly one thing: how much data
-each member saw.
+E064 priced one full-fit member inside a six-model ensemble at **+0.001**,
+diluted to a sixth and indistinguishable from noise. **E083 measured the same
+lever at full weight: five full-fit members and nothing else scored 0.926
+against the five-fold ensemble's 0.923 — +0.003, with data exposure the only
+variable.** Three times the diluted reading, same direction.
 
-**This is the last lever with a positive board reading.** If it returns 0.924 or
-below, the data lever is spent too.
+**This is the only lever with a positive board reading, and it is the same
+family as the +0.089 and +0.077 that built the project: more and better data,
+never architecture.**
 
-### 2. Self-distillation — untested, right category, precondition measured
-**~2 h of CPU for the go/no-go, then 0 or 7.5 GPU-h depending on the answer.**
+### 2. Self-distillation — **CLOSED, and it cost a board point to learn**
+The teacher separated offline by +0.0261 (E069), the student by +0.0221 (E076),
+the gain looked broad across findings (E071), and the board priced the finished
+lineage at **0.910 against 0.923 — −0.013, with the teacher the only variable
+(E083).**
 
-The model scores **0.8980** on the 58 gold studies. The public report labels
-that trained it score **0.8927**. The student has overtaken its teacher.
+**The offline rig got the sign wrong on an interval that excluded zero.** E082
+found the mechanism before the score landed: both lineages cut the same folds,
+so fold 0's expert labels reach fold 0's training targets through the other
+folds' models, while `v1public`'s report-text targets carry no such path. E076
+scored a leaked arm against a clean one.
 
-That 0.005 gap is the whole reason this is worth trying, and the reason is
-E048's rule: **a union pays when its members are comparable and imports errors
-when they are not.** E023's union of two readers at 0.7446 and 0.7421 paid
-**+0.070**. The four unions since — E033, E039, E046, E048 — each added a member
-0.03–0.06 behind the incumbent and paid +0.0046, +0.0022, +0.0036, +0.0027, none
-separated. **The model's own out-of-fold predictions are the first candidate
-member that is not behind.**
+Three things follow and they are binding:
 
-The shape of the experiment:
-
-1. `kaggle/64_oof_v1pub` — every study predicted once, by the model that held it
-   out. Runs on **CPU from checkpoints that already exist**, so it costs zero
-   GPU quota; re-running five folds with a wider dump would have cost ~7.5 h for
-   the same file. It self-verifies: the gold macro is still computed from the
-   gold subset, so the run must reproduce **0.8980**. If it does not, this
-   kernel cut the folds differently from the trainer and its "out-of-fold"
-   predictions are not out-of-fold — a teacher built on that would leak, train
-   cleanly, and score worse for no visible reason.
-2. `eda/distill_teacher.py` — score the 50/50 rank union of model and labels
-   against the 58. **Free, minutes of CPU.**
-3. **PRE-REGISTERED: spend GPU only if the union beats the report labels with a
-   95% interval excluding zero.** The weight curve is printed in full and
-   deliberately not adopted — an argmax over it is a free parameter fitted to 58
-   studies, which `dataset-metadata.fused.json` rejects by name and E048
-   declined once already. A test asserts the script cannot adopt one.
-4. If it separates: publish the teacher, add a `v1pubdistil` lineage, five
-   folds (~7.5 GPU-h), and let the board price it.
-
-Honest coefficient: **unmeasured.** What is measured is the precondition, and
-this is the first time in five attempts that it has been met.
+1. **Gold-58 is retired for teacher comparisons**, as E060 retired single-seed
+   gold for architecture.
+2. **E076's Synovitis-above-the-text-ceiling claim is withdrawn.** It rested on
+   a leaked evaluation.
+3. **A union that separates offline is not a lever.** E048's comparability rule
+   says which unions are worth an afternoon, not which ones pay.
 
 ### 3. Survey public label sets weekly — free, CPU only
 Both of the largest board jumps came from label sets appearing. E047 found four
@@ -149,6 +131,7 @@ a future session does not re-derive them as ideas:
 |---|---|
 | **new public label sets, 2026-09-07 survey** | **three of four are answer keys** (E080); the clean fourth does not separate in union, +0.0062 CI [−0.000, +0.014] (E081) |
 | auxiliary report targets | **null against its own control**, twice, sign flipping (E063) |
+| self-distillation, the whole route | **closed by E083** — separated offline at +0.0261 and +0.0221, scored −0.013 on the board; the offline rig was leaking (E082) |
 | more seeds of the 5-fold config | **closed by E064** — ten members scored 0.923, exactly the five |
 | borrowing public weights | **closed by E046** for the family it priced; re-opened as a question by E066 and closed again for shingo257's CC0 ConvNeXt family at 0.8034 vs our 0.8477 |
 | `mattiaangeli/rsna-knee-cnx-m448-f0-public` | licensed **`other`**, so excluded by E043's rule despite shipping complete geometry and model code |
@@ -163,21 +146,18 @@ a future session does not re-derive them as ideas:
 
 ## 3. What 0.94 would require
 
-`PATH.md` has carried a per-finding reading of this since E041 and it still
-holds: +0.017 on the board means no finding below roughly **0.870**. After E044
-only **Synovitis (0.779)** sits below 0.80, and E059 closed it — the finding is
-unwritten in the reports rather than badly read, and the text ceiling is 0.8076
-against a model already at 0.790.
+`PATH.md` carried a per-finding reading of this from E041: +0.017 on the board
+means no finding below roughly **0.870**, and after E044 only **Synovitis
+(0.779)** sat under 0.80. E059 then closed Synovitis as *unwritten in the
+reports* rather than badly read, with a text ceiling of 0.8076.
 
-**SUPERSEDED IN PART, 2026-09-03 (E071).** That reasoning was correct while the
-teacher could only read text. The distilled teacher is a union of the reports
-with a model that reads pixels, and it moves Synovitis **0.790 → 0.830** — above
-E059's 0.8076 ceiling, because that ceiling bounds *readers* and this is no
-longer one. It is the first movement on that finding in the project's history.
+**That reasoning was superseded by E071 and the supersession is now itself
+withdrawn (E083).** The claim that a distilled teacher broke the Synovitis
+ceiling rested on the leaked evaluation E082 identified, and the board priced
+the lineage that produced it at −0.013. Synovitis stands where E059 left it.
 
-So the route runs through the teacher rather than around it. 0.94 now has two
-candidate mechanisms rather than one: more data per model (§2.1), and a teacher
-that is not text-limited (§2.2). Both are unpriced on the board.
+So 0.94 has **one** candidate mechanism, not two: **more data per model**, which
+is §2.1 and which the board has actually paid for. There is no measured second.
 
 ## 4. About 0.95, plainly
 
@@ -201,31 +181,24 @@ legitimate inputs, with attribution.
 
 **The honest split, updated for where the board actually is:**
 
-- **0.924 is banked**, and it clears the top-200 cut of 0.917.
-- **0.93–0.94 is plausible** if the full-fit lineage pays at full weight, or if
-  the distilled teacher transfers. Both were submitted on 2026-09-07 and **both
-  are being scored now**; whichever way they land, they settle §2.1 and §2.2 in
-  one go.
-- **the offline case for the teacher is weaker than it looked, and E082 says
-  why.** Both lineages cut the same folds, so fold 0's expert labels reach fold
-  0's training targets through the other folds' models. `v1public`'s gold OOF
-  has no such path. So E076's +0.0221 compares a clean arm against a leaked one
-  and is biased toward the distilled arm. Not fatal, not quantifiable for free,
-  and **the board is the instrument with no such path** — which is why the
-  number to quote for this lineage is the board's, not 0.9201.
-- **0.945+ requires that teacher gain to transfer at roughly the historical
-  rate.** Label changes have transferred favourably before — the rig called the
-  fused labels +0.0508 and the board paid +0.089, about 1.75x. At half that
-  multiplier +0.0261 becomes ~+0.023 and lands at 0.947; at zero it lands at
-  0.924. **That spread is the honest forecast**, and only the board closes it.
-- **0.945 needs both to pay near the top of their band AND a new public asset to
-  appear.** It sits 0.007 under the field top, which is top-handful territory in
-  a 1,866-team field. There is no measured path to it and this file will not
-  draw one.
+- **0.926 is banked.** It was #866-territory at 0.924 and has not been re-ranked.
+- **0.93–0.94 has one live mechanism and no measured coefficient for it.**
+  Full fit paid +0.003 at full weight. Nothing in the log says a second helping
+  of the same lever pays again — E064 showed ten same-kind members scoring
+  exactly what five scored — so +0.003 is a measurement, not a rate.
+- **0.945+ has no route this file can draw.** The teacher route was the
+  candidate and the board closed it at −0.013. The label-set route was surveyed
+  on 2026-09-07: three of four new sets were answer keys, and the clean one did
+  not separate (E080, E081). What remains is waiting for a genuinely new public
+  asset, which is not a plan so much as a subscription.
 - **0.95+ has no measured path from here.** If anyone proposes one, ask for the
   coefficient and the interval it was measured with. Every route this project
-  has tried and closed is listed in §2.3, with its number.
+  has tried and closed is listed in §2.5, with its number.
 
-The one thing that will not get there is optimism about the numbers. This
-project has overturned **eight** of its own confident claims, and every single
-one was caught by a measurement rather than by reasoning.
+**The lesson of 2026-09-07 is worth more than the +0.002.** An offline
+instrument said +0.0221 with a 95% interval excluding zero, and the board said
+−0.013. The interval was honest and the instrument was compromised, and no
+amount of care with the statistics would have caught it — only E082's reading of
+*how the folds touch each other*, and then the board. **This project has now
+overturned nine of its own confident claims, and every single one was caught by
+a measurement rather than by reasoning.**

@@ -1,0 +1,24 @@
+{
+  "id": "achelijndiamantidis/knee-infer-dinov2f",
+  "title": "knee-infer-dinov2f",
+  "code_file": "run.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [
+    "achelijndiamantidis/knee-train-dinov2f",
+    "achelijndiamantidis/knee-train-dinov2f-fold1",
+    "achelijndiamantidis/knee-train-dinov2f-fold2",
+    "achelijndiamantidis/knee-train-dinov2f-fold3",
+    "achelijndiamantidis/knee-train-dinov2f-fold4"
+  ],
+  "model_sources": []
+}

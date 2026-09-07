@@ -25,6 +25,25 @@ FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
             "Lateral OA", "PF OA", "Effusion", "Synovitis", "Baker's",
             "Contusion", "Fracture"]
 
+# Structures and abnormalities the reports describe that the competition does
+# NOT score, with the share of the 4,407 training reports that mentions each:
+#
+#   Chondral 61.7%   PCL 49.2%   PatellarTendon 45.7%   LCL 39.1%
+#   Hoffa 22.0%   Enthesopathy 21.4%   Bursitis 14.2%   BoneEdema 14.0%
+#   Extrusion 11.3%   PatellarTracking 10.2%   MuscleEdema 8.5%   Plica 7.2%
+#   Ganglion (measured in eda/build_auxiliary_labels.py)
+#
+# For scale, Effusion — the best-written scored finding — is mentioned in 90.4%
+# of reports and Synovitis in 23.6% (E059). So this is a comparable quantity of
+# written radiology to the twelve, and none of it is currently taught.
+#
+# These are TRAINING TARGETS ONLY: extra output rows on a shared trunk, dropped
+# at inference. They are never submitted and never scored against gold, so no
+# threshold, calibration or ordering choice here can reach the leaderboard.
+AUXILIARY_FINDINGS = ["BoneEdema", "Bursitis", "Chondral", "Enthesopathy",
+                      "Extrusion", "Ganglion", "Hoffa", "LCL", "MuscleEdema",
+                      "PatellarTendon", "PatellarTracking", "PCL", "Plica"]
+
 # One ordered ladder for all twelve findings rather than a bespoke vocabulary
 # each. A shared ladder keeps the prompt short enough to leave room for a
 # 4,700-character report, and — more importantly — the metric is ROC-AUC, which

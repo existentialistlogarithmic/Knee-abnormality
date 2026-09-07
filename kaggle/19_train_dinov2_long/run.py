@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import time
 from pathlib import Path
 
@@ -50,25 +51,28 @@ import pandas as pd
 # The run inherits the 0.6878 checkpoint as its best, so a
 # restart that never recovers exports the old weights.
 #
-RUN_FOLD            = 0
-TARGET_MM_PER_PIXEL = 0.6
-TARGET_SIZE         = 192
-SLICES_PER_PLANE    = 20
-RUN_EPOCHS          = 40
-RUN_BATCH           = 6
-ACCUM_STEPS         = 3
-RUN_LR              = 0.0001
-RUN_BACKBONE        = "vit_small_patch14_dinov2.lvd142m"
-SLICE_SUBSAMPLE     = None
-INPUT_NORM          = True
-PER_FINDING_POOL    = False
-FOCAL_K             = 0
-RUN_TIME_BUDGET     = 7.5 * 3600
-GOLD_WEIGHT         = 8.0
-ABSTAIN_MASKS_LOSS  = True
-WARMUP_EPOCHS       = 2
-EMA_DECAY           = 0.999
-LABEL_SMOOTH        = 0.02
+RUN_FOLD             = 0
+TARGET_MM_PER_PIXEL  = 0.6
+TARGET_SIZE          = 192
+SLICES_PER_PLANE     = 20
+RUN_EPOCHS           = 40
+RUN_BATCH            = 6
+ACCUM_STEPS          = 3
+RUN_LR               = 0.0001
+RUN_BACKBONE         = "vit_small_patch14_dinov2.lvd142m"
+SLICE_SUBSAMPLE      = None
+INPUT_NORM           = True
+PER_FINDING_POOL     = False
+FOCAL_K              = 0
+RUN_SEED             = None
+FULL_FIT_EPOCH       = 20
+FULL_FIT_EPOCH_EARLY = None
+RUN_TIME_BUDGET      = 7.5 * 3600
+GOLD_WEIGHT          = 8.0
+ABSTAIN_MASKS_LOSS   = True
+WARMUP_EPOCHS        = 2
+EMA_DECAY            = 0.999
+LABEL_SMOOTH         = 0.02
 # --------------------------------------------------------------------------- #
 
 FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
@@ -465,8 +469,21 @@ class StudyDataset:
             # the cache build so every volume shows the same anatomy; flipping
             # here would undo that and make medial/lateral findings ambiguous —
             # and four of the twelve targets are explicitly medial or lateral.
-            if np.random.rand() < 0.5:                      # reverse slice order
-                array = array[:, ::-1].copy()
+            # NO slice-order reversal either, and this one is not a judgement
+            # call — it is arithmetic. The model embeds each slice
+            # independently and pools with a softmax-weighted sum over the
+            # token axis, with no positional encoding anywhere, so it is
+            # EXACTLY permutation-invariant over slices: measured max
+            # |f(x) - f(reverse(x))| = 2.4e-7, and the same for a random
+            # permutation (E050). Every augmentation below is order-independent
+            # too, so reversing here produced a volume the model could not
+            # distinguish from the one it already had. It was a copy of every
+            # second training sample in exchange for nothing.
+            #
+            # `test_the_model_is_permutation_invariant_over_slices` pins the
+            # property this rests on. If that test ever fails, the architecture
+            # has gained slice-order sensitivity and this augmentation should
+            # come back with it.
             shift = np.random.randint(-SHIFT_PIXELS, SHIFT_PIXELS + 1, size=2)
             array = np.roll(array, shift, axis=(2, 3))
             array = array * np.random.uniform(0.85, 1.15) + np.random.uniform(-0.05, 0.05)
@@ -512,6 +529,9 @@ def main() -> int:
                         help="directory holding soft_labels.parquet (local runs)")
     parser.add_argument("--headers", default=None,
                         help="directory holding series_headers.parquet (local runs)")
+    parser.add_argument("--train-csv", default=None,
+                        help="competition train.csv. Only needed off Kaggle, "
+                             "where there is no /kaggle/input to search.")
     parser.add_argument("--out", default="/kaggle/working")
     parser.add_argument("--time-budget", type=float, default=RUN_TIME_BUDGET)
     args, _unknown = parser.parse_known_args()
@@ -522,6 +542,29 @@ def main() -> int:
     from torch.utils.data import DataLoader
 
     started = time.time()
+
+    # RUN_SEED is None for every lineage that ran before this existed, and that
+    # is deliberate: seeding them now would not reproduce their checkpoints, it
+    # would only claim to. Where it is set, it makes two things true that were
+    # previously only assumed — the run is reproducible, and a sibling lineage
+    # with a different seed is a *provably* different draw rather than one that
+    # happens to differ because two processes each seeded from OS entropy.
+    #
+    # Seeding torch's global generator is what reaches the augmentation as well
+    # as the head init: DataLoader draws a fresh base_seed from that generator
+    # for every epoch's worker pool, and each worker reseeds numpy from it. So
+    # augmentation stays fresh epoch to epoch (verified — the known
+    # numpy-inherited-across-fork bug does not apply on torch >= 1.9) while the
+    # whole sequence still descends from this one number.
+    if RUN_SEED is not None:
+        random.seed(RUN_SEED)
+        np.random.seed(RUN_SEED)
+        torch.manual_seed(RUN_SEED)
+        torch.cuda.manual_seed_all(RUN_SEED)
+        print(f"seeded: {RUN_SEED}")
+    else:
+        print("unseeded (RUN_SEED is None)")
+
     if not report_environment():
         # Exit immediately rather than burning a session that cannot possibly
         # run. This makes probing accelerator strings cost seconds, not hours.
@@ -543,7 +586,11 @@ def main() -> int:
     # Study set, targets, masks and the fold split all come from the shared
     # cohort builder. It is shared rather than copied because an out-of-fold
     # score is only out-of-fold if every kernel cuts the folds identically.
-    cohort = build_cohort(cache_dirs, artifacts, headers_dir, find_marker("train.csv"),
+    # Off Kaggle there is no /kaggle/input to search, so the path is passed in.
+    # Every other input already had an override; this one did not, and it was
+    # the single thing stopping the generated trainer running anywhere else.
+    train_csv = Path(args.train_csv) if args.train_csv else find_marker("train.csv")
+    cohort = build_cohort(cache_dirs, artifacts, headers_dir, train_csv,
                           FINDINGS, gold_weight=GOLD_WEIGHT,
                           abstain_masks_loss=ABSTAIN_MASKS_LOSS,
                           min_studies=args.min_studies)
@@ -553,9 +600,34 @@ def main() -> int:
     is_gold, splits = cohort["is_gold"], cohort["splits"]
     group_values = cohort["group_values"]
 
-    train_idx, val_idx = splits[args.fold]
-    print(f"fold {args.fold}: train {len(train_idx):,}  val {len(val_idx):,}  "
-          f"val groups {pd.Series(group_values[val_idx]).nunique()}")
+    # A NEGATIVE fold means full-fit: train on every study, hold nothing out.
+    #
+    # The fold split exists to produce an out-of-fold score, not because the
+    # model needs it. Once a configuration is settled, holding out a fifth of
+    # the corpus costs a fifth of the training data for a number that has
+    # already been measured — and it costs more than that on the part that
+    # matters, because each fold model never sees ~12 of the 58 expert studies,
+    # which carry GOLD_WEIGHT and are the only labels known to match what the
+    # leaderboard scores. A full-fit model sees all 58.
+    #
+    # It cannot be validated, and that is the trade rather than an oversight.
+    # There is no honest val AUC to early-stop on, so the export epoch is fixed
+    # at FULL_FIT_EPOCH — measured, not guessed: across the five v1public folds
+    # the mean val AUC peaks at epoch 20 and the mean gold AUC at 21, with both
+    # curves flat over 18-21 (E055). A leaked val set is deliberately NOT used
+    # to pick the epoch.
+    full_fit = args.fold < 0
+    if full_fit:
+        train_idx = np.arange(len(studies))
+        # Monitored and printed, never scored on: these studies are in training.
+        val_idx = splits[0][1]
+        print(f"FULL FIT: train {len(train_idx):,} (every study)  "
+              f"monitor {len(val_idx):,} (IN TRAINING — not a held-out score)")
+        print(f"export fixed at epoch {FULL_FIT_EPOCH}; no early stopping")
+    else:
+        train_idx, val_idx = splits[args.fold]
+        print(f"fold {args.fold}: train {len(train_idx):,}  val {len(val_idx):,}  "
+              f"val groups {pd.Series(group_values[val_idx]).nunique()}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = build_model(args.backbone, 3, len(FINDINGS), INPUT_NORM,
@@ -596,10 +668,26 @@ def main() -> int:
     # n=58 out-of-fold evaluation rather than averaging five tiny AUCs.
     val_studies = [studies[i] for i in val_idx]
     gold_positions = [pos for pos, i in enumerate(val_idx) if is_gold[i]]
-    print(f"gold studies held out in this fold: {len(gold_positions)}")
+    # In full-fit mode NOTHING is held out — val_idx is the monitor set and it
+    # is inside training. Printing "held out: 12" next to a per-epoch gold
+    # column that climbs to 0.99 invites exactly the misreading this project
+    # has made most often: a number that is not a score, read as one. E064's
+    # full-fit member had to be explained twice for the same reason.
+    if full_fit:
+        print(f"gold studies in the monitor set: {len(gold_positions)} "
+              "— IN TRAINING, held out from nothing. Any gold figure below is "
+              "memorisation, not a score.")
+    else:
+        print(f"gold studies held out in this fold: {len(gold_positions)}")
 
     out_dir = Path(args.out)
-    checkpoint_path = out_dir / f"checkpoint_fold{args.fold}.pt"
+    # "foldall" rather than "fold-1" on purpose. Inference globs
+    # checkpoint_fold*.pt so this still joins the ensemble, while gold_eval
+    # parses the fold out of the filename with int() and skips what it cannot
+    # read — which is exactly right for a model that trained on every gold
+    # study and must never be scored as if it had not.
+    tag = "all" if full_fit else str(args.fold)
+    checkpoint_path = out_dir / f"checkpoint_fold{tag}.pt"
 
     # /kaggle/working does not survive a session, so a checkpoint from a previous
     # run only exists if that run's output is mounted. Look there too, otherwise
@@ -607,9 +695,9 @@ def main() -> int:
     # becomes useless.
     resume_from = checkpoint_path if checkpoint_path.exists() else None
     if resume_from is None:
-        mounted = find_marker(f"checkpoint_fold{args.fold}.pt")
+        mounted = find_marker(f"checkpoint_fold{tag}.pt")
         if mounted is not None:
-            resume_from = mounted / f"checkpoint_fold{args.fold}.pt"
+            resume_from = mounted / f"checkpoint_fold{tag}.pt"
             print(f"found a mounted checkpoint: {resume_from}")
 
     start_epoch = 0
@@ -747,7 +835,50 @@ def main() -> int:
         # 192px run peaked at 0.7334 on epoch 18 and drifted down to 0.7282 by
         # epoch 23 — and epoch 23 is what got saved, so 0.005 was given away for
         # nothing. Over an ensemble that compounds.
-        if macro == macro and macro > best_macro:      # NaN-safe
+        if full_fit:
+            # No honest validation exists, so "best" is the measured epoch and
+            # nothing else. Selecting on the monitor set would be selecting on
+            # training data.
+            if epoch == min(FULL_FIT_EPOCH, args.epochs - 1):
+                best_macro, best_epoch, best_state = macro, epoch, ema_state
+                print(f"  full-fit export taken at epoch {epoch}")
+
+            # A SECOND export from the same trajectory, so the export epoch can
+            # be compared with nothing else changing — same seed, same data
+            # order, same weights up to this point. Two separate runs would
+            # confound the epoch with the seed draw, and E060 measured that
+            # draw at +-0.03 on gold, larger than any effect expected here.
+            #
+            # Why the epoch is in question at all: FULL_FIT_EPOCH=20 was read
+            # off the FOLD models (E055), which train on 3,526 studies. A
+            # full-fit model trains on 4,407, so at the same epoch number it
+            # has taken 25% more optimisation steps. If the peak is governed by
+            # steps rather than passes, the fold optimum of 20 x 3,526 = 70,520
+            # study-visits lands at epoch 16 here, and every full-fit member
+            # behind the 0.926 board score is trained a quarter past its peak —
+            # into the region where E055 measured the fold curves DECAYING.
+            #
+            # It may equally be that more data per pass supports more passes,
+            # in which case 20 is right and 16 is undertrained. That is why
+            # this is measured rather than changed.
+            #
+            # Named so it does NOT match `checkpoint_fold*.pt`: an inference
+            # kernel globbing that pattern would otherwise mount both exports
+            # of every model and silently double-count each one.
+            if (FULL_FIT_EPOCH_EARLY is not None
+                    and epoch == min(FULL_FIT_EPOCH_EARLY, args.epochs - 1)):
+                early_path = out_dir / f"early_fold{'all' if full_fit else args.fold}.pt"
+                torch.save({"model": ema_state, "epoch": epoch,
+                            "best_epoch": epoch, "macro_auc": macro,
+                            "backbone": args.backbone,
+                            "slice_subsample": SLICE_SUBSAMPLE,
+                            "input_norm": INPUT_NORM,
+                            "per_finding_pool": PER_FINDING_POOL,
+                            "focal_k": FOCAL_K,
+                            }, early_path)
+                print(f"  full-fit EARLY export written at epoch {epoch} "
+                      f"-> {early_path.name}")
+        elif macro == macro and macro > best_macro:      # NaN-safe
             best_macro, best_epoch = macro, epoch
             best_state = ema_state
 
@@ -773,12 +904,12 @@ def main() -> int:
                     "per_finding_pool": PER_FINDING_POOL,
                     "focal_k": FOCAL_K,
                     }, checkpoint_path)
-        (out_dir / f"history_fold{args.fold}.json").write_text(json.dumps(history, indent=2))
+        (out_dir / f"history_fold{tag}.json").write_text(json.dumps(history, indent=2))
 
         # Raw predictions for the held-out gold studies, so the folds can be
         # pooled. Written from the same weights that are exported: when this
         # epoch set a new best, these are the best model's predictions.
-        if gold_positions and best_epoch == epoch:
+        if gold_positions and best_epoch == epoch and not full_fit:
             g = np.array(gold_positions)
             (out_dir / f"gold_oof_fold{args.fold}.json").write_text(json.dumps({
                 "fold": args.fold, "epoch": epoch, "backbone": args.backbone,

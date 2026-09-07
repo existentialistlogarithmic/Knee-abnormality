@@ -15,6 +15,17 @@ across folds gives one expert-scored prediction per gold study.
     python eda/pool_gold_oof.py a/gold_oof_fold*.json
     python eda/pool_gold_oof.py a/gold_oof_*.json --vs b/gold_oof_*.json
 
+`--view` averages a named set of test-time-augmentation views out of a dump
+that carries them, which is what makes TTA answerable with the paired bootstrap
+below rather than on the board:
+
+    python eda/pool_gold_oof.py t/gold_oof_*.json --view identity \
+       --vs t/gold_oof_*.json --view identity,reverse,shift_pos,shift_neg
+
+Both sides read the same files, so every study is shared and the pairing is
+exact — the same model on the same studies, asked the same question from four
+angles instead of one.
+
 **Read the interval, not the point estimate**, and prefer `--vs`. Both limits
 below were measured by simulation at macro AUC ≈ 0.73, not assumed
 (`docs/FINDINGS.md` §13):
@@ -77,7 +88,31 @@ def macro_auc(expert: np.ndarray, predicted: np.ndarray, findings: list[str]):
     return macro, per_finding
 
 
-def load(paths: list[str]):
+def views_of(blob, views: list[str] | None, path: str) -> np.ndarray:
+    """The prediction matrix for one dump, averaging a named set of TTA views.
+
+    No views named means `predicted`, which is view 0 — the single
+    deterministic pass every gold number on record was computed from. So the
+    default reading of any dump is unchanged by TTA existing.
+
+    The average is unweighted and always will be. A weighted one scored better
+    in an earlier experiment (E048) and was declined for the same reason it
+    would be declined here: the weights would be free parameters fitted to 58
+    studies, and 58 studies cannot pay for them.
+    """
+    if not views:
+        return np.array(blob["predicted"], float)
+    available = blob.get("predicted_by_view")
+    if not available:
+        raise SystemExit(f"{path}: no per-view predictions — it predates TTA")
+    missing = [v for v in views if v not in available]
+    if missing:
+        raise SystemExit(f"{path}: no such view(s) {missing}; "
+                         f"it has {sorted(available)}")
+    return np.mean([np.array(available[v], float) for v in views], axis=0)
+
+
+def load(paths: list[str], views: list[str] | None = None):
     studies, expert, predicted, folds, findings = [], [], [], [], None
     for path in sorted(paths):
         blob = json.loads(Path(path).read_text())
@@ -86,7 +121,7 @@ def load(paths: list[str]):
             raise SystemExit(f"{path}: different finding order — cannot pool")
         studies += blob["studies"]
         expert.append(np.array(blob["expert"], float))
-        predicted.append(np.array(blob["predicted"], float))
+        predicted.append(views_of(blob, views, path))
         folds += [blob["fold"]] * len(blob["studies"])
 
     # A study appearing twice would mean two folds validated on it, which
@@ -172,18 +207,30 @@ def compare(a, b):
     return 0
 
 
+def split_views(argv: list[str]) -> tuple[list[str], list[str] | None]:
+    """Pull a `--view a,b,c` out of one side's arguments."""
+    if "--view" not in argv:
+        return argv, None
+    at = argv.index("--view")
+    if at + 1 >= len(argv):
+        raise SystemExit("--view needs a comma-separated list of view names")
+    views = [v.strip() for v in argv[at + 1].split(",") if v.strip()]
+    return argv[:at] + argv[at + 2:], views
+
+
 def main(argv: list[str]) -> int:
     if not argv:
         print(__doc__)
         return 2
     if "--vs" in argv:
         cut = argv.index("--vs")
-        a, b = load(argv[:cut]), load(argv[cut + 1:])
+        a = load(*split_views(argv[:cut]))
+        b = load(*split_views(argv[cut + 1:]))
         report("A", *a)
         print()
         report("B", *b)
         return compare(a, b)
-    report("model", *load(argv))
+    report("model", *load(*split_views(argv)))
     return 0
 
 

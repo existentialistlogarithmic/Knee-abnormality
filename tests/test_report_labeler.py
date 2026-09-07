@@ -159,3 +159,37 @@ def test_empty_report_abstains_everywhere(labeler):
 def test_language_detection_falls_back_on_short_text(labeler):
     assert detect_language("", default="en") == "en"
     assert detect_language("ok", default="en") == "en"
+
+
+# --------------------------------------------------------------------------- #
+# E037: a cue must not match the prefix of the term it is judging
+#
+# "sinovitis" begins with "sin", the Spanish negation. With only a leading word
+# anchor on the cue pattern, the cue negated the very mention it was judging —
+# every Spanish Synovitis mention in the gold set, most of them true positives.
+# --------------------------------------------------------------------------- #
+def test_spanish_sinovitis_is_not_negated_by_its_own_first_three_letters(labeler):
+    assert channel(labeler, "Sinovitis de la articulación.", "es", "Synovitis") == "asserted"
+
+
+def test_spanish_sin_still_negates_when_it_is_a_whole_word(labeler):
+    """The fix must not cost a real negation: 'sin' as its own word still works."""
+    assert channel(labeler, "Sin sinovitis.", "es", "Synovitis") == "negated"
+
+
+def test_english_noted_is_not_read_as_the_negation_not(labeler):
+    assert channel(labeler, "Joint effusion is noted.", "en", "Effusion") == "asserted"
+
+
+def test_english_not_still_negates_when_it_is_a_whole_word(labeler):
+    assert channel(labeler, "Joint effusion is not present.", "en", "Effusion") == "negated"
+
+
+def test_finding_terms_still_match_inflected_forms(labeler):
+    """Terms deliberately keep prefix matching; only cues are whole-word.
+
+    Anchoring both ends of the term pattern dropped mean coverage on the 58
+    gold studies from 60.3% to 54.0%, because plurals and agglutinative
+    suffixes stopped matching.
+    """
+    assert channel(labeler, "Joint effusions are present.", "en", "Effusion") == "asserted"

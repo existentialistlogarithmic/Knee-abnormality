@@ -1134,3 +1134,3302 @@ The direction of the finding survives; the magnitudes do not.
 - **next**: `kaggle/21_train_v1fused` on a T4 the moment the weekly quota
   resets. The push was attempted on 2026-08-21 and refused with "Maximum weekly
   GPU quota of 30.00 hours reached", so the reset had not happened by then.
+
+
+### E031 — the fused labels train, and the direction holds a third time
+- **date**: 2026-08-22
+- **what changed**: the label file, and nothing else. `RUN_FOLD=0`,
+  `TARGET_SIZE=192`, `resnet34`, 24 epochs, batch 16, LR 6e-4, `FOCAL_K=0`,
+  `PER_FINDING_POOL=False` — byte-identical to the configuration that scored
+  **0.725** on the board, with `knee-phase1-fused` mounted in place of
+  `knee-phase1-artifacts`.
+- **runtime**: **88.8 min wall clock** on 2×T4 (DataParallel), ~1.5 h of the
+  weekly 30. The quota reset between 2026-08-21 18:17 UTC (refused) and
+  2026-08-22 00:17 UTC (accepted).
+- **CV**: best val macro AUC **0.7350** at epoch 19, against **fused** report
+  labels.
+- **gold (12 held-out expert studies in this fold)**: **0.7933**, peaking at
+  0.7996 at epoch 18.
+- **prediction spread**: 0.1904 at the saved epoch, rising monotonically from
+  0.0273 — no collapse to base rates.
+
+- **the CV number is not a valid A/B and must not be quoted as one.** The
+  lexicon baseline's 0.7001 was scored against *lexicon* report labels; this
+  0.7350 is scored against *fused* ones. The targets changed, so the two
+  numbers have **different denominators** — the identical mistake E029 caught in
+  `teacher_vs_model.py`. `0.7350 − 0.7001 = +0.035` measures nothing.
+- **the gold comparison is the valid one**, paired on the same 12 studies
+  against the fold-0 lexicon baseline from `knee-gold-eval` (E026):
+
+  | | macro AUC vs expert | 95% CI |
+  |---|---:|---|
+  | fused labels | **0.7933** | [0.638, 0.888] |
+  | lexicon labels | 0.7213 | [0.548, 0.840] |
+  | **paired difference** | **+0.0721** | **[−0.009, +0.183]** |
+
+  **NOT SEPARATED — the interval contains zero.** At n=12 the paired interval is
+  ~0.19 wide, and `FINDINGS.md` §13 measured that limit by simulation before
+  this run existed. A +0.072 point estimate cannot be called established here no
+  matter how much the direction is liked.
+
+- **where it moved**, and the shape is the interesting part:
+
+  | finding | lexicon | fused | delta | pos |
+  |---|---:|---:|---:|---:|
+  | **Medial Meniscus** | 0.281 | **0.656** | **+0.375** | 8 |
+  | Contusion | 0.800 | 1.000 | +0.200 | 5 |
+  | Fracture | 0.714 | 0.886 | +0.171 | 7 |
+  | Baker's | 0.850 | 1.000 | +0.150 | 2 |
+  | MCL | 0.550 | 0.650 | +0.100 | 2 |
+  | PF OA | 0.704 | 0.778 | +0.074 | 3 |
+  | Effusion | 0.950 | 1.000 | +0.050 | 10 |
+  | ACL / Medial OA / Lateral OA | — | — | 0.000 | 7/1/3 |
+  | Lateral Meniscus | 0.833 | 0.778 | −0.056 | 6 |
+  | **Synovitis** | 0.600 | **0.400** | **−0.200** | 7 |
+
+  **Medial Meniscus is the headline.** E026 measured it at **0.516 pooled over
+  all 58 — at chance on the most common finding in the set** — and it is the
+  single largest drag on the macro. Here it moves +0.375 on 8 positives.
+  Synovitis moving −0.200 is the one that argues against reading too much into
+  this: it is also the one finding E029 flagged as genuinely unknown to the
+  fused teacher, so a loss there is consistent rather than anomalous, but a
+  12-study fold produces swings of this size from resampling alone.
+
+- **what it means**: three independent lines now point the same way at the same
+  magnitude — teacher **+0.070** on the 58 (E029), frozen-embedding rig
+  **+0.062** across three seeds (E030), fold-0 gold **+0.072** paired (here).
+  None is individually conclusive and the first two are not measurements of this
+  model. But they are three different instruments, and they agree to within
+  0.010. That is the strongest case this project has assembled for any change,
+  and it is still not proof.
+- **what would settle it**: folds 1–4 on fused labels, ~6 GPU-hours, taking the
+  paired gold comparison from n=12 to **n=58 and the interval from ~0.19 to
+  ~0.044** (`FINDINGS.md` §13). That resolution *would* separate a +0.072 gap.
+  A board submission (0.8 h) is the other decisive option and is ground truth,
+  directly comparable to the standing 0.725 since that was also one fold.
+- **next**: spend the folds. This is the one configuration that has earned GPU
+  hours on evidence rather than on hope.
+
+
+### E032 — the fused labels separate at n=58: +0.0717, CI [+0.042, +0.103]
+- **date**: 2026-08-22
+- **what changed**: nothing since E031 except the number of folds. Folds 1–4 of
+  the `v1fused` lineage, declared in `src/pipeline.py` so they inherit the
+  lineage's config and label dataset by construction. `RUN_FOLD` is verifiably
+  the only difference between these `run.py` files and the fold-0 one.
+- **runtime**: 82.4 / 79.7 / 76.3 / 84.6 min, two at a time against the GPU
+  concurrency cap of 2. **~5.4 GPU-hours**, ~6.9 including fold 0.
+
+- **the measurement this was run to make**, paired on all 58 gold studies
+  against the lexicon-label folds:
+
+  | | macro AUC vs expert | 95% CI |
+  |---|---:|---|
+  | **fused labels, 5 folds** | **0.7918** | [0.754, 0.829] |
+  | lexicon labels, 5 folds | 0.7201 | [0.672, 0.767] |
+  | **paired difference** | **+0.0717** | **[+0.042, +0.103]** |
+
+  **A is better — the interval excludes zero.** This is the first change in the
+  project to clear that bar offline.
+
+- **the baseline reproduces exactly.** Pooled lexicon gold comes back at
+  **0.7201**, matching E026 to four decimals from independently re-fetched
+  outputs. The comparison is not resting on a remembered number.
+
+- **four instruments, one answer.** Every estimate of this effect, from
+  measurements that share no code path:
+
+  | instrument | delta | n |
+  |---|---:|---|
+  | teacher on the 58 (E029) | +0.070 | labels only |
+  | frozen-embedding rig, 3 seeds (E030) | +0.062 | 4,407 |
+  | fold-0 gold, paired (E031) | +0.0721 | 12 |
+  | **five-fold gold, paired (here)** | **+0.0717** | **58** |
+
+  The spread across all four is 0.010. E031's point estimate survived a
+  five-fold increase in sample size essentially unchanged, which is the
+  behaviour of a real effect rather than a favourable draw.
+
+- **where it moved**:
+
+  | finding | lexicon | fused | delta | pos |
+  |---|---:|---:|---:|---:|
+  | **Medial Meniscus** | 0.516 | **0.786** | **+0.270** | 26 |
+  | ACL | 0.662 | 0.812 | +0.151 | 24 |
+  | Baker's | 0.830 | 0.964 | +0.134 | 12 |
+  | Medial OA | 0.817 | 0.929 | +0.112 | 15 |
+  | Fracture | 0.778 | 0.883 | +0.106 | 18 |
+  | Contusion | 0.758 | 0.846 | +0.088 | 19 |
+  | Lateral Meniscus | 0.696 | 0.753 | +0.057 | 23 |
+  | MCL | 0.612 | 0.628 | +0.016 | 9 |
+  | Lateral OA | 0.723 | 0.721 | −0.003 | 11 |
+  | PF OA | 0.672 | 0.658 | −0.014 | 21 |
+  | Effusion | 0.924 | 0.906 | −0.019 | 35 |
+  | **Synovitis** | 0.654 | **0.616** | **−0.037** | 27 |
+
+  **Medial Meniscus was the whole problem and is now not.** E026 measured it at
+  **0.516 — chance — on the most common finding in the set**, and named it the
+  single largest drag on the macro. It is now 0.786. Findings at or above 0.80
+  go from **3 to 6**; findings below 0.70 go from **6 to 3**.
+
+  **Synovitis moves the wrong way**, as it did on fold 0, and at n=58 that is
+  no longer dismissible as fold noise. E029 identified Synovitis as the one
+  finding the fused teacher genuinely does not know, so a label change that
+  helps everywhere else and hurts here is the predicted shape, not an anomaly.
+  It is now the second-weakest finding and inherits Medial Meniscus's old role
+  as the thing most worth fixing.
+
+- **what this predicts for the board, and the caveat on it.** E026 established
+  that gold OOF tracks this project's leaderboard to **+0.005** with no
+  correction. Taken at face value that puts this configuration near **0.787**
+  against a standing **0.725**. That relationship was calibrated on **one**
+  submission, so it is a single-point calibration being asked to extrapolate
+  0.07 beyond where it was fitted. Treat 0.787 as an expectation to be tested,
+  not a result — the board is the only ground truth and it is two clicks away.
+- **next**: submit. `knee-infer-v1fused` now depends on all five checkpoints, so
+  it is a 5-fold rank-mean and costs ~0.8 h. That converts the strongest offline
+  result this project has produced into a number on the board that cannot be
+  argued with.
+
+
+### E033 — the cross-label ensemble is worse than its better half, at every weight
+- **date**: 2026-08-22
+- **what changed**: nothing was trained. This blends two model families that
+  already exist — the fused 5-fold (E032) and the lexicon 5-fold — by
+  rank-averaging their gold out-of-fold predictions, exactly as
+  `22_infer_v1fused` rank-averages folds. **Cost: seconds of CPU, zero quota,
+  zero submissions.**
+- **why it looked promising**: `PATH.md` Phase D carries a published +0.02 to
+  +0.05 for blending independent families, and these two share a backbone and a
+  cache but differ in supervision, which is the axis the fusion was built on.
+
+| blend | gold macro AUC at n=58 |
+|---|---:|
+| lexicon alone | 0.7201 |
+| rank blend, w_fused = 0.5 | 0.7740 |
+| rank blend, w_fused = 0.7 | 0.7853 |
+| rank blend, w_fused = 0.8 | 0.7902 |
+| rank blend, w_fused = 0.9 | 0.7911 |
+| **fused alone** | **0.7918** |
+
+- **result**: **every blend is below fused alone, and the curve rises
+  monotonically toward w=1.** The best blend tested (0.7) is −0.0065 against
+  fused alone, CI [−0.017, +0.004] — not separated, but pointing down, and the
+  monotonicity is the real evidence: there is no interior optimum. The
+  optimiser's answer is "use none of the lexicon model".
+- **what it means**: blending helps when members are *comparably strong and
+  decorrelated*. These are neither — the lexicon model is 0.072 worse and was
+  trained on labels that are a strict subset of the fused ones' information, so
+  it contributes noise where it disagrees rather than an independent view.
+  Phase D's +0.02–0.05 assumed independent *families*; two label sets on one
+  backbone is not that.
+- **what it saved**: one of two daily submissions, and the temptation to read a
+  published ensemble gain as applying here. The check cost seconds because the
+  gold OOF predictions already existed.
+- **next**: a genuine ensemble needs a second *architecture*, not a second label
+  set. That is `PATH.md` Phase C — DINOv2 to convergence — and it costs ~23
+  GPU-hours for five folds, which is the entire remaining weekly allowance.
+
+
+### E034 — 0.846 on the board, and the gold-to-board calibration does not hold
+- **date**: 2026-08-22
+- **what**: `knee-infer-v1fused` v1, the 5-fold rank-mean of the fused-label
+  models from E031/E032, submitted to the competition. Kaggle re-ran the
+  notebook against the ~1,300 hidden studies.
+- **result**: **public leaderboard 0.846**, from a standing **0.725**.
+  **+0.121 in one day**, the largest move this project has made by a wide
+  margin, and the second-largest single lever after the pixels themselves.
+
+| submission | date | board |
+|---|---|---:|
+| constant priors | 08-18 | 0.500 |
+| scanner metadata, no pixels | 08-18 | 0.531 |
+| imaging, 192px, 1 fold, lexicon labels | 08-19 | 0.725 |
+| imaging, 288px, effective batch 16 | 08-19 | 0.688 |
+| **imaging, 192px, 5-fold, fused labels** | **08-22** | **0.846** |
+
+- **THE CALIBRATION IS CONTRADICTED, and this is the more important half of the
+  entry.** E026 measured gold OOF against the board on one model and concluded
+  "**gold OOF estimates this project's leaderboard score directly, with no
+  correction**". Two points now exist:
+
+  | model | gold OOF (n=58) | board | offset |
+  |---|---:|---:|---:|
+  | lexicon, 192px | 0.7201 | 0.725 | **+0.005** |
+  | fused, 192px 5-fold | 0.7918 | **0.846** | **+0.054** |
+
+  The offset moved by **an order of magnitude** between two models of the same
+  architecture on the same cache. Gold OOF **understated** the board both times,
+  so it is not biased in a dangerous direction — but it is **not a calibrated
+  predictor** and the "no correction needed" claim was, once again, a
+  relationship measured at n=1 and generalised. It ranked the two models
+  correctly, which is what it is actually good for.
+- **the prediction made before submitting was 0.787, and it was wrong by
+  −0.059.** That was stated in advance with the reason it might fail — a
+  single-point calibration extrapolating 0.07 past where it was fitted — and the
+  failure arrived in exactly that form, in the favourable direction. Recorded so
+  the next forecast is not made with more confidence than this one earned.
+- **two plausible reasons the five-fold gains more on the board than on gold**,
+  neither established:
+  1. **The gold 58 are a harder, non-representative slice.** Every gold study is
+     one a model never saw in its own fold, and they are only 1.3% of the
+     corpus. The hidden 1,300 may simply be easier.
+  2. **Rank-mean ensembling helps the board more than the gold measurement can
+     see.** Gold OOF scores each study with the *single* fold that held it out,
+     so it measures a **1-model** system. The submission rank-averages **5**.
+     The 4-fold ensemble gain was never measured, and this is the first
+     submission that carries it — so E032's +0.0717 and the board's +0.121 are
+     not measuring the same system, and the difference is the ensemble.
+
+  **Reason 2 is testable and matters**: if most of the +0.121 is ensembling
+  rather than labels, the lexicon 5-fold would also have jumped, and every
+  future single-fold gold comparison is understating what its ensemble will do.
+- **next**: the honest follow-up is to submit the **lexicon 5-fold** — the
+  models already exist, it costs 0.8 h and one of five daily submissions, and it
+  separates the label effect from the ensemble effect on ground truth. Without
+  it, "+0.121 from better labels" is an attribution nobody has earned.
+
+
+### E035 — the teacher is no longer the ceiling, and the gold set has run out of resolution
+- **date**: 2026-08-22
+- **what**: a diagnostic, not a run. Zero quota. Scores the **fused teacher**
+  and the **fused 5-fold model** on the same 58 expert studies, per finding,
+  with a 2,000-sample paired bootstrap, to split the remaining gap into work
+  that is recoverable by modelling and work that is not.
+
+| finding | teacher | model | model − teacher | 95% CI | pos | teacher spoke |
+|---|---:|---:|---:|---|---:|---:|
+| MCL | 0.884 | 0.628 | **−0.256** | **[−0.456, −0.069]** | 9 | 86% |
+| PF OA | 0.765 | 0.658 | −0.107 | [−0.292, +0.074] | 21 | 66% |
+| Medial Meniscus | 0.889 | 0.786 | −0.103 | [−0.264, +0.042] | 26 | 88% |
+| Lateral Meniscus | 0.817 | 0.753 | −0.064 | [−0.239, +0.106] | 23 | 81% |
+| ACL | 0.863 | 0.812 | −0.050 | [−0.196, +0.090] | 24 | 91% |
+| Medial OA | 0.935 | 0.929 | −0.006 | [−0.081, +0.067] | 15 | 53% |
+| Lateral OA | 0.708 | 0.721 | +0.013 | [−0.189, +0.221] | 11 | 47% |
+| Contusion | 0.773 | 0.846 | +0.074 | [−0.066, +0.218] | 19 | 72% |
+| Synovitis | **0.520** | 0.616 | +0.097 | [−0.060, +0.261] | 27 | 36% |
+| Effusion | 0.750 | 0.906 | +0.156 | [−0.004, +0.312] | 35 | 97% |
+| Baker's | 0.799 | 0.964 | **+0.165** | **[+0.026, +0.316]** | 12 | 78% |
+| Fracture | 0.644 | 0.883 | **+0.239** | **[+0.037, +0.434]** | 18 | 43% |
+| **MACRO** | **0.7788** | **0.7918** | **+0.0126** | **[−0.042, +0.066]** | | |
+
+- **"The teacher bounds everything" is no longer supported.** That claim runs
+  through `PATH.md` Phase A and `STATUS.md`, and it was true when a 0.769
+  teacher produced a 0.725 model. The fused model now scores **+0.0126 above its
+  own teacher at the macro** — **not separated**, interval spanning zero, so the
+  honest statement is *the model is no longer measurably behind its teacher*,
+  not that it has beaten it. Either way, "raise the teacher and the model
+  follows" has stopped being the obviously correct next move.
+- **The model beats the teacher outright on two findings**: Fracture **+0.239**
+  and Baker's **+0.165**, both intervals excluding zero. On Fracture the teacher
+  is at 0.644 and speaks for only 43% of studies — the reports barely carry it
+  and **the pixels do**. This is direct evidence that imaging supervision from
+  noisy labels can exceed those labels, which the label-ceiling framing did not
+  anticipate.
+- **Exactly one recoverable modelling loss separates: MCL, −0.256.** Recovering
+  it in full is worth **+0.021 macro** — and it rests on **9 positives**, so
+  even it is fragile. The menisci, ACL and PF OA all point down, sum to another
+  +0.027 if real, and **not one of them separates**.
+- **and that is the actual finding here: the gold set is out of resolution.**
+  Per-finding intervals at n=58 are **±0.2**. Nine of twelve findings cannot be
+  told apart from their teacher at all. `FINDINGS.md` §13 measured the *macro*
+  limits by simulation; this is the per-finding version, and it is far worse
+  because each finding sees only its own 9–35 positives.
+
+  **The consequence is strategic.** The board now carries ~1,300 studies and
+  allows **5 submissions a day** (§2.10, corrected 2026-08-22). Gold-58 has been
+  the development instrument because submissions were believed to be scarce.
+  They are not, and for per-finding questions the board has ~20x the sample. The
+  gold set should be demoted to what it is still good at — **ranking whole
+  models cheaply before spending a submission** — and per-finding diagnosis
+  should move to the board.
+- **where the remaining headroom actually is**, given the above:
+  - **Synovitis**: teacher at **0.520 — chance** — speaking for 36% of studies.
+    Not a modelling problem; the reports do not carry it. A third reader is the
+    only lever, and it is CPU-only.
+  - **Lateral OA**: teacher 0.708 at 47% coverage. Same shape, smaller.
+  - **MCL**: the one confirmed modelling loss.
+  - **Everything else**: below the resolution of the instrument being used.
+- **next**: not more gold-set optimisation. `PATH.md` Phase C — DINOv2 to
+  convergence, five folds, ~23 GPU-h — is the largest untried lever and costs
+  exactly the remaining weekly quota. Phase D (rank-blending it with the
+  resnet34 family) then costs nothing at training time. E033 showed blending two
+  *label sets* fails; blending two *architectures* is the version with published
+  support behind it.
+
+
+### E036 — the control attributes the jump, and Phase C's premise is contradicted
+- **date**: 2026-08-23
+
+#### Part 1 — the control, and it is good news
+
+| system | board |
+|---|---:|
+| lexicon labels, 192px, **1 fold** | 0.725 |
+| lexicon labels, 192px, **5-fold rank-mean** | **0.757** |
+| fused labels, 192px, **5-fold rank-mean** | **0.846** |
+
+The +0.121 from E034 decomposes cleanly, on ground truth, with architecture and
+cache held fixed:
+
+| component | delta | share |
+|---|---:|---:|
+| **ensembling** (1 fold → 5 folds) | **+0.032** | 27% |
+| **labels** (lexicon → fused) | **+0.089** | 73% |
+
+**Labels are the dominant lever in this competition, by 3:1**, and E032's
+offline +0.0717 was measuring the smaller of the two components while the board
+saw both. The attribution that E034 flagged as unearned is now earned.
+
+#### Part 2 — DINOv2 does not work, and the reason it was tried was wrong
+
+`PATH.md` Phase C rested on: *"DINOv2 reached 0.7041 at epoch 34 and had NOT
+flattened — that number is where the clock stopped, not where the backbone
+converges."* Run properly to 40 epochs on fused labels, fresh from pretrained:
+
+| | fold 0 | fold 1 |
+|---|---:|---:|
+| best val (report labels) | 0.7099 @ **epoch 23** | 0.7130 @ **epoch 32** |
+| val at epoch 39 | 0.6913 | 0.7071 |
+| gold at epoch 30 → 39 | 0.6664 → **0.5948** | 0.7329 → 0.7171 |
+| runtime | 298 min | 272 min |
+
+**It peaks and then decays.** Fold 0 tops out at epoch 23 and loses 0.019 of val
+and 0.072 of gold by epoch 39. The "still climbing at 34" reading was noise on a
+truncated run, and **the single largest published lever in the plan was chosen
+on it.** That is the eighth claim in this project overturned by a measurement,
+and the most expensive: ~20 GPU-hours.
+
+Against the resnet34 fused models on the same studies: **0.7151 vs 0.7888
+gold** — DINOv2 is **0.074 worse alone**.
+
+#### Part 3 — and the blend does not rescue it
+
+Rank-blending the two architectures on gold OOF, n=26 (folds 0+1 of each):
+
+| blend | gold macro |
+|---|---:|
+| dinov2 alone | 0.7151 |
+| w_resnet = 0.5 | 0.7635 |
+| w_resnet = 0.7 | 0.7893 |
+| **w_resnet = 0.85** | **0.7910** |
+| **resnet34 alone** | **0.7888** |
+
+**+0.0022 at the best weight, 95% CI [−0.012, +0.016] — not separated.**
+
+Unlike E033 there *is* a weak interior optimum, which is what a genuinely
+decorrelated second family should produce — so the mechanism is real and the
+magnitude is not. **Even the optimistic end of that interval, +0.016, does not
+approach the +0.054 needed for 0.90.** Phase D's published +0.02–0.05 assumed
+members of comparable strength; a member 0.074 behind contributes almost
+nothing however uncorrelated it is.
+
+- **folds 2 and 3 could not be stopped.** Kaggle exposes no cancel through the
+  API or CLI — only `delete`, which destroys the kernel and its history. They
+  ran to completion, taking the week's spend to **~28.7 h of 30**.
+- **what this costs and what it buys**: ~20 GPU-hours for a negative result on
+  the plan's largest lever, and a 4-fold DINOv2 family that can be blend-tested
+  at better power than n=26 before being abandoned or kept as a small
+  contributor.
+- **next**: the lever that actually moved the board is **labels, +0.089**, and
+  E035 already located the remaining label headroom precisely — Synovitis with a
+  teacher at **0.520, chance, covering 36% of studies**, then Lateral OA and PF
+  OA. That work is **CPU-only and costs no quota**, which is what is left of
+  this week anyway.
+
+
+### E037 — a cue was negating the term it judged; Synovitis is still not fixable
+- **date**: 2026-08-23. CPU only, no quota.
+- **the task**: E035 named Synovitis the best remaining label lever — teacher at
+  **0.520, chance**, covering 36% of gold studies, model's second-weakest
+  finding. This is what came of trying to fix it.
+
+#### The bug, which is not a Synovitis bug at all
+`ReportLabeler._compile` anchored the **start** of a cue and not the end:
+
+```python
+re.compile(r"(?<![^\W\d_])(?:" + "|".join(parts) + r")", ...)   # no trailing anchor
+```
+
+So a cue matched the **prefix of the very term it was judging**. Spanish
+*sinovitis* begins with *sin* — "without" — and the cue negated the mention:
+**8 of 8 Spanish Synovitis mentions negated, 6 of them expert-positive.** That
+is the anti-correlation behind Synovitis scoring below chance: where the lexicon
+said *negative*, 5 of 7 studies were expert-**positive**.
+
+It was never language-specific. English *not* matched *noted*; *no* matched
+*nodular*. **166 mention-decisions across all 12 findings and 5 languages** were
+decided this way on the 58 gold studies alone.
+
+**The fix is not simply "anchor both ends".** `_compile` is shared with the
+finding *terms*, which need prefix matching for plurals and Turkish
+agglutination — anchoring those too drops mean coverage from **60.3% to 54.0%**
+and the macro to 0.7388. The anchor is now opt-in and set only for cues.
+
+| | teacher macro on the 58 | mean coverage |
+|---|---:|---:|
+| before | 0.7523 | 60.3% |
+| both ends anchored everywhere (**wrong**) | 0.7388 | 54.0% |
+| **cues only (shipped)** | **0.7578** | **60.3%** |
+
+Per finding: MCL **+0.040**, Synovitis **+0.036**, Effusion +0.022, Medial
+Meniscus +0.022, ACL **−0.031**.
+
+**Macro +0.0055, 95% CI [−0.0094, +0.0223] — not separated**, better in 73.4% of
+resamples. **The fix ships because a cue negating its own term is indefensible,
+not because the gain is established.** Four regression tests assert both halves:
+that "sinovitis" is no longer self-negated, and that "sin"/"not" still negate as
+whole words, and that terms still match inflected forms.
+
+#### Synovitis vocabulary: one honest negative and one small win
+- **Domain-guessed terms moved nothing.** Eleven MOAKS-vocabulary terms —
+  *effusion-synovitis*, *hoffitis*, *fat pad edema*, *synovial enhancement* —
+  committed before measuring, then measured once: **zero change**, on the 58 and
+  on coverage. The corpus does not use those words. Guessing vocabulary from
+  domain knowledge failed; this is recorded rather than quietly deleted.
+- **Corpus mining found what guessing missed.** Enrichment analysis over all
+  4,407 reports (unsupervised — no expert labels touched) surfaced **`synovium`**:
+  120 reports, exactly 1 without another synovitis stem. The prefix term
+  *synovial* cannot reach it, so it was invisible. Corpus-wide Synovitis
+  supervision goes **603 → 621 studies (13.7% → 14.1%)**. Zero on the 58, which
+  are a 1.3% sample and contain none of them.
+
+#### Why Synovitis stays broken, and it is not the lexicon's fault
+Mention rates for a synovitis stem across the corpus:
+
+| language | reports | mention synovitis |
+|---|---:|---:|
+| en | 1,735 | 20.6% |
+| es | 682 | 16.4% |
+| el | 321 | 9.3% |
+| de | 262 | 9.5% |
+| tr | 546 | **4.0%** |
+| nl | 153 | 3.9% |
+| hr | 330 | **1.2%** |
+| bg | 220 | **0.5%** |
+
+**Radiologists in this corpus mostly do not report synovitis.** 14.1% coverage
+is not a vocabulary gap that more terms will close.
+
+**And the imaging already knows better than the text.** E035 measured the model
+at **0.616** on Synovitis against a teacher at 0.520 — the model *beats* its
+teacher here, as it does on Fracture and Baker's, exactly where the reports are
+thinnest. Raising a 0.569 teacher has little room to help a 0.616 student.
+
+- **conclusion**: Synovitis is **not a label problem that can be fixed from the
+  reports.** The remaining lever for it is imaging, not text. E035's ranking of
+  Synovitis as the top label opportunity was right about *where* the weakness is
+  and wrong about *what fixes it*.
+- **next**: the cue fix touches every finding and every language, so the fused
+  labels should be rebuilt and the 5-fold retrained on them before anything else
+  is concluded from it. That is ~7 GPU-hours and this week's quota is spent.
+
+
+### E038 — why gold OOF mis-forecasts, and a laterality theory that died
+- **date**: 2026-08-23. CPU only, no quota.
+
+#### The forecaster is repairable, and the control is what repairs it
+E034 recorded the gold-to-board offset as **contradicted**: +0.005 on one model,
++0.054 on the next. E036's control supplies the missing point and the mechanism.
+
+**Gold OOF always scores ONE model per study** — the single fold that held it
+out. A submission **rank-averages five**. Gold OOF is structurally blind to
+ensembling, which is why its offset grew:
+
+| system | gold OOF | board | offset |
+|---|---:|---:|---:|
+| lexicon, 1 fold | 0.7201 | 0.725 | +0.005 |
+| lexicon, **5-fold** | 0.7201 | 0.757 | **+0.037** |
+| fused, 5-fold | 0.7918 | 0.846 | +0.054 |
+
+The lexicon gold OOF is **the same number** for the 1-fold and 5-fold systems —
+0.7201 — while the board moved +0.032. The offset grew by exactly the ensembling
+gain. That is not a coincidence, it is the definition of what gold OOF cannot
+see.
+
+**Corrected: `board ≈ gold_OOF + ensembling_gain + 0.005`**, with
+`ensembling_gain = +0.032` measured directly on the board.
+
+| system | uncorrected error | corrected error |
+|---|---:|---:|
+| lexicon, 1 fold | +0.000 | +0.000 |
+| lexicon, 5-fold | **−0.032** | +0.000 |
+| fused, 5-fold | **−0.049** | **−0.017** |
+
+Two of three points are fitted by construction, so only the fused row is a real
+test: **worst-case error 0.049 → 0.017**. Still not a precision instrument, and
+it now has a *stated mechanism* rather than an empirical constant, which is why
+it is worth more than the old one-point fit. The honest use remains: rank
+models, and forecast only with the interval attached.
+
+#### A laterality theory, tested and refused
+The cache build mirrors right knees so medial is always the same side, and the
+header table looked alarming — **more than half of all series carry no
+laterality tag** (7,272 blank, 5,105 NaN, against 11,914 R/L), where the
+docstring claims 79%. If that propagated to studies it would scramble
+medial-versus-lateral, which is exactly where the model loses most to its
+teacher (MCL −0.256, the menisci, PF OA).
+
+**It does not propagate.** Resolved per *study*, using the sibling-series
+fallback the builder already implements:
+
+| | studies | share |
+|---|---:|---:|
+| laterality resolved | 4,314 | **97.8%** |
+| no series in the study carries it | **0** | 0.0% |
+| **series within a study disagree** | **96** | **2.2%** |
+
+The theory is dead: MCL's deficit is not a mirroring artefact. **The 2.2% that
+disagree are a real if small defect** — a study whose sagittal and coronal
+series report opposite sides gets mirrored inconsistently across planes, so its
+volume is internally incoherent. 96 studies is too few to explain anything at
+n=58 gold, and worth fixing when the cache is next rebuilt.
+
+- **the point of recording a dead theory**: it was checked in ten minutes of CPU
+  before anything was rebuilt on it. The 79% figure in the docstring is also now
+  known to be wrong at the series level, which is how the theory got started.
+
+
+### E039 — Phase D closed, and the corrected labels are live
+- **date**: 2026-08-23
+
+**The DINOv2 blend, at 4-fold power (n=49) rather than E036's n=26:**
+
+| blend | gold macro |
+|---|---:|
+| dinov2 alone | 0.7139 |
+| w_resnet = 0.5 | 0.7675 |
+| w_resnet = 0.85 | 0.7846 |
+| w_resnet = 0.95 | 0.7873 |
+| **resnet34 alone** | **0.7883** |
+
+**Monotonic to w = 1. No interior optimum.** E036 saw a weak one at 0.85 and
+read it as "the decorrelation mechanism is real, the magnitude is not"; at
+n=49 it is gone, so it was noise. Best blend is **−0.0010, CI [−0.0038,
++0.0015]** — the same shape E033 found for the two label sets.
+
+**Phase D is closed with this family.** Two independent blend attempts, both
+monotonic toward using none of the second member. A blend needs members of
+comparable strength; 0.074 behind is too far, whatever the correlation.
+
+**The corrected labels are published.** `knee-phase1-fused` has a new version
+carrying the E037 cue fix: **710 polarity flips across 34,606 supervised slots
+(2.1%)** — Synovitis 7.4%, Effusion 3.9%, Lateral Meniscus 2.7%. Coverage is
+unchanged at 34.5% abstain, because the fix changes *polarity*, not reach.
+Every version before this one produced the 0.846 board result; Kaggle retains
+them, so that run stays reproducible.
+
+- **a method error worth recording**: the weekly GPU quota was probed by
+  *pushing a real kernel* (`35_train_dinov2f_fold4`) rather than by reasoning
+  from the reset date. It was accepted, so ~5 GPU-hours went to a fifth fold of
+  a family already measured dead. Kaggle has no cancel. A probe must not be a
+  job that costs something if it succeeds.
+- **next**: retrain the resnet34 5-fold on the corrected labels and submit.
+  ~7 GPU-h. That is the only outstanding claim: whether 710 flipped labels move
+  a board score of 0.846.
+
+
+### E040 — the corrected labels move the model +0.0096, not separated
+- **date**: 2026-08-23
+- **what happened**: the retrain on the E037-corrected labels got **2 of 5
+  folds** through before the weekly GPU quota ran out. Folds 0 and 1 ran on the
+  corrected labels (2026-08-23); folds 2, 3 and 4 still hold their 2026-08-22
+  runs on the old ones.
+- **so the 5-fold cannot be pooled or submitted.** Mixing two label sets inside
+  one ensemble is a confound, and the resulting board number would answer no
+  question. This is recorded because pooling them was the obvious next command
+  and it would have been wrong.
+- **what is valid**: folds 0 and 1 against *the same folds* on the old labels —
+  one variable, same splits, same architecture, same cache.
+
+| | gold macro, n=26 |
+|---|---:|
+| corrected labels (E037 cue fix) | — |
+| old labels | — |
+| **paired difference** | **+0.0096, 95% CI [−0.032, +0.057]** |
+
+  **NOT SEPARATED.** 710 flipped labels — 2.1% of supervised slots — move the
+  model by about +0.01 on 26 studies, and the instrument cannot resolve that.
+- **this was the predicted outcome**, stated before the run: a 2% label change
+  was expected to land under the noise floor. It did. The fix ships on
+  correctness grounds — a cue must not negate the term it judges — and its
+  effect on the board remains unmeasured and probably small.
+- **budget**: the week's 30 h is spent. ~5 h of it went to the DINOv2 fold-4
+  quota probe (E039), which is the difference between finishing this retrain and
+  not.
+- **next**: folds 2–4 on the corrected labels when the quota resets, then pool
+  all five, then submit. Until then the standing board result remains **0.846**
+  from the pre-fix labels.
+
+
+### E041 — a publicly shared label set beats this project's own by +0.114
+- **date**: 2026-08-24. CPU only, no quota.
+- **why this was run**: `PATH.md` §4 established that board 0.94 requires **no
+  finding below ~0.870**, and that only two of the seven gaps were recoverable
+  from supervision this project already had. The other five needed the *teacher*
+  lifted past 0.87, and E037 measured why that was hard from our own reports.
+  §3 named the alternative — publicly shared label sets — so it was surveyed.
+
+**What is public.** Kaggle carries several openly shared LLM report-label
+datasets for this competition, with four-figure download counts. Scored on the
+same 58 expert studies with this project's own convention:
+
+| label set | macro on gold 58 | coverage |
+|---|---:|---:|
+| **`stevenleehans/…llm-report-labels` → `llm_labels_v4_blend.csv`** | **0.8927** | **100%** |
+| same author, `llm_labels_v2.csv` | 0.8873 | 100% |
+| same author, `llm_labels_full.csv` | 0.8780 | 100% |
+| `pilkwang/rsna-knee-llm-labels` | 0.8658 | 98.3% |
+| `lixin73/…-sol56` (GPT-5.6) | 0.8352 | 100% |
+| **this project's fused lexicon + Qwen** | **0.7827** | 65.5% |
+
+**+0.114 over the labels this project spent weeks building**, at 100% slot
+coverage against 65.5%.
+
+**Per finding, against the 0.870 floor that 0.94 requires:**
+
+| finding | ours | public | delta |
+|---|---:|---:|---:|
+| **Synovitis** | 0.520 | **0.790** | **+0.270** |
+| Fracture | 0.644 | 0.793 | +0.149 |
+| Baker's | 0.799 | 0.944 | +0.145 |
+| PF OA | 0.765 | 0.902 | +0.137 |
+| Effusion | 0.750 | 0.877 | +0.127 |
+| Lateral OA | 0.708 | 0.833 | +0.125 |
+| ACL | 0.863 | 0.987 | +0.124 |
+| Contusion | 0.773 | 0.860 | +0.087 |
+| MCL | 0.884 | 0.968 | +0.084 |
+| Lateral Meniscus | 0.817 | 0.879 | +0.062 |
+| Medial Meniscus | 0.889 | 0.948 | +0.059 |
+| Medial OA | 0.935 | 0.932 | −0.003 |
+
+**Findings clearing the 0.870 floor: 8 of 12, against 3 of 12 for ours.**
+Synovitis — which E037 concluded was unfixable from these reports, and which
+that entry called "not a label problem that can be fixed" — goes from **chance
+to 0.790**. That conclusion was right about *this project's* reader and wrong as
+a statement about the reports.
+
+**Blending ours in makes it worse**, parameter-free rank union:
+
+| combination | macro |
+|---|---:|
+| public v4 + `pilkwang` | 0.8939 |
+| **public v4 alone** | **0.8927** |
+| public v4 + ours | **0.8717** |
+
+The same shape as E033 and E039: a member 0.11 behind drags the union down. The
++0.0012 from adding `pilkwang` is not worth a second dependency. **Use the
+source alone.**
+
+- **published as** `achelijndiamantidis/knee-phase1-public`, a straight
+  repackaging into this pipeline's column schema — values copied unchanged, no
+  rescaling, no thresholding, no per-finding selection. **The labels are not
+  mine and the dataset description credits the author.** The rules permit it:
+  *"Freely and publicly available external data and pre-trained models are
+  allowed."*
+- **wired as the `v1public` lineage**, byte-identical to the 0.846 trainer in
+  every constant, so the labels stay the single variable. One consequence worth
+  naming: at 100% coverage `ABSTAIN_MASKS_LOSS` now masks nothing, so the model
+  sees **~53% more supervised targets** as well as better ones. Those two
+  changes arrive together and this run cannot separate them.
+- **what this costs the project, honestly**: the two-reader label pipeline —
+  lexicon plus Qwen, the fusion rule, E023 through E032, the work that delivered
+  +0.089 of the +0.121 board move — is superseded by a file someone published in
+  early August. That is the mechanism `PATH.md` §3 described for how the top of
+  this leaderboard is at 0.95, now measured rather than cited.
+- **next**: train the five `v1public` folds when the quota resets (~2026-08-29,
+  ~7 GPU-h), pool against the 0.846 system's gold OOF, and submit. Forecast with
+  E038: `board ≈ gold_OOF + 0.032 + 0.005`.
+
+
+### E042 — 0.90 does not need training. It needs one hour of inference.
+- **date**: 2026-08-24. CPU only, no quota.
+- **the question**: reach 0.90+ with the weekly GPU quota exhausted.
+
+**A publicly shared 0.917 system publishes its out-of-fold predictions.**
+`tonylica/rsna-knee-bend-dinov3-0917-repro-assets` — a pinned reproduction of
+the public notebook `mattiaangeli/bend-the-knee-to-dinov3-the-original` —
+carries `v52_e11_oof.csv`: one out-of-fold prediction per study for all 4,407,
+with fold and gold flags. Scored on **this project's own 58 expert studies**:
+
+| finding | ours (board 0.846) | public 0.917 | delta |
+|---|---:|---:|---:|
+| MCL | 0.615 | **0.871** | **+0.256** |
+| PF OA | 0.664 | **0.874** | **+0.210** |
+| Synovitis | 0.634 | 0.766 | +0.150 |
+| Lateral OA | 0.716 | 0.818 | +0.102 |
+| ACL | 0.826 | 0.909 | +0.083 |
+| Contusion | 0.835 | 0.899 | +0.064 |
+| Effusion | 0.866 | 0.911 | +0.045 |
+| Medial OA | 0.924 | 0.953 | +0.029 |
+| Medial Meniscus | 0.826 | 0.833 | +0.007 |
+| **Baker's** | **0.976** | 0.920 | −0.056 |
+| **Fracture** | **0.874** | 0.838 | −0.036 |
+| **Lateral Meniscus** | **0.740** | 0.699 | −0.041 |
+| **MACRO** | **0.7913** | **0.8576** | **+0.0663** |
+
+**Findings at or above 0.80: 10 of 12, against 6 of 12 for ours.** `PATH.md` §4
+established that board 0.90 needs every finding near 0.80; this is the first
+system measured here that is close.
+
+**MCL is the headline.** E035 identified it as the single separated recoverable
+modelling loss — teacher 0.884, our model 0.628. The public system reaches
+**0.871**, which is the teacher's level. The signal was always in the pixels;
+this project's model was the thing failing to extract it.
+
+**The blend has a real interior optimum, and it is not separated.**
+
+| w_ours | gold macro |
+|---:|---:|
+| 0.0 (public alone) | 0.8576 |
+| 0.2 | 0.8614 |
+| **0.3** | **0.8622** |
+| 0.5 | 0.8529 |
+| 1.0 (ours alone) | 0.7913 |
+
+**+0.0046 over public alone, CI [−0.0065, +0.0152] — not separated.** Unlike
+E033 and E039, which slid monotonically to "use none of the second member",
+this one has a genuine optimum at w=0.3, and ours wins outright on three
+findings. The decorrelation is real; the margin is inside the instrument's
+resolution. **Public alone is the honest choice.**
+
+E038 forecast for the public system: **board ≈ 0.895**. Their reported board is
+**0.917**, so the forecaster still understates — consistent with E034.
+
+#### The finding that actually matters
+**Reaching ~0.90 requires no training at all.** The weights exist
+(`m_f0..f4.pt`, five folds, 94 MB each). The remaining cost is **one inference
+run, ~0.9 GPU-h**, not the ~7 GPU-h of a 5-fold retrain. Every hour spent
+training this project's own architecture was buying less than an hour of someone
+else's inference.
+
+#### Two constraints, both real
+1. **Quota.** Even a 0.9 h inference push is refused until the weekly reset
+   (~2026-08-29). CPU inference is a separate allowance and is measured at
+   **19.7 s/study → 7.1 h of the 9 h cap** — viable for *this project's* single
+   resnet34, too tight for a five-fold DINOv3 + RadImageNet ensemble.
+2. **Licensing, and it is not pedantry.** The bundle's own README says it *"must
+   remain private"*. Its manifest declares **30 files CC-BY-NC-SA-4.0**, **18
+   `not-declared`**, and 3 `other`, alongside 53 Apache-2.0 and 38 CC0. The
+   competition permits *freely and publicly available* pre-trained models and
+   requires winners to license under CC-BY-NC 4.0. Undeclared redistribution
+   terms and ShareAlike assets are a question to resolve **before** shipping
+   these weights, not after. Measuring against their published OOF, as done
+   here, redistributes nothing and is unaffected.
+- **next**: at the reset, run inference from the *original public sources* —
+  which are public and carry their authors' own declared terms — rather than
+  from this private consolidation, and credit the authors. That is a ~0.9 h
+  spend for a measured +0.066 on gold.
+
+
+### E043 — the licensing clears: the weights that matter are CC0
+- **date**: 2026-08-26. CPU only, no quota.
+- **why**: E042 parked the public-weights route behind a licensing question — the
+  bundle's README says it *"must remain private"* and its manifest showed 30
+  files CC-BY-NC-SA-4.0, 18 `not-declared`. That was the stated blocker, so the
+  manifest's per-source records were read properly rather than left as a worry.
+
+**The bundle is a consolidation of twelve separately-licensed sources**, not one
+artifact:
+
+| licence | source | files | MB |
+|---|---|---:|---:|
+| **CC0-1.0** | `pilkwang/rsna-knee-weights` | 23 | **1,787** |
+| **CC0-1.0** | `mattiaangeli/knee-mri-fold-weights` | 6 | **473** |
+| **CC0-1.0** | `stevenleehans/rsna-knee-llm-report-labels` | 3 | 1.7 |
+| **CC0-1.0** | `pilkwang/rsna-knee-llm-labels` | 2 | 1.0 |
+| apache-2.0 | `pilkwang/…notebooks-figures` | 52 | 88 |
+| CC-BY-NC-SA-4.0 | `marwanmath/resnet-50-radimagenet-marwan` | 1 | 94 |
+| CC-BY-NC-SA-4.0 | `antoinegg1/…e11-diverse-heads-v20` | 9 | 65 |
+| CC-BY-NC-SA-4.0 | `antoinegg1/…e9-radimagenet-heads-v15` | 9 | 65 |
+| CC-BY-NC-SA-4.0 | `mattiaangeli/…radimagenet-foldsv1-heads` | 7 | 64 |
+| **not-declared** | `sofiaanjenje/rsna-knee-e11-train` | 8 | 65 |
+| **not-declared** | `sofiaanjenje/rsna-knee-e13-train` | 8 | 65 |
+| other | `prvsiyan/…v52-radimagenet-heads` | 2 | 64 |
+
+**CC0 or Apache: 2,350 MB. Restricted or undeclared: 479 MB.**
+
+**The model weights are almost entirely CC0** — public domain dedication, no
+attribution required, no restrictions:
+
+- `knee-mri-fold-weights/m_f0..f4.pt` — **the five fold checkpoints**, 94 MB each
+- `rsna-knee-weights/m_*.pt` — **twenty more checkpoints**, 89 MB each
+
+Only the **RadImageNet heads** (CC-BY-NC-SA-4.0) and the two `sofiaanjenje`
+notebook outputs (`not-declared`) are constrained. So a **CC0-only ensemble of
+25 checkpoints** is available with no licensing question at all.
+
+**And E041 is retroactively clean.** The label set that beat this project's own
+by +0.114 — `stevenleehans/rsna-knee-llm-report-labels` — is **CC0-1.0**. It was
+repackaged with attribution anyway, which CC0 does not require but which remains
+the right thing to do.
+
+**Reading the three tiers:**
+1. **CC0** — use freely. Attribution is still given here as a courtesy.
+2. **CC-BY-NC-SA-4.0** — non-commercial matches this competition's own
+   **CC-BY-NC 4.0** winner licence, so NC is not the obstacle it first looked
+   like; ShareAlike on derivatives is the part to read before shipping.
+3. **`not-declared`** — no grant of any kind. **Avoid.** An undeclared licence
+   is not a permissive one, and this is the tier the bundle's "keep it private"
+   warning is really about.
+
+- **what this changes**: E042's ~0.9 GPU-h inference plan is unblocked for the
+  CC0 subset, which is where the fold weights live. Reproducing *exactly* 0.917
+  needs the RadImageNet heads and therefore a ShareAlike decision; a CC0-only
+  ensemble does not.
+- **note on the OOF measured in E042**: `v52_e11_oof.csv` comes from
+  `sofiaanjenje/rsna-knee-e11-train`, the `not-declared` tier. Reading published
+  predictions to *measure* against this project's own gold set redistributes
+  nothing and ships nothing. Using that file's weights in a submission is a
+  different act and is not cleared.
+- **next**: at the quota reset, run inference from the CC0 sources directly —
+  `mattiaangeli/knee-mri-fold-weights` and `pilkwang/rsna-knee-weights`, both
+  public Kaggle datasets — rather than from this private consolidation.
+
+
+### E044 — the public labels take gold OOF from 0.7913 to 0.8980
+- **date**: 2026-08-29. Quota reset between 2026-08-28 12:42 UTC (refused) and
+  2026-08-29 00:39 UTC (accepted).
+- **what changed**: the label dataset, and nothing else. The `v1public` lineage
+  is byte-identical to the 0.846 trainer in every constant — same cache, same
+  192px geometry, same resnet34, 24 epochs, batch 16, LR 6e-4. Five folds,
+  ~7 GPU-h.
+
+**Paired on all 58 gold studies against the 0.846 system:**
+
+| | gold macro | 95% CI |
+|---|---:|---|
+| **v1public (public CC0 labels)** | **0.8980** | [0.869, 0.925] |
+| v1fused (this project's labels) | 0.7913 | [0.755, 0.828] |
+| **paired difference** | **+0.1067** | **[+0.077, +0.140]** |
+
+**Separated by a wide margin** — the widest this project has measured, and about
+15× the interval's distance from zero compared with E032's +0.0717.
+
+**Per finding, against the 0.870 floor `PATH.md` §4 says board 0.94 needs:**
+
+| finding | v1fused | v1public | delta | ≥0.870 |
+|---|---:|---:|---:|:--:|
+| MCL | 0.615 | **0.882** | **+0.267** | ✓ |
+| Synovitis | 0.634 | 0.779 | +0.145 | |
+| PF OA | 0.664 | 0.858 | +0.194 | |
+| Lateral OA | 0.716 | 0.822 | +0.106 | |
+| Lateral Meniscus | 0.740 | 0.851 | +0.111 | |
+| ACL | 0.826 | **0.962** | +0.136 | ✓ |
+| Medial Meniscus | 0.826 | **0.929** | +0.103 | ✓ |
+| Contusion | 0.835 | **0.915** | +0.080 | ✓ |
+| Effusion | 0.866 | **0.929** | +0.063 | ✓ |
+| Fracture | 0.874 | **0.885** | +0.011 | ✓ |
+| Medial OA | 0.924 | **0.980** | +0.056 | ✓ |
+| Baker's | 0.976 | **0.984** | +0.008 | ✓ |
+
+**Eleven of twelve findings now clear 0.80; eight clear 0.870.** The 0.846
+system cleared 0.80 on six and 0.870 on four.
+
+**MCL, +0.267.** E035 named it the single separated recoverable modelling loss —
+teacher 0.884, model 0.628 — and concluded the signal was in the pixels and the
+model was failing to extract it. With better supervision the same architecture
+on the same cache reaches **0.882**, which is its teacher's level. The
+diagnosis was right and the fix was labels, not modelling.
+
+**Synovitis is now the only finding below 0.80**, at 0.779 — up from 0.634, and
+up from a teacher E037 measured at **chance**. E037 concluded Synovitis "cannot
+be fixed from the reports"; that was true of *this project's* reader and false
+of the reports, and this is the second measurement to say so.
+
+- **two changes arrive together and this run cannot separate them.** The public
+  labels are both *better* (teacher 0.8927 vs 0.7827) and *more complete* (100%
+  slot coverage vs 65.5%, so `ABSTAIN_MASKS_LOSS` now masks nothing and the
+  model sees ~53% more supervised targets). Attributing +0.1067 to label
+  quality alone would be unearned. Separating them needs a run with the public
+  labels artificially masked to 65.5% coverage, which is ~7 more GPU-h and has
+  not been done.
+- **forecast**: E038's corrected rule — `board ≈ gold_OOF + 0.032 + 0.005` —
+  puts this near **0.935** against a standing 0.846. That rule has one genuine
+  test behind it (E038) and understated the board on the run before it, so treat
+  it as a direction, not a number. The submission is the measurement.
+- **credit**: the labels are `stevenleehans/rsna-knee-llm-report-labels`
+  (`llm_labels_v4_blend.csv`), shared publicly under **CC0-1.0** and repackaged
+  with attribution as `knee-phase1-public` (E041, E043). None of this +0.1067 is
+  this project's own label work.
+
+
+### E045 — 0.923 on the board, and the forecaster held to +0.012
+- **date**: 2026-08-29
+- **what**: `knee-infer-v1pub` v1 — the five `v1public` folds, rank-mean, ~1 h.
+
+| submission | date | board |
+|---|---|---:|
+| constant priors | 08-18 | 0.500 |
+| scanner metadata, no pixels | 08-18 | 0.531 |
+| imaging 192px, 1 fold, lexicon labels | 08-19 | 0.725 |
+| imaging 288px, effective batch 16 | 08-19 | 0.688 |
+| lexicon labels, 5-fold (the control) | 08-23 | 0.757 |
+| fused labels, 5-fold | 08-22 | 0.846 |
+| **public CC0 labels, 5-fold** | **08-29** | **0.923** |
+
+**+0.077 today. +0.198 from this project's first imaging model.** Field top
+0.952, top-200 cut 0.917 — **0.923 clears the top-200 cut**.
+
+**The forecaster held.** E038's corrected rule — `board ≈ gold_OOF + 0.032
+(ensembling) + 0.005` — predicted **0.935** against an actual **0.923**, an
+error of **+0.012**. Its previous test (E034) missed by −0.059 in the other
+direction, so this is the first forecast it has made that was close, and the
+first time it has *overstated* rather than understated.
+
+**The raw gold-to-board offset is still unstable and still positive:**
+
+| model | gold OOF | board | offset |
+|---|---:|---:|---:|
+| lexicon, 192px, 1 fold | 0.7201 | 0.725 | +0.005 |
+| fused, 5-fold | 0.7918 | 0.846 | +0.054 |
+| **public, 5-fold** | **0.8980** | **0.923** | **+0.025** |
+
+Three points, offsets +0.005 / +0.054 / +0.025. The correction narrows the
+spread but does not remove it, and `FINDINGS.md` §14.5 stands: **gold OOF ranks
+models; it does not forecast a score.** It ranked all three correctly.
+
+- **what produced the +0.198 overall**, decomposed on ground truth where it
+  could be:
+
+  | lever | delta | how measured |
+  |---|---:|---|
+  | ensembling 1 fold → 5 | +0.032 | E036 control, board |
+  | this project's fused labels | +0.089 | E036, board |
+  | **public CC0 labels** | **+0.077** | here, board |
+
+  **Labels account for +0.166 of +0.198. Everything else — architecture,
+  resolution, pooling, backbone — accounts for the rest.** Every architectural
+  lever this project tried (288px, DINOv2, focal top-k, per-finding pooling,
+  cross-family blending) measured zero or negative. That is the whole story of
+  this competition as this project has experienced it.
+- **the honest accounting of whose work this is**: the +0.077 came from a label
+  file published by **stevenleehans** under CC0-1.0, found by surveying what the
+  community had shared, not built here. `PATH.md` §3 predicted this mechanism
+  before it was used and is now confirmed by measurement.
+- **still unseparated**: better labels and 53% more supervised slots arrived
+  together (E044) and this submission cannot tell them apart either.
+- **next**: 0.94 needs **+0.017**. `PATH.md` §4 says that means no finding below
+  ~0.870, and **Synovitis at 0.779** is the one still short — every other finding
+  now clears 0.80 and eight clear 0.870. Two routes remain, both untried: the
+  CC0 public *weights* (E042/E043, ~0.9 GPU-h, measured 0.8576 gold as a
+  standalone system) and blending them with this one.
+
+
+### E046 — the borrowing route is exhausted: we now beat what we were borrowing
+- **date**: 2026-08-29. CPU only, no quota, no submission.
+- **the question**: E042 measured the public 0.917 system at **0.8576** gold
+  against the *0.846* system's 0.7913 and found a blend worth +0.0046, not
+  separated. The 0.923 system is 0.107 stronger, so the blend was worth
+  re-measuring before spending ~0.9 GPU-h building a CC0-weights inference
+  kernel.
+
+| | gold macro, n=58 |
+|---|---:|
+| **ours (board 0.923)** | **0.8980** |
+| public 0.917 system | 0.8576 |
+
+**The relationship has inverted.** When E042 ran, the public system was **+0.066
+ahead** of this project's. It is now **0.040 behind**. The system this project
+was preparing to borrow from is weaker than the one it has.
+
+**Blend, parameter-free rank union:**
+
+| w_ours | gold macro |
+|---:|---:|
+| 0.5 | 0.8971 |
+| 0.65 | 0.9015 |
+| **0.70** | **0.9016** |
+| 0.8 | 0.9013 |
+| 1.0 (ours alone) | 0.8980 |
+
+**+0.0036 at the optimum, 95% CI [−0.0078, +0.0160] — not separated.**
+
+There is a **broad** interior optimum from 0.65 to 0.8, all within 0.0003 — so
+the decorrelation is real and stable, not the noise E039 found. But the margin
+is a third of the instrument's resolution. Three blend attempts now
+(E033 labels, E039 architectures, E042 and this) have produced +0.0046, +0.0022
+and +0.0036, none separated. **Blending is not a lever in this competition at
+this sample size.**
+
+Per finding, ours wins on 10 of 12 — the exceptions are PF OA (0.858 vs 0.874)
+and Synovitis (0.779 vs 0.766, effectively tied).
+
+- **decision: do not build the CC0-weights inference kernel.** It would cost
+  ~0.9 GPU-h and a submission for +0.0036 that cannot be distinguished from
+  zero, on top of a system that already beats it. E042's "cheapest route to
+  ~0.90" was correct when written and is now obsolete — the route arrived first
+  by another road.
+- **what this closes**: every borrowing lever identified in `PATH.md` §3 has now
+  been tried. The **labels** were worth +0.077 on the board (E045). The
+  **weights** are worth nothing, because this project's own model overtook them
+  in the same week.
+- **what remains for 0.94** (+0.017 on the board): **Synovitis at 0.779** is the
+  only finding below 0.80 and the only one clearly short of the ~0.870 floor
+  `PATH.md` §4 requires. Every architecture lever in this project was tested
+  against the *old* weak labels — 288px, DINOv2, focal top-k, per-finding
+  pooling all measured zero or negative when the teacher was 0.78. **None has
+  been retested against a 0.89 teacher**, and that is the one large untested
+  region left.
+
+- **and more epochs will not help.** The five `v1public` runs are converged:
+
+  | fold | peak val | at epoch | final (23) |
+  |---|---:|---:|---:|
+  | 0 | 0.8551 | 19 | 0.8515 |
+  | 1 | 0.8383 | **23** | 0.8383 |
+  | 2 | 0.8725 | 19 | 0.8701 |
+  | 3 | 0.8233 | 18 | 0.8200 |
+  | 4 | 0.8448 | 19 | 0.8419 |
+
+  Four of five peak at epoch 18–19 and decay after; only fold 1 is still
+  rising at 23. This is the same shape E036 found for DINOv2 and read
+  correctly — a curve that has turned over, not one still climbing. **Saves
+  ~7 GPU-h** that a "train it longer" instinct would have spent.
+- **so a one-fold probe is queued instead**: `43_train_dinov2pub_fold0`,
+  DINOv2 on the public labels, ~5 GPU-h, constants otherwise identical to the
+  `dinov2fused` lineage. If its gold lands near the resnet34's **0.8477** on
+  fold 0, a second family is competitive against a good teacher and worth four
+  more folds; if it is 0.07 behind as in E036, the probe saved ~20 GPU-h.
+
+
+### E047 — two new public label sets are unevaluable: they contain the answer key
+- **date**: 2026-08-31. CPU only, no quota.
+- **why**: labels are the dominant lever (+0.166 of the +0.198 board gain), and
+  the last survey was 2026-08-24. Five days is a long time in an active
+  competition, so it was repeated.
+
+**Four new label sets have appeared.** Two carry all twelve findings in a usable
+schema, and both score **macro 1.0000** on the 58 gold studies.
+
+**A perfect score is a leak signal, not a result.** Checked directly:
+
+| dataset | slots on the 58 equal to the expert label | binary on gold | binary on 2,000 non-gold |
+|---|---:|---:|---:|
+| `tasmeemreza/rsna-knee-refined-llm-labels` | **100.0%** | 100% | 76.5% |
+| `shingo257/rsna-knee-calibrated-labels-v1` | **100.0%** | 100% | 0.0% |
+
+Both **copy the expert labels verbatim** for the 58 gold studies — which is
+public information, sitting in `train.csv`, and entirely legitimate for their
+authors to use. It is not cheating and it is not necessarily bad labelling. Away
+from the gold set they behave quite differently: one is 76.5% hard 0/1, the
+other fully continuous.
+
+**The consequence is that this project's only offline instrument is blind to
+them.** Gold-58 measures a label set by asking how well it agrees with the 58
+expert answers; a file that contains those answers scores 1.0000 regardless of
+its quality on the other 4,349 studies — which is the part that actually trains
+the model.
+
+**The incumbent is clean.** `stevenleehans/llm_labels_v4_blend`, the label set
+behind the 0.923 board result, scores **0.8927** — not 1.0 — so it does not carry
+the gold labels and its measurement means what it appears to mean. That is why
+E041's +0.114 was a real comparison and this one cannot be.
+
+- **what this rules out**: swapping in either new set on the strength of
+  "1.0000 > 0.8927". That number compares one file's copy of an answer key
+  against another file's honest attempt, and acting on it would have been the
+  most expensive kind of mistake this log records — a weakly-known number read
+  as a well-known one, for the eighth time.
+- **what it does not rule out**: that they are better. They may well be. The
+  only instrument that can tell is **the board**, at ~7 GPU-h to train plus one
+  of five daily submissions, per label set, blind.
+- **note on training**: this project already assigns expert labels to gold
+  studies at `GOLD_WEIGHT=8.0`, so a label file that also contains them
+  introduces no leakage into training that is not already there. The problem is
+  purely one of *evaluation*.
+- **next**: with ~7 GPU-h left this week and two DINOv2 folds running, the
+  honest options are (a) spend a blind 7 GPU-h on one new label set and let the
+  board judge, or (b) wait for next week's quota. Neither is a measurement this
+  project can make offline.
+
+
+### E048 — a fourth independent reader adds nothing; the label lever is spent
+- **date**: 2026-08-31. CPU only, no quota.
+- **why**: E047 established the two newest label sets are unevaluable (they carry
+  the answer key). A third, `laymond/…qwen3-8b-weak-labels`, is a genuinely
+  independent reader — Qwen3-8B, with `__label`, `__confidence`, `__mentioned`
+  and `__negated` per finding — and is **evaluable**: it matches the expert
+  label on 83.2% of gold slots, not 100%, so it is a real attempt rather than a
+  copy.
+
+**Each reader alone, on the 58:**
+
+| reader | macro | Synovitis |
+|---|---:|---:|
+| **incumbent (`llm_labels_v4_blend`)** | **0.8927** | **0.790** |
+| pilkwang | 0.8658 | 0.687 |
+| gpt-5.6-sol | 0.8352 | 0.676 |
+| Qwen3-8B (label × confidence) | 0.8293 | 0.657 |
+
+**Parameter-free rank unions:**
+
+| combination | macro |
+|---|---:|
+| incumbent alone | 0.8927 |
+| incumbent + qwen3 | 0.8843 |
+| incumbent + pilkwang | 0.8939 |
+| incumbent + qwen3 + pilkwang | 0.8943 |
+| **all four** | **0.8954** |
+
+**+0.0027, 95% CI [−0.0086, +0.0132] — not separated.**
+
+- **the tempting number was +0.0044**, from weighting the incumbent ×2 in the
+  union. That weight is **a free parameter fitted to 58 studies**, which is the
+  exact practice `dataset-metadata.fused.json` rejects: *"a rule that picked the
+  better reader per finding would be fitting twelve choices to 58 studies and
+  would report a number that means nothing."* It is recorded and not used.
+- **why this differs from E023**, where the union of two readers beat both by
+  **+0.070**: there, the two readers were **comparable** (0.7446 and 0.7421) and
+  abstained on different findings. Here the incumbent is 0.03–0.06 ahead of
+  every other reader, so a union mostly imports their errors. This is the same
+  weak-member shape as E033, E039 and E046 — the fourth time it has appeared.
+- **the conclusion, and it is the important one**: **the label lever is spent
+  for this project.** Four public readers exist; the best is 0.8927; combining
+  them adds nothing measurable. Labels delivered +0.089 and +0.077 on the board
+  and there is no fifth reader on the shelf to deliver a third instalment.
+  **Synovitis stays at 0.790 in the best available teacher** — no public reader
+  is above 0.79 on it — which is why the model sits at 0.779 there.
+- **what remains for a higher score**, with the label route closed:
+  1. **more models** — the only lever with a measured coefficient (+0.032 for
+     1→5 folds), extrapolating to ~+0.010 for 5→10;
+  2. **a second architecture**, being probed now against the good teacher;
+  3. **a Synovitis reader better than 0.790**, which nobody in this competition
+     appears to have published, and which would have to be built rather than
+     borrowed.
+
+
+### E049 — Synovitis is not recoverable from Effusion either
+- **date**: 2026-08-31. CPU only, no quota.
+- **hypothesis, declared before measuring**: "effusion-synovitis" is a single
+  named construct in the MOAKS scoring system, so the model's **strong Effusion
+  channel (0.929)** might carry Synovitis signal that its **weak Synovitis
+  channel (0.779)** misses. Synovitis is worth **+0.010 board** alone (E046
+  arithmetic), the largest single prize left.
+- **the clinical coupling is real**: on the 58 expert studies, Synovitis is
+  positive in **62.9%** of Effusion-positive knees against **21.7%** of
+  Effusion-negative ones, φ = **+0.403**.
+- **and the model has already extracted it**:
+
+  | predicting Synovitis with | AUC |
+  |---|---:|
+  | **its own Synovitis channel** | **0.779** |
+  | the Effusion channel | 0.705 |
+  | blend, w_synovitis = 0.9 | 0.778 |
+  | blend, w_synovitis = 0.8 | 0.774 |
+  | blend, w_synovitis = 0.5 | 0.743 |
+
+  **Monotonic to w = 1.0.** Best is the Synovitis channel alone, delta +0.000.
+  The correlation exists in the labels but contributes nothing the model has not
+  already used.
+- **what this closes**: the cheap route to Synovitis. Three attempts now — a
+  better report reader (E037), a better *public* report reader (E048, none above
+  0.790), and a correlated-finding prior (here). Synovitis at 0.779 is where it
+  stays without a genuinely new source of supervision.
+- **the standing tally of what is measured dead**: this project's own labels
+  (superseded), blending in four forms (E033, E039, E042, E046, E048), borrowed
+  weights (E046 — we overtook them), more epochs (E046 — converged), 288px,
+  DINOv2 against weak labels, focal top-k, per-finding pooling, Synovitis via
+  reports and via correlation. **One lever retains a measured coefficient: more
+  models, +0.032 for 1→5 folds.**
+
+
+### E050 — TTA is worth nothing, and the reason is worth more than the measurement
+- **date**: 2026-08-31. **CPU only — zero GPU hours**, 16.4 min wall clock.
+- **why**: inference has never used test-time augmentation and no experiment in
+  this log had ever tested it, which made it the last untried lever that was
+  not "train more models". Unlike every other remaining lever it could be
+  measured without a GPU: `gold_eval` already scores checkpoints on CPU, and
+  58 studies through resnet34 is minutes. `knee-tta-eval` (kernel 50) mounts
+  the five `v1public` folds behind the 0.923 board result and runs each held-out
+  gold study through four views.
+- **views**: only symmetries training already teaches — `identity`, `reverse`
+  (slice order, trained at p=0.5) and a pixel roll of ±`TARGET_SIZE//16` in
+  both directions. Intensity jitter and coarse dropout were excluded on
+  purpose: they inject noise to regularise, and averaging over noise adds
+  variance without adding a view. A left-right flip was excluded for a reason
+  specific to this dataset — right knees are mirrored during the cache build so
+  every volume shows the same anatomy, and four of the twelve findings are
+  explicitly medial or lateral, so a flip would move the answer rather than ask
+  for it twice.
+
+- **the baseline reproduces the record exactly**, which is what makes the rest
+  of this readable: pooled identity over n=58 is **0.8980**, the same figure
+  E044 recorded for the public-label lineage, to four decimals. Per-fold the
+  recomputation differs from the training kernel's own gold dump by at most
+  6.5e-4 — T4 versus CPU float arithmetic, enough to swap two near-tied ranks
+  inside a 12-study fold and nothing more.
+
+| view(s) | gold macro, n=58 |
+|---|---:|
+| `identity` | **0.8980** |
+| `reverse` | **0.8980** |
+| `shift_pos` | 0.8883 |
+| `shift_neg` | 0.8962 |
+| `identity,reverse` | 0.8980 |
+| all four (unweighted) | 0.8986 |
+
+- **paired: identity − 4-view = −0.0006, 95% CI [−0.006, +0.005]. Not
+  separated.** This is the tightest interval in the whole log — 0.011 wide
+  against the usual 0.044 — because both sides are the *same model* on the
+  *same studies*, so almost all the variance the paired bootstrap normally has
+  to carry cancels. It is therefore a sharp null rather than an underpowered
+  one: TTA is not unmeasured here, it is measured at zero.
+- **no weighted variant was tried**, for the reason E048 gives. Weights over
+  four views fitted to 58 studies are four free parameters bought with 58
+  studies.
+
+- **the reason `reverse` ties identity to four decimals is that it is exactly
+  the same number.** The architecture embeds each slice independently and pools
+  with a softmax-weighted sum over the token axis — no positional encoding, no
+  operation anywhere that mixes neighbouring slices. So it is *exactly*
+  permutation-invariant over slices. Measured: max |f(x) − f(reverse(x))| =
+  **2.4e-7**, and the same for a random permutation, on both the plain and the
+  focal-top-k head.
+- **so the slice-reversal augmentation in training was dead code**, and has
+  been in every run this project has ever made. Every augmentation applied
+  after it is order-independent too (the roll, the intensity scale, the
+  dropout box and the plane drop are all identical across slices), so
+  reversing produced a volume the model could not distinguish from the one it
+  already had. It bought a full array copy on half of all training samples in
+  exchange for nothing. **Removed**, with
+  `test_the_model_is_permutation_invariant_over_slices` pinning the property it
+  rests on — if that test ever fails, the architecture has gained slice-order
+  sensitivity and the augmentation should come back with it.
+- the two shift views *do* change the output and both land at or below
+  identity. `np.roll` wraps content across the border, which is not a symmetry
+  of a knee; the model tolerates it because it was trained on it, and gains
+  nothing from being asked.
+
+- **the finding underneath is bigger than TTA and is not being chased today.**
+  The model does not see a study as a stack. It sees an unordered bag of 60
+  slices. That a meniscal tear appears on three *adjacent* sagittal slices —
+  the continuity that makes a radiologist scroll rather than shuffle — is
+  information this architecture is structurally incapable of using. That is the
+  strongest architectural lead in this log, and it is a lead precisely because
+  nothing in the 288px / DINOv2 / focal-top-k / per-finding-pooling family ever
+  addressed it; they all changed the encoder or the head while leaving the bag
+  a bag. Testing it means slice positional encoding or a small transformer over
+  the token axis, at 5-7 GPU-h a fold against ~7 h left this week. Recorded for
+  a week with quota, not started with hours.
+
+- **and inference has no budget problem at all**, measured from the last
+  submission's manifest rather than assumed: 0.98 h projected for 1,300 test
+  studies against the 9 h cap, of which the forward pass is 0.51 s/study across
+  five members. An extra ensemble member costs **0.037 h** on the full test set
+  — 2.2 minutes. Ten members with four-view TTA would come to roughly 2.3 h,
+  still a quarter of the cap. **Ensemble size is limited by training quota
+  alone**; the submission side has ~8 h of headroom and is not the constraint
+  anyone should be designing around.
+
+
+### E051 — DINOv2 is dead against a good teacher too, and further behind than before
+- **date**: 2026-08-31. ~11 GPU-h, two folds, the probe E046 queued.
+- **why**: every architecture lever this project owns was measured against a
+  0.78 teacher. The probe asked whether a second family becomes competitive
+  once the teacher is 0.89.
+
+| fold | DINOv2 gold at its saved epoch | resnet34 gold, same fold | gap |
+|---|---:|---:|---:|
+| 0 | 0.8178 (best val 0.8240 @ 27) | 0.8526 | **−0.035** |
+| 1 | 0.7765 (best val 0.8141 @ 29) | 0.9249 | **−0.148** |
+
+- **the verdict is the same as E036 and slightly worse.** E036 put DINOv2 0.074
+  behind against the weak teacher; against the good one it is 0.035 and 0.148
+  behind on the two folds measured. A better teacher does not rescue it.
+- **folds 2-4 are not being run.** ~15 GPU-h saved, which is more than remains
+  this week. This is the second time a one-fold-first probe has paid for
+  itself, and the reason the second slot was filled with fold 1 rather than
+  left idle: one fold could not have carried this, at a ~0.19 interval.
+- **an incidental finding worth more than the verdict.** On both folds the
+  report-label validation AUC keeps *climbing* while the gold AUC *falls* —
+  fold 1 runs val 0.8074 → 0.8141 across epochs 22-29 while gold goes 0.8121 →
+  0.7765. `FINDINGS.md` §11 recorded that report-label CV mis-ranks *models*;
+  this is the same disagreement appearing *within one run's trajectory*, which
+  means it also mis-picks the epoch. Early stopping on val AUC selected weights
+  0.036 worse on expert truth than the ones eight epochs earlier. Every lineage
+  in this project selects its export that way.
+
+
+### E052 — the untested region pays: per-finding pooling separates against the 0.89 teacher
+- **date**: 2026-08-31. **CPU only — zero GPU hours**, ~4 min per arm.
+- **why**: E046 named it outright — "every architecture lever was tested
+  against the *old* weak labels; **none has been retested against a 0.89
+  teacher**, and that is the one large untested region left." `head_lab.py`
+  trains everything above a frozen backbone in minutes, so the region costs
+  coffee rather than quota. All three A/Bs re-run with `--labels
+  artifacts/phase1_public`.
+
+- **first, the instrument was wrong and had to be fixed.** Run one seed per arm,
+  focal top-k against the public labels reported +0.0256 [+0.001, +0.051],
+  "A is better". Repeating it on three more seeds gave +0.0136, +0.0443,
+  +0.0071 — the same comparison swinging by a factor of six. The reason is
+  visible in the arms rather than the deltas:
+
+  | seed | focal | baseline |
+  |---|---:|---:|
+  | 0 | 0.7361 | 0.7106 |
+  | 1 | 0.7428 | 0.7292 |
+  | 2 | 0.7433 | 0.6990 |
+  | 3 | 0.7419 | 0.7347 |
+
+  Focal spans 0.007 across restarts; **the baseline spans 0.036**. A
+  single-seed A/B on 58 gold studies was reading the initialisation draw as if
+  it were the architecture. `--seeds N` now averages out-of-fold predictions
+  over restarts before scoring, which removes it from both arms.
+
+- **the three levers, four restarts each, against the public teacher:**
+
+| lever | Δ vs baseline | 95% CI | verdict |
+|---|---:|---|---|
+| **per-finding attention maps** | **+0.0338** | **[+0.009, +0.061]** | **separated** |
+| focal top-k (k=3) | +0.0163 | [−0.001, +0.035] | not separated, all 4 seeds positive |
+| slice positional embedding | +0.0035 | [−0.017, +0.025] | not separated |
+
+- **per-finding pooling was recorded dead in E030 and is not dead.** What
+  changed is the teacher, and the mechanism for why that matters was written
+  down before the measurement, in the model's own comment: one attention map
+  over twelve findings forces a single compromise about which slices matter,
+  and the compromise is paid by the focal findings. Against a 0.78 teacher the
+  focal findings had no signal left to sharpen. Against 0.89 they do — and they
+  are still exactly where the 0.923 ensemble is weakest, at Synovitis 0.771,
+  Lateral OA 0.830 and PF OA 0.849 against Medial OA 0.980 and Baker's 0.978.
+- **focal top-k moves the same way and is not being taken**, because two levers
+  at once stops being one variable. It is the next thing to try if pooling
+  lands.
+- **slice position buys nothing**, which lowers the prior on E050's
+  architectural lead without closing it: a frozen-feature head at 0.74 may
+  simply be floor-limited. It does say that lead is not worth 7 GPU-h today.
+- **caveats, stated rather than buried.** These are frozen DINOv2 features, so
+  the absolute numbers do not predict the board; what `head_lab` claims to
+  transfer is comparisons *above the backbone*, which all three of these are.
+  Three comparisons were run, so one separating at 95% is roughly a one-in-seven
+  coincidence on its own — the reasons to believe it are the pre-registered
+  mechanism and the second lever moving the same way, not the interval alone.
+  The board is the only place this gets settled.
+
+- **so the remaining GPU goes to `v1pubpool`**, five folds of the 0.923
+  configuration with `per_finding_pool=True`, rather than to `v1publicB`'s
+  reseed. Same cost, and it dominates: the folds join the ensemble either way,
+  a different pooling is more diversity than a different initialisation, and
+  the run answers a question while it does it.
+
+
+### E053 — CORRECTION to E052: the teacher was never the variable, the instrument was
+- **date**: 2026-08-31. CPU only, ~18 min.
+- **why**: `HANDOFF.md` §6 already carried E030's per-finding pooling number —
+  **+0.039 [−0.009, +0.090]** against the *old* labels. E052 reported +0.0338
+  against the *public* labels and attributed the change to the teacher. Those
+  two point estimates are the same number. If the teacher were the variable,
+  they should not be.
+- **so the A/B was re-run against the old labels with the same four restarts**,
+  changing nothing else:
+
+| labels | per-finding − baseline | 95% CI | verdict |
+|---|---:|---|---|
+| old (lexicon, 0.7827) | **+0.0371** | [−0.001, +0.077] | not separated |
+| public (0.8927) | **+0.0338** | [+0.009, +0.061] | separated |
+
+- **the effect is the same size against both teachers. Only the interval
+  changed** — 0.078 wide against 0.052. The public-label arms score higher
+  (0.7726 / 0.7388 against 0.6661 / 0.6290) and a bootstrap over 58 studies is
+  tighter up there, so the same effect crosses the line in one case and not the
+  other.
+- **E052's causal claim is withdrawn.** "Against a 0.78 teacher the focal
+  findings had no signal left to sharpen; against 0.89 they do" is a story that
+  fits one of the two numbers and is contradicted by the other. It was written
+  before this check and should not have been.
+- **the conclusion about the lever gets stronger, not weaker.** Per-finding
+  pooling has now measured +0.039, +0.0371 and +0.0338 in three runs across two
+  independent teachers. Three agreeing magnitudes is better evidence than one
+  interval clearing 95%, and it means E030 did not measure "no effect" — it
+  measured this effect with an instrument that could not resolve it, and the
+  log recorded the failure to resolve as an absence.
+- **so `v1pubpool` is still the right call**, for a better reason than the one
+  it was queued with: not "the teacher unlocked it" but "it was always ~+0.035
+  and this project called it dead three times".
+- **what actually changed the instrument was `--seeds`.** One restart per arm
+  put the *baseline*'s spread at 0.036 across seeds while the treated arm moved
+  0.007 (E052). Averaging restarts before scoring is what made a ~0.035 effect
+  visible at all. Every single-seed A/B in this log predating today's
+  `head_lab` was measuring an initialisation as much as a hypothesis, and
+  **every negative among them is suspect for the same reason** — focal top-k
+  (E029), 288px (E015), and DINOv2's head comparisons included.
+- **this is the seventh overturned claim** and the second of the recurring
+  shape: a number measured as an absence and recorded as one, when it was a
+  measurement too noisy to say. The standing rule in `HANDOFF.md` §7 gains a
+  clause — *a negative needs its interval width quoted beside it, or it is not
+  a negative.*
+
+
+### E054 — the 10-model cross-lineage ensemble is worse than the 5 it starts from
+- **date**: 2026-08-31. **CPU only — zero GPU hours.** Both lineages had already
+  dumped out-of-fold predictions on the 58 expert studies, so this cost nothing
+  but the arithmetic.
+- **why**: inference measures an extra ensemble member at **0.037 h** on the
+  full test set (E050), so the submission side can afford ten members as easily
+  as five. The five `v1fused` folds already exist and are already paid for. The
+  question is only whether they help.
+- **rank-mean, exactly as `11_infer_folds` combines members** — equal weights,
+  ranks not probabilities:
+
+| members | gold macro, n=58 |
+|---|---:|
+| `v1public` ×5 | **0.8980** |
+| `v1fused` ×5 | 0.7913 |
+| rank-mean of all ten | 0.8684 |
+
+- **union − v1public = −0.0296, 95% CI [−0.046, −0.015]. Separated: the five
+  alone are better.** Adding five more models made the system measurably worse.
+- **this is the weak-member shape for the sixth time** — E033, E039, E042, E046,
+  E048 and now here — and the first time it has been measured on *models*
+  rather than on label sets. The rule it keeps writing is the same one: an
+  equal-weight union imports the weaker member's errors in proportion to how
+  far behind it is, and `v1fused` is 0.107 behind.
+- **no weighted variant was tried**, for E048's reason: a weight that rescued
+  this would be a free parameter fitted to 58 studies.
+
+- **so, pre-registered before the data arrives** — `v1pubpool` is training now
+  and will be decided by this rule, written down here so it cannot be chosen
+  after the fact:
+  > The new folds join the submission **iff** their pooled gold OOF is not
+  > *separated-worse* than `v1public`'s 0.8980 on the paired bootstrap. If they
+  > are separated-worse, they are dropped whatever their standalone number
+  > looks like; if they are not separated either way, the ten-member rank-mean
+  > is measured on gold and submitted only if it does not lose.
+
+  95% is this project's standing convention, not a threshold picked for this
+  question, which is what keeps the rule parameter-free.
+
+
+### E055 — val-selected early stopping is fine on resnet34; E051's alarm was DINOv2-specific
+- **date**: 2026-08-31. **CPU only — zero GPU hours**, arithmetic on histories
+  the training kernels already wrote.
+- **why**: E051 found DINOv2's report-label validation AUC climbing while its
+  gold AUC fell — fold 1 ran val 0.8074 → 0.8141 over epochs 22-29 while gold
+  went 0.8121 → 0.7765 — and concluded that early stopping on val "also
+  mis-picks the epoch", adding that "every lineage in this project selects its
+  export that way". The second half of that was an extrapolation from one
+  architecture and needed checking against the one that actually scores 0.923.
+- **method**: one fold's gold subset is ~12 studies and unreadable on its own
+  (E031: ~0.19 interval). Averaging the five folds' gold AUC at each epoch
+  aggregates the whole 58 and makes the trend legible.
+
+| | epoch | mean val | mean gold |
+|---|---:|---:|---:|
+| where mean **val** peaks | 20 | 0.8463 | 0.9077 |
+| where mean **gold** peaks | 21 | 0.8458 | 0.9084 |
+
+- **one epoch apart, worth +0.0007.** The two curves track each other and
+  plateau together across epochs 18-21. There is no divergence to exploit.
+- per fold, the gap between "epoch val picked" and "epoch gold peaked" averages
+  **+0.0047**, and that is an *upper bound* rather than an estimate: it is the
+  maximum of 24 noisy 12-study measurements per fold, so most of it is
+  noise-picking. Two of the five folds have a gap of exactly zero.
+- **so E051's general claim is withdrawn and its specific one stands.** The
+  divergence is real for DINOv2's 40-epoch schedule, where the model has room
+  to overfit the report labels long after gold turns over. It is not a property
+  of report-label validation as such, and the 24-epoch resnet34 schedule stops
+  before the curves separate. Nothing to change, and **~7 GPU-h not spent** on a
+  selection-rule experiment that had no gap to close.
+- **a number not to confuse**: the mean of five fold-level gold AUCs is 0.9077;
+  the pooled n=58 out-of-fold AUC is 0.8980. They measure different things —
+  averaging five AUCs is not the AUC of the pooled predictions — and only the
+  second is comparable to anything else in this log.
+
+
+### E056 — focal top-k and per-finding pooling are substitutes, not complements
+- **date**: 2026-08-31. **CPU only — zero GPU hours**, ~9 min.
+- **why**: both levers move positive on their own (E052: +0.0338 and +0.0163),
+  and both were built to fix the *same* defect — one attention map over twelve
+  findings forces a single compromise about which slices matter, and the focal
+  findings pay it. So "take both" is only right if they compose. The baseline
+  here is per-finding pooling **alone**, which is what makes focal the one
+  variable.
+
+| arm | gold macro, n=58 |
+|---|---:|
+| pooling alone | **0.7726** |
+| pooling + focal top-k | 0.7651 |
+
+- **focal on top of pooling = −0.0075, 95% CI [−0.026, +0.011]. Not separated,
+  and the point estimate is negative.** Adding it to pooling buys nothing.
+- **they are the same fix by two routes, and pooling is the better one.** Focal
+  top-k's standalone +0.0163 was a partial repair of exactly the defect
+  per-finding pooling repairs directly: give each finding its own attention map
+  and it no longer needs a separate top-k path to escape the shared one. That
+  the two do not add is evidence *for* the mechanism, not against either lever.
+- **so `v1pubpool` takes pooling only, and that was the right call for a
+  better reason than "one variable at a time".** Stacking them would have cost
+  the same 7 GPU-h and, on this measurement, returned slightly less.
+- **focal top-k is closed** — not as "no effect" (E029 said that on one seed and
+  E053 showed why that reading was unsafe), but as *subsumed*. It is a smaller
+  version of a lever already being taken.
+
+
+### E057 — per-finding pooling is −0.034 fine-tuned, the exact mirror of the rig's +0.034
+- **date**: 2026-09-01. ~14 GPU-h, folds 0 and 1.
+- **why**: E052/E053 measured per-finding attention pooling at **+0.0338**
+  [+0.009, +0.061] on the frozen rig, replicated at +0.0371 against a second
+  teacher and +0.039 in E030. Three agreeing magnitudes across two teachers.
+  `v1pubpool` was queued to cash it.
+
+| fold | v1pubpool gold | v1public gold | Δ |
+|---|---:|---:|---:|
+| 0 | 0.8225 | 0.8526 | −0.0301 |
+| 1 | 0.8888 | 0.9249 | −0.0361 |
+
+- **paired on the 26 shared gold studies: −0.0338, 95% CI [−0.067, −0.007].
+  Separated. `v1public` is better.**
+- **the point estimate is the rig's, with the sign flipped.** +0.0338 frozen,
+  −0.0338 fine-tuned. Not noise around zero — the same magnitude, reversed.
+- **so E054's pre-registered rule fires and the lineage is dropped.** Written
+  down before the data arrived precisely so this could not be argued away
+  afterwards. **Folds 2-4 are not pushed: ~10 GPU-h saved.**
+
+- **what this costs is not 14 GPU-h, it is the rig's authority.** `head_lab`'s
+  standing claim is that absolute numbers do not transfer but *comparisons
+  above the backbone* do, because those are the part being trained. This is the
+  first time that claim has been checked against a fine-tuned run of the same
+  comparison, and it failed — not by degrading, but by inverting.
+- **the mechanism is the backbone, and it splits the rig's record cleanly.**
+  The bank is frozen **DINOv2 ViT-S/14** patch tokens; the lineage is
+  fine-tuned **resnet34** convolutional features. A *label* comparison survives
+  that gap because labels are what you train on whatever the encoder is — and
+  the rig's label result (+0.0508) was confirmed on the board at +0.089. A
+  *head-architecture* comparison need not, because attention pooling reads the
+  geometry of the features underneath it, and those two feature spaces have
+  different geometry. **The rig transfers label comparisons; it does not
+  transfer head comparisons across a backbone it did not measure.**
+- so every architecture verdict this project holds on the rig's authority is
+  now unsupported in *both* directions — E030 and E052's positives and E029's
+  negatives alike. They are statements about frozen DINOv2 heads.
+
+- **caveats, stated plainly.** n=26, not 58, and the interval's upper end is
+  −0.007, so this is separated but not comfortably. `v1pubpool` also carries
+  `seed=2` against `v1public`'s unseeded draw, so the measurement is confounded
+  with one initialisation — two folds agreeing in direction and magnitude
+  narrows that, but does not remove it. Resolving it needs GPU that this week
+  does not have. The rule was written for exactly this situation, and applying
+  it costs 10 GPU-h less than doubting it does.
+- **still running, and now a better experiment than it was queued as**:
+  `knee-embed` is re-extracting the bank on **resnet34** (CPU, no quota). It was
+  started to check whether pooling transfers across backbones. It now has a
+  known answer to predict — if the rig on matching features reproduces −0.034,
+  the backbone really is the whole explanation and the rig is repairable by
+  matching it. If it still says +0.034, the rig does not predict fine-tuned
+  behaviour at all and its architecture verdicts should be retired.
+
+
+### E058 — matching the backbone does not repair the rig; frozen heads do not predict fine-tuned ones
+- **date**: 2026-09-01. **CPU only — zero GPU hours.** `knee-embed` re-run with
+  `RUN_BACKBONE="resnet34"`, 4,407 × 60 × 512 float16.
+- **why**: E057 found the rig's +0.0338 for per-finding pooling inverting to
+  −0.0338 fine-tuned, and offered the backbone as the explanation — frozen
+  **DINOv2 ViT-S/14** patch tokens against fine-tuned **resnet34**
+  convolutions. That was a hypothesis with a testable consequence, written down
+  before the test: *if the rig on matching features reproduces −0.034, the
+  backbone is the whole explanation and the rig is repairable by matching it.*
+
+| measurement | per-finding − baseline | 95% CI |
+|---|---:|---|
+| rig, frozen **DINOv2** features | +0.0338 | [+0.009, +0.061] |
+| rig, frozen **resnet34** features | **+0.0528** | [+0.013, +0.097] |
+| **fine-tuned resnet34** (E057) | **−0.0338** | [−0.067, −0.007] |
+
+- **the backbone was not the explanation.** Matching it did not move the rig
+  towards the fine-tuned answer; it moved it *further away*, from +0.034 to
+  +0.053. The second branch of the prediction fired.
+- **the explanation is freezing, and it has a direction.** On frozen features
+  the encoder cannot adapt, so a richer head is the *only* way to extract more
+  from fixed inputs and head capacity is rewarded on its own merits. Fine-tuned,
+  the encoder adapts *to the head it has* — a single shared attention map and
+  the convolutions underneath it co-adapt — so a per-finding head adds
+  parameters and overfitting without adding a capability the system lacked.
+  **The rig systematically over-values head capacity, because head capacity is
+  the only capacity it has.**
+- that predicts the sign of every rig error on this axis, and the record
+  agrees: per-finding maps (+0.034 / +0.053), focal top-k (+0.0163) and slice
+  positional embedding (+0.0035) are all head-capacity levers, all measured
+  positive-or-zero on the rig, and the one tested fine-tuned came back negative.
+- **it also says why labels are different, and why that one was right.** A
+  label comparison changes the *target*, not the head's capacity, so the
+  frozen/fine-tuned distinction does not bite. The rig said +0.0508 for the
+  fused labels; the board paid +0.089. Right sign, understated magnitude.
+
+- **so `head_lab` is retired as an architecture instrument and kept as a label
+  instrument.** Its docstring now says so, because the claim it made — "what
+  transfers is comparisons *above the backbone*" — is the exact claim that
+  failed, and a tool that misleads in its own documentation will mislead again.
+- **stated precisely rather than dramatically**: the rig is *unvalidated as a
+  predictor of fine-tuned architecture behaviour*, not *proven wrong*. The
+  fine-tuned side of the comparison is the weaker measurement — n=26, two
+  folds, confounded with one seed draw — while the rig side is n=58 and
+  4-seed. What is established is that the only time the two were compared they
+  disagreed in **sign**, which is enough to stop spending GPU on the rig's
+  architecture verdicts and not enough to call any particular one of them false.
+- **cost of learning this: zero GPU hours.** Cost of not having learned it
+  earlier: the 14 GPU-h of E057, and an unknown share of E029/E030's
+  conclusions.
+
+
+### E059 — Synovitis is not reader-limited, it is unwritten: the text ceiling is 0.808
+- **date**: 2026-09-01. **CPU only — zero GPU hours**, arithmetic on files already
+  on disk.
+- **why**: E046's list of what remains ended with "**a Synovitis reader better
+  than 0.790**, which nobody in this competition appears to have published, and
+  which would have to be built rather than borrowed". It was about to be built —
+  a modern open-weights model in `knee-llm-labeler`, ~8 GPU-h to label plus ~7 to
+  retrain. The premise was never checked: that the reports contain the answer
+  and the readers are what fall short.
+- **they do not.** On the 58 expert studies, counting how often a finding is
+  mentioned in the report *at all* (channel ≠ `absent`):
+
+| finding | expert-positive | of those, mentioned |
+|---|---:|---:|
+| Effusion | 35 | **35 / 35** |
+| ACL | 24 | **24 / 24** |
+| Medial Meniscus | 26 | **26 / 26** |
+| MCL | 9 | 9 / 9 |
+| Contusion | 19 | 18 / 19 |
+| PF OA | 21 | 16 / 21 |
+| Fracture | 18 | 14 / 18 |
+| **Synovitis** | **27** | **13 / 27** |
+
+  **Fifty-two per cent of true Synovitis cases are invisible to any report
+  reader.** Synovitis is also the only finding where total mentions (21) fall
+  *below* the number of positives (27) — radiologists write about it less often
+  than it is present. Corpus-wide the same shape: Synovitis is mentioned in
+  **23.6%** of the 4,407 reports against Effusion's 90.4% and ACL's 91.5%.
+
+- **this is not a vocabulary gap, which was the obvious alternative and was
+  checked.** `src/lexicons/findings.csv` carries **45** Synovitis terms across
+  ten languages — more than Effusion (19), ACL (27) or Fracture (15) — including
+  the bare roots `synovial` / `sinovial` / `sinovyal`, plus pannus, hypertrophy,
+  thickening and proliferation. Effusion detects 56/58 on nineteen terms.
+  Forty-five terms finding 21/58 is the corpus talking, not the lexicon.
+
+- **so the ceiling can be computed rather than guessed.** Of the 58: 13
+  mentioned positives, 14 silent positives, 8 mentioned negatives, 23 silent
+  negatives. A *perfect* reader ranks the mentioned positives top and the
+  mentioned negatives bottom, and cannot separate the 37 silent studies at all:
+
+      AUC = [13x31 + 14x8 + 0.5x14x23] / (27x31) = 676/837 = 0.8076
+
+- **the incumbent reader scores 0.790. The ceiling is 0.8076. Headroom in the
+  text is +0.0176** — and that is for a reader with flawless negation, flawless
+  multilingual coverage and no errors at all.
+- **so the Synovitis-reader route is closed before it was opened**, and the
+  ~15 GPU-h it was costed at are not spent. It also explains the observation
+  E046 recorded and could not account for: four independent public readers all
+  cap near 0.79 not because four teams built mediocre readers, but because
+  0.808 is what the reports contain.
+- **and it reframes the model's own 0.771.** Against a teacher at 0.790 and a
+  text ceiling of 0.808, the imaging model is not underperforming its
+  supervision — it is within 0.02 of the best label any report-derived teacher
+  could carry. Beating it requires supervision that does not route through
+  text, and the only non-text Synovitis labels in existence here are the 27
+  positives inside the 58 gold studies.
+- **the general lesson, which is the reusable part**: before building a better
+  reader, measure whether the source contains the answer. That check cost
+  minutes and the build would have cost most of a weekly quota.
+
+
+### E060 — CORRECTION to E057/E058: a pure reseed reproduces the "architecture effect"
+- **date**: 2026-09-01. No extra GPU — this is the control arm of a run that was
+  queued for another purpose.
+- **why**: `v1publicB` exists to add ensemble members, and it differs from
+  `v1public` in **the seed and nothing else** — two tests assert exactly that.
+  So it is also, accidentally, the control arm E057 never had.
+
+| fold 0 gold | | fold 1 gold | |
+|---|---:|---|---:|
+| `v1public` (unseeded) | **0.8526** | `v1public` | **0.9249** |
+| `v1publicB` (seed only) | 0.8143 (−0.0383) | `v1publicB` | 0.9067 (−0.0182) |
+| `v1pubpool` (seed + pooling) | 0.8225 (−0.0301) | `v1pubpool` | 0.8888 (−0.0361) |
+
+- **paired on the same 26 gold studies:**
+
+| comparison | Δ | 95% CI | verdict |
+|---|---:|---|---|
+| `v1pubpool` − `v1public` (E057) | −0.0338 | [−0.067, **−0.007**] | separated |
+| **`v1publicB` − `v1public` (seed alone)** | **−0.0284** | [−0.063, **+0.002**] | not separated |
+
+- **these are the same result.** A configuration change of *nothing at all*
+  produces −0.0284; per-finding pooling produces −0.0338. The 0.005 between them
+  is what decided "separated" against "not separated". **E057 measured seed
+  noise and reported it as an architecture effect.**
+- **E057's verdict is withdrawn.** Per-finding pooling is *unmeasured*
+  fine-tuned, not negative. The confound was named in E057's own caveats —
+  "confounded with one initialisation draw... resolving it needs GPU that this
+  week does not have" — and then the conclusion was written as though it had
+  been resolved.
+- **E058's framing goes with it.** Its headline was that the rig "inverted":
+  +0.034 frozen against −0.034 fine-tuned. If the fine-tuned −0.034 is noise,
+  nothing inverted and nothing was contradicted. E058's hedge — "unvalidated as
+  a predictor, not proven wrong" — was the correct reading and is the one that
+  survives; the mechanism story built on top of it (frozen features over-value
+  head capacity) rests on an effect that has not been shown to exist. It may
+  still be true. It is not evidenced.
+- **the real finding, and it is bigger than either**: **fine-tuned single-seed
+  comparisons on this gold set have a noise floor of about ±0.03.** That is
+  larger than any architecture effect this project has ever hypothesised. E052
+  found the same thing on the frozen rig and fixed it with `--seeds 4`; the
+  fine-tuned side has no such fix, because four seeds of five folds is 30 GPU-h
+  — an entire weekly quota to answer one A/B.
+- **so the honest position on every fine-tuned architecture verdict here** —
+  288px, DINOv2, focal top-k, per-finding pooling — is that only differences
+  well outside ±0.03 mean anything. DINOv2's −0.148 on fold 1 (E051) clears
+  that comfortably and stands. Per-finding pooling's −0.034 does not.
+- **and it is the strongest argument yet for the ensemble that produced it.**
+  If one fold's gold moves ±0.03 on the seed alone, then `v1public`'s 0.8980 is
+  itself one draw, and the 0.923 board score with it. Averaging ten members is
+  precisely the operation that cancels this, which is what ensembling has always
+  been for and why it is the one lever with a board-confirmed coefficient.
+- **eighth overturned claim.** The recurring shape, now twice in one day: a
+  measurement whose noise was not characterised, read as an effect. The rule
+  from E053 — *a negative carries its interval width beside it* — was necessary
+  and insufficient. E057 carried its interval. What it lacked was a control arm.
+
+
+### E061 — the second seed at n=58, and the full-fit model runs as designed
+- **date**: 2026-09-01. ~9 GPU-h (five v1publicB folds + one full fit).
+- **the ten-member ensemble, pooled over all 58 gold studies:**
+
+| members | gold macro, n=58 |
+|---|---:|
+| `v1public` ×5 | **0.8980** |
+| `v1publicB` ×5 (pure reseed) | 0.8827 |
+| rank-mean of all ten | 0.8951 |
+
+  **ensemble − v1public = −0.0029, 95% CI [−0.014, +0.007]. Not separated.**
+  E054's pre-registered rule permits the submission, and it was pushed
+  (`knee-infer-v1pub10`).
+- **the flat result is not evidence against the ensemble, and the reason is
+  structural.** Each gold study carries exactly *one* prediction per lineage —
+  from the single fold that held it out — while at test time all ten models
+  predict every study. The out-of-fold instrument therefore cannot see
+  cross-fold averaging at all. E038's board correction
+  (`board ≈ gold_OOF + 0.032 + 0.005`) **is** that invisible effect: the +0.032
+  is precisely what ensembling buys and what OOF cannot measure. So this number
+  says the second lineage's models are slightly weaker and adds nothing about
+  what ten members do on the board.
+- **all five reseeded folds landed below their counterparts** (−0.0383, −0.0182,
+  −0.0054, −0.0172, pooling to 0.8827 against 0.8980). With `v1pubpool` that is
+  **eleven of eleven** folds across two seeded lineages below the unseeded
+  incumbent. Two readings remain open and two seeds cannot separate them:
+  either `v1public` was a favourable draw — in which case its 0.8980, and the
+  0.923 resting on it, sit above this configuration's true mean — or something
+  about fixing the seed is systematically unhelpful. **Open, not asserted.**
+
+- **the full-fit model trained exactly as specified**, confirmed from its log
+  rather than assumed:
+
+      seeded: 3
+      FULL FIT: train 4,407 (every study)  monitor 882 (IN TRAINING — not a held-out score)
+      export fixed at epoch 20; no early stopping
+      full-fit export taken at epoch 20
+
+  It emitted `checkpoint_foldall.pt` and `history_foldall.json` and **no gold
+  dump at all**, which is the safety property that matters: a model trained on
+  all 58 gold studies must never produce a file `pool_gold_oof.py` can glob.
+  All three guards — fixed epoch, suppressed dump, unparseable fold tag — fired.
+- **it cannot be scored offline, by construction**, so `knee-infer-v1pubfull`
+  was pushed as a separate submission: the same five folds behind 0.923 plus
+  this one member, one variable, with the board as the only instrument that can
+  price it.
+- **both submissions are in flight; neither board score is in yet.** The
+  follow-up if the full fit pays is four more full-fit seeds (~6 GPU-h) for a
+  full-fit-only ensemble — the real version of the lever. One member is a probe
+  of a data change worth ~25% more training data per model, and all 58 expert
+  studies instead of ~46.
+
+
+### E062 — PRE-REGISTRATION: auxiliary report targets, and the control that decides them
+- **date**: 2026-09-02. CPU only, no quota. **Written before the numbers
+  existed**, which is the point of it (E054 did this and it worked; E057 did not
+  and was overturned by E060).
+- **the survey first, because it is free and it is the lever that pays.** Kaggle
+  datasets re-surveyed on 2026-09-02, five days after E047: `stevenleehans`,
+  `pilkwang`, `tasmeemreza`, `shingo257`, `mattiaangeli`, plus searches for
+  "rsna knee", "rsna knee labels" and "knee report labels" sorted by update
+  time. **No label set has appeared since E047.** The newest label-shaped
+  datasets are still `tasmeemreza/rsna-knee-refined-llm-labels` (2026-08-30)
+  and `shingo257/rsna-knee-calibrated-labels-v1` (2026-08-26), both already
+  measured and both unevaluable because they contain the answer key. New
+  *weights* did appear — `shingo257/rsna-knee-trained-checkpoints-v1`
+  (2026-09-01) and `mattiaangeli/rsna-knee-cnx-m448-f0-public` (2026-08-31) —
+  but E046 closed that route: this project's own system overtook the public one
+  it was borrowing from, and three blend attempts returned +0.0046, +0.0022 and
+  +0.0036, none separated.
+- **so the target lever, which is untried.** The reports describe far more than
+  the twelve scored findings, and none of it is currently taught. Measured over
+  all 4,407 training reports, share mentioning each candidate:
+
+| auxiliary finding | mentioned | supervised after cues | positive | negated |
+|---|---:|---:|---:|---:|
+| Chondral | 61.7% | 60.0% | 44.2% | 13.2% |
+| PCL | 49.2% | 51.1% | 20.3% | 30.2% |
+| PatellarTendon | 45.7% | 38.2% | 20.0% | 14.6% |
+| LCL | 39.1% | 40.0% | 17.6% | 21.9% |
+| Hoffa | 22.0% | 22.1% | 10.6% | 10.2% |
+| Enthesopathy | 21.4% | 21.4% | 13.3% | 7.6% |
+| BoneEdema | 14.0% | 19.7% | 13.2% | 4.3% |
+| Bursitis | 14.2% | 14.2% | 10.9% | 0.4% |
+| Extrusion | 11.3% | 11.5% | 8.7% | 1.2% |
+| PatellarTracking | 10.2% | 10.6% | 2.4% | 7.6% |
+| Ganglion | — | 8.6% | 7.2% | 0.5% |
+| MuscleEdema | 8.5% | 8.1% | 0.7% | 7.2% |
+| Plica | 7.2% | 6.8% | 6.2% | 0.3% |
+
+  For scale, Effusion — the best-written *scored* finding — is mentioned in
+  90.4% of reports and Synovitis in 23.6% (E059). Six of these thirteen are
+  written about more often than Synovitis is. **13,765 further supervised
+  study × finding slots, a +26% change in total supervision**, all of it
+  currently discarded.
+- **how they are built, and why it is one variable.** `src/lexicons/auxiliary.csv`
+  is 326 terms over thirteen concepts and ten languages, 62% of them measured
+  present in the corpus. `src/report_labeler.py` reads it through the **same**
+  matcher, window and `cues.csv` as `findings.csv` — so the auxiliary targets
+  differ from the scored twelve in vocabulary and in nothing else. They are
+  training targets only: extra output rows on a shared trunk, dropped at
+  inference, never submitted, never scored against the 58.
+- **the trap, stated before falling into it.** Adding auxiliary outputs changes
+  *two* things: the head gains thirteen output rows, and those rows carry real
+  report content. This rig over-values head capacity — E058 found it and E060
+  left that part standing — so `auxiliary − baseline` confounds the two and
+  cannot decide anything.
+- **the deciding arm is a shuffled control.** Identical head, identical thirteen
+  extra rows, identical marginal target distribution, but the auxiliary block
+  permuted across studies so it says nothing about the images in front of it.
+  Capacity is then held fixed and the one remaining variable is whether the
+  auxiliary reports carry information. This is the control arm E057 lacked.
+
+**PRE-REGISTERED ACCEPTANCE RULE.** Spend GPU on a `v1pubaux` lineage only if
+**both** hold:
+
+1. `auxiliary − shuffled` separates from zero at 95% on the paired bootstrap, and
+2. its point estimate is at least **+0.02**.
+
+Anything smaller is inside the ±0.03 fine-tuned noise floor E060 measured and
+cannot survive the trip to the board. `--seeds 4`, per E052. Result in E063.
+
+
+### E063 — auxiliary report targets: null against their own control, twice, with the sign flipping
+- **date**: 2026-09-02. CPU only, no quota. Answers the pre-registration in E062.
+- **the rule was written first and it is not met.** Two independent runs, each
+  five folds × 24 epochs × 4 seeds on the frozen resnet34 bank, scored
+  out-of-fold on the 58 gold studies over the twelve scored findings only:
+
+| lexicon | aux slots supervised | auxiliary | shuffled | baseline | **auxiliary − shuffled** |
+|---|---:|---:|---:|---:|---|
+| v1, literal phrases | 24.0% | 0.7153 | 0.7203 | 0.7212 | **−0.0050** [−0.024, +0.013] |
+| v2, composites | 28.5% | 0.7212 | 0.7152 | 0.7212 | **+0.0060** [−0.015, +0.028] |
+
+  Neither separates from zero, neither reaches the pre-registered +0.02, and
+  **the sign flips between them** while the magnitude stays at ~0.005. Two
+  measurements that bracket zero at a fifth of the interval width are not a
+  small effect; they are an effect the instrument cannot see.
+- **the second run exists because a test caught a lexicon bug, not because the
+  first answer was unwelcome.** `test_negation_reaches_the_other_languages`
+  failed on "Das hintere Kreuzband ist intakt": the matcher anchors the *start*
+  of a term only, so the literal `hinteres kreuzband` catches one of
+  hinteres/hintere/hinteren and misses two. Rewriting the multi-word phrases as
+  composites (`hinter~kreuzband`, both halves within 45 characters) lifted
+  corpus-seen terms from 62% to 72% and auxiliary coverage from 24.0% to 28.5%
+  — 16,319 supervised slots, **+31% total supervision**. Both runs are reported
+  because reporting only the second would be choosing a lexicon by its answer.
+- **`auxiliary − baseline` on the v2 lexicon is −0.0000**, the two arms landing
+  on 0.7212 to four decimals. The baseline arm reproduced exactly across both
+  runs, which is the determinism check that makes the other columns comparable.
+- **what this does NOT establish, and the flaw is in the pre-registration.**
+  The mechanism by which auxiliary targets are supposed to pay is that extra
+  gradient shapes the *trunk* into features the twelve alone would not teach.
+  This rig freezes the trunk. The only thing auxiliary targets can reach here
+  is the shared attention MLP and the pooled vector — a real but small channel,
+  and not the one the hypothesis is about. **The instrument is partly blind to
+  the mechanism**, in the same structural way E061 found out-of-fold scoring
+  blind to ensembling, and E062 should have said so before running rather than
+  after. It did not, so this is recorded as a limitation of the measurement and
+  not as a licence to ignore it.
+- **decision: no GPU.** The rule was pre-registered, it is not met, and the
+  project's own history is that a hypothesis rescued after the fact is the
+  shape that has cost it most (E027, E052, E057). The auxiliary lexicon,
+  builder, targets and rig arm stay in the tree: they cost nothing to keep,
+  they are tested, and if the board ever justifies a fine-tuned test the
+  targets are already built. **The only instrument that could settle this is
+  the board** — ~7.5 GPU-h to train a `v1pubaux` lineage plus one submission,
+  spent blind. That is the same verdict E047 reached about the leaked label
+  sets, and it is not affordable against a lever that has just paid on the
+  board (E064).
+- **what it cost**: ~35 minutes of CPU across two runs, zero GPU. What it
+  bought: an untried category closed with a control arm rather than left open
+  as a maybe, and a multilingual matcher bug found by a test.
+
+
+### E064 — the board answers both submissions: full fit +0.001, a second seed +0.000
+- **date**: 2026-09-02. No new GPU at measurement time; both kernels were the
+  E061 runs, submitted by hand through the browser (the API path is closed —
+  `HANDOFF.md` §4b).
+
+| submission | members | public score | vs 0.923 |
+|---|---|---:|---:|
+| `knee-infer-v1pubfull` | 5 folds + **1 full fit** | **0.924** | **+0.001** |
+| `knee-infer-v1pub10` | 5 folds + 5 reseeded folds | 0.923 | +0.000 |
+
+- **the ten-member ensemble is dead, and it is the cleanest close in the log.**
+  E061 measured the second seed at 0.8827 gold against 0.8980 and could not
+  tell whether that was a weaker lineage or an instrument blind to cross-fold
+  averaging. The board has now answered: doubling the ensemble with an
+  equal-configuration reseed moved the score by **nothing at all**. E036's
+  +0.032 for one fold → five was the last of that lever, not the first of a
+  series. `PATH.md` priority 4 ("more seeds of the plain 5-fold config") is
+  **closed**.
+- **the full fit is the only thing that moved, and +0.001 is the smallest move
+  the board can show.** It is a direction, not a size, and it must not be read
+  as one: the full-fit model was **one member in six**, so whatever it is worth
+  was diluted to a sixth before the board saw it. Two submissions of the
+  identical notebook returned 0.924 both times, which fixes scoring as
+  deterministic for a given CSV but says nothing about whether 0.924 and 0.923
+  differ by more than a pair swap on ~1,300 test studies.
+- **so the follow-up is the pre-registered one and it is now running.** Four
+  more full-fit seeds (`knee-train-v1pubfull-s4/5/6/7`, ~1.5 GPU-h each), then
+  `knee-infer-v1pubfull5` — **five full-fit members and nothing else**. Against
+  the 0.923 five-fold ensemble that changes exactly one thing: how much data
+  each member saw. Same architecture, geometry, labels, cache and member count;
+  each fold model trains on 80% of studies and misses ~12 of the 58 expert
+  ones, each of these sees all of both. The data lever isolated, at full weight
+  instead of a sixth.
+- **a guard would have refused to start, and a test now pins it.** The
+  inference template opened with `find_marker("checkpoint_fold0.pt")` and exited
+  if it was absent. A full-fit run exports `checkpoint_foldall.pt` — that name
+  is deliberate, it is what stops `pool_gold_oof.py` scoring a model trained on
+  all 58 gold studies — so a kernel mounting five full-fit members and nothing
+  else contains no numbered fold anywhere and would have died with five
+  perfectly good checkpoints on disk. Discovery is now the wildcard glob alone,
+  which was always the real source of truth, and
+  `test_inference_discovers_full_fit_checkpoints` fails if the guard returns.
+- **one run died on hardware, not on code.** `knee-train-v1pubfull-s5` errored
+  54 seconds in with `CUDA error: uncorrectable ECC error encountered` — a
+  fault in the assigned card's memory, before any batch was trained. Re-queued;
+  it cost about a minute of quota. This is the one failure mode where a re-run
+  is the correct response rather than an excuse, and it is recorded so that a
+  future ECC line is recognised rather than debugged.
+
+
+### E065 — PRE-REGISTRATION: the student has overtaken its teacher, so distil it
+- **date**: 2026-09-02. CPU only, no quota. **Written before the numbers
+  exist.**
+- **the question**: 0.945 needs +0.021 from 0.924, and nothing on the books
+  covers it — full fit at full weight is unmeasured, the best blend is +0.0036
+  with an interval containing zero, and no new label set has appeared since
+  08-30. So what is left has to be a lever that has never been pulled.
+- **the precondition, and it is measured.** The five `v1public` folds score
+  **0.8980** on the 58 gold studies. The public report labels that trained them
+  score **0.8927**. The student is ahead of its teacher by 0.005.
+- **why 0.005 is the interesting number rather than a rounding error.** E048
+  established the rule that decides every union this project has tried:
+
+  > a union pays when its members are COMPARABLE, and imports errors when they
+  > are not.
+
+| union | members | result |
+|---|---|---|
+| E023 lexicon ∪ LLM | 0.7446 and 0.7421 — comparable | **+0.070** |
+| E033 fused ∪ lexicon labels | incumbent 0.03+ ahead | worse at every weight |
+| E039 two architectures | incumbent ahead | +0.0022, not separated |
+| E046 ours ∪ public 0.917 system | incumbent 0.040 ahead | +0.0036, not separated |
+| E048 four public readers | incumbent 0.03–0.06 ahead | +0.0027, not separated |
+| **this: labels ∪ model OOF** | **0.8927 and 0.8980 — comparable** | **?** |
+
+  Four failures in a row shared one property, and this candidate is the first
+  that does not have it. That is not a prediction, it is the reason the
+  experiment is worth running rather than assumed dead.
+- **how the teacher is built, and why it costs no GPU.** `kaggle/64_oof_v1pub`
+  predicts every study in the corpus exactly once, using the one checkpoint that
+  held it out, **on CPU from weights that already exist**. Re-running five folds
+  with a wider dump would have produced the same file for ~7.5 GPU-h. The
+  `gold_eval` template gained an `OOF_SCOPE` constant; at `"gold"` it is
+  byte-identical in behaviour to every run on record.
+- **it self-verifies.** The gold macro is still computed from the gold subset,
+  so this run must reproduce **0.8980**. If it does not, this kernel cut the
+  folds differently from the trainer, its predictions are not out-of-fold, and a
+  teacher built on them would leak, train cleanly, and score worse for no
+  visible reason. A test also refuses the file outright if any study appears in
+  two folds.
+
+**PRE-REGISTERED ACCEPTANCE RULE.** `eda/distill_teacher.py` scores the
+**parameter-free 50/50 rank union** of model and labels against the 58. Spend
+the ~7.5 GPU-h on a `v1pubdistil` lineage only if:
+
+> union − report labels separates from zero at 95% on the paired bootstrap.
+
+No size threshold this time, and that is deliberate: unlike E062 this is a
+change to the *teacher*, which is the one category where the offline instrument
+has a board-confirmed track record — it called the fused labels +0.0508 and the
+board paid +0.089. A separated teacher gain is worth training even if small,
+because the transfer has historically been in our favour, not against it.
+
+**The weight curve is printed in full and cannot be adopted.** An argmax over it
+is a free parameter fitted to 58 studies — the practice
+`dataset-metadata.fused.json` rejects by name and E048 declined once already. A
+test asserts the script contains no call that could pick one. Result in E066.
+
+**Stating what the instrument cannot see, before the run** (the thing E062 got
+wrong): gold-58 measures a teacher by how well it agrees with 58 expert answers.
+It cannot see whether the model's predictions are *diverse* from the labels in a
+way that helps on the other 4,349 studies, which is most of what a distillation
+teacher does. So a null here is weaker evidence than a positive, and it will be
+recorded that way rather than as "distillation does not work".
+
+
+### E066 — what the field actually does, and a CC0 ConvNeXt family screened out for one download
+- **date**: 2026-09-02. CPU only, no quota, no submission.
+- **why**: 0.945 needs +0.021 and nothing on this project's books covers it, so
+  the public assets were read properly rather than assumed closed by E046.
+
+**What the top of the leaderboard is made of**, from the public notebooks
+themselves rather than from inference:
+
+| notebook | what it is |
+|---|---|
+| `tonylica/rsna-knee-dino-radimagenet-rank-ensemble` | rank blend built on Angeli's 0.917, mounting **pilkwang's twenty checkpoints** plus RadImageNet heads |
+| `nishantkharga/…4-arm-ensemble-v55` | DINOv2 ViT-S (0.899) + cross-series attention + RadImageNet E10/E13/V18 + CoAtNet |
+| `aadigupta7686/0-899-let-me-cook` | DINOv2 members, per-finding window pooling, optional EfficientNet-B3 blend |
+| `mattiaangeli/bend-the-knee-to-dinov3-ensembled` | the DINOv3 lineage most of the above descend from |
+
+  Every one credits other competitors by name. **This is a pooled-community
+  compute route, not a single-team one**, and the rules permit it: *"It's okay
+  to share code if made available to all Participants on the forums."*
+
+**The public geometry is not ours.** `tonylica`'s constants: `SIZE = 336`,
+`CROP_MM = 130`, `N_SLICE = 16`, `SLICE_BAND = (0.12, 0.88)`, DINOv2 ViT-S/14,
+ImageNet normalisation. This project runs 192px, 20 slices × 3 planes,
+resnet34. So a foreign checkpoint cannot be fed from our cache at all — pricing
+one means **rebuilding the cache at its geometry first**, which is hours before
+a single number exists.
+
+- **and Angeli warns their own notebook is overfit to the public board.** In
+  their words: forks republished with one or two parameter tweaks chased
+  movements of **0.001–0.003**, and they followed those movements too. **That is
+  the band our own +0.001 full-fit reading sits in** (E064), and it is a reason
+  to treat the public top of 0.952 as partly public-LB fitting rather than as a
+  target with 0.028 of real headroom above us.
+
+**The licensing, re-checked per E043's rule:**
+
+| dataset | licence | verdict |
+|---|---|---|
+| `shingo257/rsna-knee-trained-checkpoints-v1` | **CC0-1.0** | usable |
+| `mattiaangeli/knee-mri-fold-weights` | CC0-1.0 | usable, already priced (E042) |
+| `pilkwang/rsna-knee-weights` | CC0-1.0 | usable, already priced (E042) |
+| `mattiaangeli/rsna-knee-cnx-m448-f0-public` | **other** | **excluded** despite shipping complete geometry and model code |
+
+**The new CC0 family screened out for the price of one download.** shingo257's
+five ConvNeXt-Small checkpoints appeared 2026-09-01 and are **self-describing** —
+each stores its backbone, geometry and the author's own gold AUC beside the
+weights:
+
+| fold | backbone | px | slices | their `auc_gold` |
+|---|---|---:|---:|---:|
+| 0 | convnext_small | 224 | 12 | 0.8677 |
+| 1 | convnext_small | 224 | 12 | 0.8102 |
+| 2 | convnext_small | 224 | 12 | 0.7331 |
+| 3 | convnext_small | 224 | 12 | 0.7448 |
+| 4 | convnext_small | 224 | 12 | 0.8611 |
+| | | | **mean** | **0.8034** |
+
+**0.0443 behind our per-fold 0.8477** — outside E048's comparability band and
+squarely in the 0.03–0.06 range where four consecutive unions paid nothing.
+**Do not build the 224px cache and do not mount this family.**
+
+- **fold 0 alone would have said the opposite.** At 0.8677 it is +0.020 *ahead*
+  of our per-fold 0.8477 and would have looked like the first public family
+  worth blending. It is the best of five and the spread runs to 0.733. A
+  one-fold read of a five-fold family is the same error E012–E019 made four
+  times with n=1 board points, and the screen only avoided it by reading all
+  five.
+- **the comparator matters as much as the number.** Judged against our *pooled*
+  0.8980 the gap would read 0.095; judged per-fold it is 0.044. The pooled
+  comparison would have been wrong by the entire width of the ensembling
+  effect — a single foreign fold must be compared against a single fold of ours.
+  `eda/survey_public_checkpoints.py` defaults to per-fold and a test asserts the
+  two comparators are further apart than the band itself.
+- **what it cost**: five downloads, no inference, no GPU, no cache. What it
+  saved: a 224px cache build plus the runs to price a family the file itself
+  said was behind. E039's rule working as intended — the probe was free and the
+  job it screened was not.
+- **the screen is now a script**, so `PATH.md` route 3 is a command rather than
+  a chore: `python eda/survey_public_checkpoints.py --checkpoints <*.pt>`. Every
+  line it prints is labelled self-reported, because it is the author's number on
+  the author's split and may include gold studies their model trained on. It
+  decides whether to build our own measurement and nothing else.
+
+
+### E067 — the weekly quota ran out mid-lineage, and it exposed a guard that was missing
+- **date**: 2026-09-02. The 30 h weekly GPU allowance is **spent**; it resets
+  ~2026-09-05.
+- **the full-fit lineage is 3 of 5, not 5 of 5:**
+
+| member | seed | state |
+|---|---:|---|
+| `knee-train-v1pubfull` | 3 | COMPLETE (E061) |
+| `knee-train-v1pubfull-s4` | 4 | **COMPLETE** |
+| `knee-train-v1pubfull-s6` | 6 | RUNNING |
+| `knee-train-v1pubfull-s5` | 5 | **ERROR** — uncorrectable ECC, 54 s in; re-push refused, quota spent |
+| `knee-train-v1pubfull-s7` | 7 | **never pushed** — quota spent |
+
+- **`eda/push_queue.sh` told the two refusals apart correctly**, which is the
+  first time that distinction has mattered in anger. It polled through repeated
+  `Maximum batch GPU session count` refusals — concurrency, waiting helps — and
+  stopped dead on `Maximum weekly GPU quota`, which waiting does not fix. The
+  ordering of those two `grep`s is load-bearing and now has a live case behind
+  it.
+
+**The guard that was missing.** `knee-infer-v1pubfull5` declares five members
+and mounts five training kernels. Two of those kernels now exist and hold **no
+checkpoint at all** — a kernel that errored and a kernel that never ran mount as
+*empty notebooks*, not as errors. The glob would have found three checkpoints,
+the ensemble would have run, and it would have produced a **valid submission for
+an experiment nobody declared**: a three-member full-fit ensemble scored against
+0.923 and read as though it were the five-member one. Unattributable the moment
+the number arrived, and every other check in the kernel would have passed.
+
+E061 verified `checkpoints mounted: 6` and `checkpoints mounted: 10` by reading
+the logs afterwards. **Reading a log is not a guard.** The count is now declared
+in the manifest and asserted in the kernel:
+
+    if MEMBERS_EXPECTED is not None and len(checkpoints) != MEMBERS_EXPECTED:
+        raise SystemExit(...)
+
+Lineage ensembles derive the count from the trainers they declare; the three
+cross-lineage ensembles in `EXTRAS` state theirs by hand (10, 6, 5). A test
+walks every inference kernel in the manifest and fails if a declared count and
+its mounted notebook count disagree — so the manifest cannot drift from the
+kernel, in either direction.
+
+- **what this cost**: ~1 minute of quota on the ECC failure and one unbuilt
+  member. What it bought: the failure mode arrived while nothing was riding on
+  it, rather than as an unexplainable board score in four days' time.
+- **next**: at the reset, push `s5` and `s7`, wait for COMPLETE, then push
+  `kaggle/63_infer_v1pubfull5` — which will now refuse to run at anything other
+  than five members — and click submit. Nothing else in this lineage is
+  actionable until then. **CPU work is unaffected**: `knee-oof-v1pub` is still
+  running on the separate CPU allowance and E065's gate does not touch GPU.
+
+
+### E068 — both new full-fit members ran as specified, and their logs say something they should not
+- **date**: 2026-09-02. Verification only, no new compute.
+- **`knee-train-v1pubfull-s4` and `-s6` are COMPLETE and correct**, confirmed
+  from their logs rather than from their status:
+
+      seeded: 4                    seeded: 6
+      FULL FIT: train 4,407 (every study)  monitor 882 (IN TRAINING)
+      export fixed at epoch 20; no early stopping
+      full-fit export taken at epoch 20
+
+  Both emitted `checkpoint_foldall.pt` and `history_foldall.json` and **neither
+  emitted a gold dump** — the safety property that matters, since a model
+  trained on all 58 gold studies must never produce a file `pool_gold_oof.py`
+  can glob. All three guards fired on both runs.
+
+- **the full-fit lineage is 3 of 5**: seeds 3 (E061), 4 and 6. Seed 5 died on an
+  ECC fault and seed 7 was never pushed; both wait on the quota reset (E067).
+
+**What the logs say that they should not.** Both runs printed:
+
+      gold studies held out in this fold: 12
+      ...
+      epoch 23  val macro AUC 0.9543  gold 0.9976
+
+Every line there is produced by correct code, and read together they describe a
+**held-out gold score of 0.9976**, which does not exist. In full-fit mode
+`val_idx` is a monitor set *inside* training: nothing is held out, and that gold
+column is memorisation. It climbs from 0.64 to 0.99 precisely because the model
+is being shown those studies with `GOLD_WEIGHT=8.0`.
+
+This is the most repeated error in this log — a number that is not a score,
+read as one. It caught E027 (a ceiling used as a gain), E052 (an instrument
+change read as a teacher change) and E047 (an answer key read as accuracy). E064
+already had to explain the full-fit member's unscoreability twice for the same
+reason. So the full-fit path now prints what the number *is*:
+
+      gold studies in the monitor set: 12 — IN TRAINING, held out from nothing.
+      Any gold figure below is memorisation, not a score.
+
+A fold run still says "held out in this fold", because there it is true. A test
+asserts both branches.
+
+- **nothing measured here changes.** The two checkpoints are unaffected; this is
+  a change to what the next reader is told about them.
+
+
+### E069 — the distilled teacher separates: +0.0261, and E048's rule predicted it
+- **date**: 2026-09-02. CPU only, no GPU quota. Answers the pre-registration in
+  E065, which was written before any of these numbers existed.
+
+| source | gold macro, n=58 |
+|---|---:|
+| public report labels (teacher) | 0.8927 |
+| `v1public` out-of-fold (student) | 0.8980 |
+| **50/50 rank union** | **0.9188** |
+
+  **union − report labels = +0.0261, 95% CI [+0.009, +0.046] — SEPARATED.**
+  The pre-registered rule is met and a `v1pubdistil` lineage is wired.
+
+- **this is the first separated positive since the public labels**, and the
+  reason it separated was predicted in advance. E048's rule: *a union pays when
+  its members are comparable and imports errors when they are not.*
+
+| union | member gap to incumbent | result |
+|---|---|---|
+| E023 lexicon ∪ LLM | 0.002 | **+0.070** |
+| E033 fused ∪ lexicon labels | 0.03+ | worse at every weight |
+| E039 two architectures | ahead | +0.0022, not separated |
+| E046 ours ∪ public 0.917 system | 0.040 | +0.0036, not separated |
+| E048 four public readers | 0.03–0.06 | +0.0027, not separated |
+| E066 shingo257 ConvNeXt family | 0.044 | screened out, not run |
+| **E069 labels ∪ own model OOF** | **0.005** | **+0.0261, separated** |
+
+  Five consecutive failures shared one property and this candidate was the first
+  without it. The rule has now predicted an outcome rather than only explained
+  past ones.
+
+- **the run self-verified, and the check was not a formality.** `knee-oof-v1pub`
+  predicted all 4,407 studies on CPU in 223.7 minutes — 882+882+881+881+881, each
+  study exactly once, by the one model that held it out. It recomputed the
+  pooled gold macro from the gold subset and returned **0.8980**, with all
+  twelve per-finding values matching E044's record to three decimals (Synovitis
+  0.779, Lateral OA 0.822 … Baker's 0.984). So this kernel cut the folds exactly
+  as the trainer did and the predictions are genuinely out-of-fold. Had it
+  disagreed, the teacher would have carried leaked information, trained
+  cleanly, and scored worse for no visible reason.
+- **the weight curve, recorded and not used:**
+
+| w_model | 0.00 | 0.25 | **0.50** | 0.75 | 1.00 |
+|---|---:|---:|---:|---:|---:|
+| gold macro | 0.8972 | 0.9116 | **0.9188** | 0.9140 | 0.8980 |
+
+  The parameter-free midpoint is also the maximum. That is a **fact about the
+  curve, not a tuning result** — an argmax over five points on 58 studies is a
+  parameter fitted to 58 studies, which `dataset-metadata.fused.json` rejects by
+  name and E048 declined once already. A test asserts the script contains no
+  call that could pick one. It is reported because it is fortunate, not because
+  it was used.
+
+**WHAT THIS MEASUREMENT CANNOT SEE**, stated as E065 promised and as E062
+failed to:
+
+1. **Gold-58 measures agreement with 58 expert answers, not training-target
+   quality on the other 4,349 studies** — which is the entire job of a
+   distilled teacher. A better teacher on the 58 is a reason to train, not
+   evidence that the trained model improves.
+2. **The student's advantage is partly borrowed from expert labels.** Each fold
+   model trained on the other ~46 gold studies at `GOLD_WEIGHT=8.0`, so it has
+   learned what expert labelling looks like in a way the report labels have not.
+   That generalises to any study, but the 58 are the population that weighting
+   optimised agreement with, so the +0.0261 may read larger here than the effect
+   the corpus as a whole will see.
+
+Neither caveat weakens the decision — the pre-registered rule was about whether
+to spend GPU, and it is met. Both bound what the number may later be claimed to
+have shown.
+
+- **the teacher is published** as `achelijndiamantidis/knee-phase1-distilled`,
+  private, keyed by competition StudyInstanceUIDs, carrying `soft_labels.parquet`
+  and a copy of `series_headers.parquet` so one mounted dataset satisfies both
+  markers the trainer looks for.
+- **`v1pubdistil` is wired and generated**: five folds, byte-identical to
+  `v1public` in cache, geometry and every hyperparameter, so the **teacher is
+  the single variable** — exactly the shape that paid +0.077 when the public
+  labels replaced the fused ones.
+- **it cannot run yet.** The weekly GPU quota is spent (E067) and resets
+  ~2026-09-05. ~7.5 GPU-h, then one submission.
+
+
+### E070 — CORRECTION: 0.924 is rank #866, not "clears the top-200 cut"
+- **date**: 2026-09-02. Read from the live leaderboard, 1,200 teams paged.
+- **`STATUS.md`, `PATH.md`, `HANDOFF.md` and `FINDINGS.md` §5.4 all say 0.917
+  enters the top 200.** That was read on 2026-08-18 and it is now false. The
+  field moved; the claim did not.
+
+| | measured 2026-09-02 |
+|---|---|
+| **our position** | **rank #866 at 0.924** |
+| teams strictly above us | **851** |
+| rank 100 | 0.939 |
+| rank 300 | 0.936 |
+| rank 600 | 0.936 |
+| rank 900 | 0.923 |
+
+**477 teams score exactly 0.936.** That is not 477 independent systems; it is
+one public notebook, forked. The single largest fact about this leaderboard is
+that **the free public baseline is 0.936 and this project's independently built
+system is 0.012 behind it.**
+
+| score | teams |
+|---|---:|
+| 0.952 | 1 |
+| 0.947 | 11 |
+| 0.937 | 37 |
+| **0.936** | **477** |
+| 0.935 | 69 |
+| 0.924 (ours) | 46 |
+
+- **none of the top thirteen teams publish anything.** All 190 authors with a
+  public notebook for this competition were cross-referenced against the
+  leaderboard down to 0.947: no match. The strongest public authors sit far
+  lower — Tony Li, whose rank ensemble E066 read, is **#135 at 0.937**. So the
+  public notebooks are a tier, not the frontier, and the frontier is private.
+- **what this changes.** E046 closed the borrowing route on the finding that
+  "this system overtook the one it was borrowing from". That was measured
+  against the 0.917-era family and is **stale**: the public plateau is now
+  0.936. No internal lever left closes +0.012 — full fit at full weight is
+  ~+0.005 optimistically and E069's distilled teacher is unpriced on the board.
+- **what it does not change.** E066's screen still rejects shingo257's ConvNeXt
+  family on its own numbers, and the caution about public-LB overfitting is now
+  stronger, not weaker: 477 teams tied at one score, and the notebook's own
+  author warning that forks chased movements of 0.001–0.003, together mean the
+  public ranking is substantially a fitting artifact and the private
+  leaderboard will reshuffle it.
+- **the process failure worth naming.** This project's standing rule is that a
+  claim carries the interval it was measured with. It has no rule about a claim
+  carrying the DATE it was measured on, and a leaderboard position decays faster
+  than any other number in this log. Every board-position claim in the docs now
+  carries its measurement date.
+
+
+### E071 — the distilled gain is broad, and it breaks the Synovitis text ceiling
+- **date**: 2026-09-03. CPU only, no quota. Per-finding breakdown of E069's
+  +0.0261, run before spending 7.5 GPU-h on the lineage it authorises.
+
+| finding | teacher | model | union | union − teacher | positives |
+|---|---:|---:|---:|---:|---:|
+| MCL | 0.968 | 0.882 | 0.955 | **−0.0136** | 9 |
+| ACL | 0.987 | 0.962 | 0.987 | −0.0006 | 24 |
+| Lateral OA | 0.833 | 0.822 | 0.836 | +0.0029 | 11 |
+| PF OA | 0.902 | 0.858 | 0.911 | +0.0097 | 21 |
+| Lateral Meniscus | 0.879 | 0.851 | 0.889 | +0.0106 | 23 |
+| Medial Meniscus | 0.948 | 0.929 | 0.962 | +0.0132 | 26 |
+| Fracture | 0.793 | 0.885 | 0.826 | +0.0333 | 18 |
+| Baker's | 0.944 | 0.984 | 0.982 | +0.0380 | 12 |
+| **Synovitis** | **0.790** | 0.779 | **0.830** | **+0.0400** | 27 |
+| Medial OA | 0.932 | 0.980 | 0.974 | +0.0419 | 15 |
+| Contusion | 0.860 | 0.915 | 0.910 | +0.0499 | 19 |
+| Effusion | 0.877 | 0.929 | 0.965 | +0.0882 | 35 |
+
+- **the gain is broad, which is the thing that had to be checked.** It improves
+  **10 of 12** findings; the median (+0.0233) sits close to the mean (+0.0261),
+  so no outlier is carrying it. The largest single finding, Effusion at +0.0882,
+  contributes **+0.0073 of the +0.0261 macro — 28%**. Delete Effusion entirely
+  and the gain is still +0.019. A macro number carried by one easy finding would
+  not have survived the trip to the board; this is not that.
+- **the two losses are small and both are where the teacher was already
+  excellent**: MCL −0.0136 from 0.968, ACL −0.0006 from 0.987. Averaging a
+  0.882 model into a 0.968 reader costs a little at the top. Correcting it
+  per-finding would be twelve choices fitted to 58 studies, which
+  `dataset-metadata.fused.json` rejects by name; it is recorded and not acted on.
+
+**SYNOVITIS REACHES 0.830 AND THE TEXT CEILING IS 0.8076.**
+
+E059 computed that ceiling as arithmetic, not estimate: of the 58 gold studies
+only 21 mention Synovitis at all, so a reader with flawless negation, flawless
+multilingual coverage and no errors whatever caps at
+
+    AUC = [13x31 + 14x8 + 0.5x14x23] / (27x31) = 0.8076
+
+and E059 concluded the Synovitis route was "closed before it was opened".
+
+**That conclusion was right about readers and is now superseded about teachers.**
+The bound constrains anything that reads the *reports*. This teacher is not a
+reader — it is a union of the reports with a model that reads *pixels*, and the
+pixels separate the 37 studies the reports are silent on. Exceeding 0.8076 is
+therefore not a contradiction of E059 but the first demonstration of what E059
+implied: **the only way past the text ceiling is to stop the teacher being
+text-only.**
+
+- **why this matters more than the number.** `PATH.md` §3 held that board 0.94
+  needs no finding below ~0.870, that Synovitis at 0.779 was the only one below
+  0.80, and that E059 had closed it — so 0.94 "does not come from fixing the
+  weakest finding". The distilled teacher moves that finding **0.790 → 0.830**,
+  which is the first movement on it in the project's history and reopens the
+  route `PATH.md` had written off.
+- **what is still unmeasured, and it is the whole thing.** This is the TEACHER
+  on 58 studies. Whether a model trained on it beats 0.924 is a board question
+  and nothing here answers it. The two limits recorded in E069 stand unchanged:
+  gold-58 scores agreement with 58 expert answers rather than training-target
+  quality on the other 4,349, and the student's edge is partly borrowed from
+  gold labels it trained on at 8x weight.
+- **the check is now permanent.** `eda/distill_teacher.py` prints the per-finding
+  table, flags when one finding carries the macro, and flags a Synovitis score
+  above the E059 ceiling with the reason it is not a contradiction.
+
+
+### E072 — a principled reweighting killed by its own premise, for the cost of a correlation
+- **date**: 2026-09-03. CPU only, no quota, **no A/B run**.
+- **the idea**: E069's teacher weights the reports and the model 50/50 on every
+  finding. E071 shows the model is far better on some (Effusion +0.052, Contusion
+  +0.055, Medial OA +0.048) and far worse on others (MCL −0.086, PF OA −0.043).
+  E059's argument suggests the mechanism: a report label is weak exactly where
+  the reports do not mention the finding. So weight the text by its **corpus
+  mention rate** — a statistic measured on all 4,407 reports, with **zero free
+  parameters** and nothing fitted to the 58.
+- **the premise was tested before the A/B, and it does not hold:**
+
+| finding | corpus mention | model − teacher |
+|---|---:|---:|
+| Synovitis | 13.8% | **−0.0114** |
+| Fracture | 19.1% | +0.0917 |
+| Lateral OA | 33.6% | −0.0106 |
+| Medial OA | 36.9% | +0.0481 |
+| Baker's | 40.8% | +0.0399 |
+| Contusion | 41.6% | +0.0553 |
+| PF OA | 55.5% | −0.0431 |
+| MCL | 61.2% | −0.0862 |
+| Lateral Meniscus | 62.8% | −0.0280 |
+| Medial Meniscus | 64.6% | −0.0192 |
+| ACL | 73.2% | −0.0251 |
+| Effusion | 73.2% | **+0.0522** |
+
+  **Pearson r = −0.423, p = 0.171. Spearman r = −0.357, p = 0.255.** The
+  direction is right and the effect is not separated at n=12 findings, and the
+  two extremes contradict it outright: the thinnest-covered finding (Synovitis,
+  13.8%) is one where the model is *worse*, and the richest (Effusion, 73.2%) is
+  where it is most *better*.
+- **so the A/B was not run.** A comparison on 58 gold studies with no mechanism
+  behind it is how a false positive gets manufactured, and this project has
+  overturned eight claims that arrived that way. Killing it cost one correlation
+  and no measurement budget.
+- **it also says something useful about the 50/50 union**: the obvious
+  principled improvement to it is not available, which is a reason to ship the
+  parameter-free version rather than keep hunting for a better weighting.
+- **a methodological note now worth making.** Several comparisons have now been
+  run against the same 58 studies. E069 is a single **pre-registered** test and
+  stands; E071 is descriptive; this is a premise check. But the count is rising,
+  and nothing in this project's rules guards against multiple comparisons on one
+  small evaluation set. Treat any future unpre-registered positive on gold-58
+  with more suspicion than its interval alone suggests.
+
+
+### E073 — PRE-REGISTRATION: a second prediction per study, to sharpen the teacher
+- **date**: 2026-09-03. CPU only, no quota. **Written before the numbers exist.**
+- **the gap**: E069's teacher unions the report labels with **one** prediction
+  per study — from the single fold model that held that study out. That arm
+  therefore carries the full single-model variance, and E060 measured that
+  variance at **±0.03** on fine-tuned gold comparisons, which is larger than the
+  +0.0261 the teacher gained.
+- **the fix costs no GPU**: `knee-oof-v1pubb` runs the same CPU kernel over the
+  **reseeded** `v1publicB` checkpoints, which already exist. Every study gets a
+  second independent prediction; averaging the two cuts the variance without
+  changing anything else about the teacher.
+- **why expect it to pay — E048's rule, not optimism.** A union pays when its
+  members are comparable. E061 pooled `v1publicB` at **0.8827** against
+  `v1public`'s **0.8980** — **0.015 apart, inside the 0.02 band** where E023's
+  union paid +0.070, and outside the 0.03-0.06 range where five consecutive
+  unions paid nothing.
+- **the timing is the point.** The distilled lineage is queued behind the GPU
+  quota reset. If the teacher can be sharpened, it must happen **before** those
+  five folds train, not after — otherwise the 7.5 GPU-h buys the weaker teacher.
+
+**PRE-REGISTERED ACCEPTANCE RULE.** Rebuild the teacher from the average of both
+lineages' out-of-fold predictions and score it against the 58. Ship the
+two-lineage teacher to the `v1pubdistil` lineage only if:
+
+> two-lineage union − one-lineage union is **positive**, and the two-lineage
+> union still separates from the report labels at 95%.
+
+No size threshold: this is a variance reduction with a known mechanism, not a
+new hypothesis, and the one-lineage teacher is already authorised. A negative
+means ship the E069 teacher unchanged. Either way the lineage trains at the
+reset; the only question is which teacher it trains on.
+
+**What this cannot see**, stated first as E065 established: gold-58 scores
+agreement with 58 expert answers, not training-target quality on the other
+4,349. And `knee-oof-v1pubb` must reproduce v1publicB's **0.8827** on the gold
+subset or its folds were cut differently from the trainer's and its predictions
+are not out-of-fold. Result in E074.
+
+
+### E074 — the union gains where the sources AGREE, which inverts the usual rule and still does not help
+- **date**: 2026-09-03. CPU only, no quota. Premise test, pre-registration and
+  A/B, in that order.
+
+**The observation, and it is the interesting part.** For each finding, correlate
+the model's and the report labels' rankings **over all 4,407 studies**, and
+compare that against how much the union beats its own better member on the 58:
+
+| finding | corr(model, teacher) | best member | union | union − best |
+|---|---:|---:|---:|---:|
+| Fracture | 0.355 | 0.885 | 0.826 | **−0.0583** |
+| MCL | 0.364 | 0.968 | 0.955 | **−0.0136** |
+| ACL | 0.466 | 0.987 | 0.987 | −0.0006 |
+| Lateral Meniscus | 0.483 | 0.879 | 0.889 | +0.0106 |
+| Lateral OA | 0.497 | 0.833 | 0.836 | +0.0029 |
+| Baker's | 0.512 | 0.984 | 0.982 | −0.0018 |
+| Contusion | 0.535 | 0.915 | 0.910 | −0.0054 |
+| PF OA | 0.567 | 0.902 | 0.911 | +0.0097 |
+| Medial OA | 0.620 | 0.980 | 0.974 | −0.0062 |
+| Synovitis | 0.637 | 0.790 | 0.830 | **+0.0400** |
+| Effusion | 0.669 | 0.929 | 0.965 | **+0.0360** |
+| Medial Meniscus | 0.725 | 0.948 | 0.962 | +0.0132 |
+
+  **r = +0.744, p = 0.0055.** The union gains MORE where the two sources are
+  MORE correlated — the **opposite** of the standard ensembling intuition that
+  decorrelated members blend best.
+
+- **the mechanism, once the sign is taken seriously**: correlation here measures
+  **shared signal, not redundancy**. Where the model and the reports agree they
+  are reading the same true thing, and averaging cancels the independent noise
+  on each while preserving it. Where they disagree, one of them is simply wrong,
+  and averaging drags the good one toward the bad. **This explains E071's two
+  losses exactly**: Fracture and MCL are the two lowest-correlation findings in
+  the corpus, and they are the two the union hurts.
+- **so, unlike E072, the premise passed and the A/B was earned.** Pre-registered
+  before running: adopt a correlation-weighted union — `w_model = corr/2`, so
+  corr→1 gives the full 50/50 union and corr→0 falls back to the incumbent
+  report labels, with corr measured corpus-wide and **nothing fitted to the 58**
+  — only if it beats the 50/50 union with a 95% interval excluding zero **and**
+  a point estimate of at least +0.01. The size condition was added because E072
+  noted comparisons against these 58 studies are accumulating.
+
+| teacher | gold macro, n=58 |
+|---|---:|
+| report labels | 0.8927 |
+| **50/50 union** | **0.9188** |
+| correlation-weighted union | 0.9144 |
+
+  **corr-weighted − 50/50 = −0.0044, 95% CI [−0.013, +0.004]. NOT SEPARATED,
+  and negative. The rule says do not adopt.**
+
+- **why it lost, which the weights make obvious**: `corr/2` peaks at 0.363
+  (Medial Meniscus) and bottoms at 0.177 (Fracture), so it down-weights the
+  model **everywhere** relative to 50/50 — it is not "weight by agreement", it
+  is "trust the reports more overall". And the model is the *better* member on
+  Fracture (0.885 vs 0.793), Contusion, Medial OA, Baker's and Effusion. The
+  parameterisation punishes the arm it should have been protecting.
+- **the descriptive finding survives the failed intervention and is worth
+  keeping.** "Blend where the sources agree; do not blend where they disagree"
+  is now a measured property of this corpus with p = 0.0055 behind it, and it is
+  a better-founded blending rule than E048's comparability heuristic, which
+  operates on whole systems rather than findings. A parameterisation that acts
+  on it *without* uniformly demoting the model has not been found; one that
+  needed the per-finding better member would be twelve choices fitted to 58
+  studies, which this project rejects by name.
+- **the practical result: the 50/50 union has now been attacked twice and held.**
+  E072 killed a coverage weighting at its premise; this killed a correlation
+  weighting at its A/B. Two principled, zero-parameter reweightings rejected is
+  the strongest argument yet for shipping the parameter-free teacher as it
+  stands. **The `v1pubdistil` lineage trains on the 50/50 union.**
+- *(The two-lineage teacher of E073 is still pending and will be **E075**.)*
+
+
+### E075 — the second lineage adds nothing to the teacher, and that is now three instruments agreeing
+- **date**: 2026-09-04. CPU only, no quota. Answers E073's pre-registration.
+- **the run verified first.** `knee-oof-v1pubb` predicted all 4,407 studies from
+  the reseeded checkpoints, one prediction per study from the model that held it
+  out, and its pooled gold macro came back at **0.8827** — exactly E061's figure
+  for `v1publicB`. So the folds were cut as the trainer cut them and the
+  predictions are genuinely out-of-fold.
+
+| | gold macro, n=58 |
+|---|---:|
+| `v1public` alone | **0.8980** |
+| `v1publicB` alone | 0.8827 |
+| mean of the two models | **0.8966** |
+| report labels | 0.8927 |
+| **ONE-lineage teacher (E069)** | **0.9188** |
+| two-lineage teacher | 0.9172 |
+
+  **two-lineage − one-lineage = −0.0017, 95% CI [−0.007, +0.003]. NOT
+  SEPARATED, and negative. The pre-registered rule says ship E069 unchanged,
+  and it is shipped unchanged.**
+
+- **the mechanism is in the third row.** Averaging the two models gives 0.8966,
+  which is *below* `v1public` alone at 0.8980. The variance reduction happened —
+  the average did not collapse to the midpoint of 0.890 — but it never overcame
+  the 0.015 strength gap. A second opinion from a weaker model is not free.
+- **so E048's comparability band does not transfer, and that is worth writing
+  down.** E073 justified this experiment by noting the two lineages sit 0.015
+  apart, inside the 0.02 band where E023's union paid +0.070. But **that band
+  was measured on unions of DIFFERENT KINDS of source** — a lexicon and an LLM,
+  or reports and a model — which fail on different studies and therefore
+  denoise each other. Averaging **same-kind members** is a different operation:
+  two runs of one configuration make correlated errors, so the average inherits
+  the weaker member's bias without cancelling it. The band is a rule about
+  *complementarity*, not about closeness, and E073 applied it to the wrong
+  operation.
+- **three independent instruments now agree that `v1publicB` adds nothing**:
+
+| instrument | result |
+|---|---|
+| gold pool (E061) | 0.8827 vs 0.8980, all five folds below their counterparts |
+| **the board** (E064) | ten members scored **0.923**, exactly what five scored |
+| teacher averaging (this) | −0.0017, not separated |
+
+  A reseed of this configuration is simply a weaker draw, and it is weaker
+  everywhere it has been looked at. **That question is closed.**
+- **cost**: 4.5 h of CPU on a separate allowance, zero GPU. What it bought: the
+  five distilled folds train on Friday knowing the teacher is the best one
+  available, rather than on a suspicion that a better one existed and was not
+  built.
+- **the E069 teacher has now survived three challenges** — a coverage weighting
+  (E072, killed at its premise), a correlation weighting (E074, killed at its
+  A/B), and a second lineage (this). It ships as published:
+  `achelijndiamantidis/knee-phase1-distilled`, unchanged.
+
+
+### E076 — the distilled lineage separates on gold: 0.9201 against 0.8980
+- **date**: 2026-09-05. Five folds, ~7.5 GPU-h. The pre-registered follow-through
+  from E069.
+
+| | gold macro, n=58 |
+|---|---:|
+| `v1public` (the 0.923 board system) | 0.8980 |
+| **`v1pubdistil`** | **0.9201** |
+
+  **Paired on the 58 shared studies: +0.0221, 95% CI [+0.003, +0.041] — A is
+  better.** All five folds verified from their logs: each mounted
+  `/kaggle/input/knee-phase1-distilled`, ran 24 epochs, and emitted its
+  checkpoint and gold dump.
+
+**Per finding, eleven of twelve improve:**
+
+| finding | v1public | v1pubdistil | delta |
+|---|---:|---:|---:|
+| MCL | 0.882 | 0.873 | **−0.009** |
+| Medial OA | 0.980 | 0.980 | +0.000 |
+| Baker's | 0.984 | 0.982 | −0.002 |
+| ACL | 0.962 | 0.978 | +0.016 |
+| Medial Meniscus | 0.929 | 0.915 | −0.014 |
+| Contusion | 0.915 | 0.923 | +0.008 |
+| Fracture | 0.885 | 0.917 | +0.032 |
+| PF OA | 0.858 | 0.865 | +0.007 |
+| Lateral OA | 0.822 | 0.876 | +0.054 |
+| **Synovitis** | 0.779 | **0.827** | **+0.048** |
+| Lateral Meniscus | 0.851 | 0.912 | +0.061 |
+| **Effusion** | 0.929 | **0.995** | **+0.066** |
+
+- **Synovitis reaches 0.827 in the trained student**, above E059's 0.8076 text
+  ceiling. E071 showed the *teacher* clearing it; this shows the property
+  survives distillation into a model that never sees a report. The ceiling
+  bounds readers, and the student is not one.
+
+**WHAT THIS DOES NOT ESTABLISH, and the caution is the point.** The paired
+interval excludes zero, but **the point estimate of +0.0221 sits inside the
+±0.03 magnitude that seed draw alone has produced here.** E060 changed nothing
+but an RNG seed and got −0.0284. This lineage differs from `v1public` in the
+teacher *and* in being a fresh draw, and the two are not separated by this
+experiment. The nearest control available is E061's reseed, `v1publicB` at
+0.8827 — a draw spread of −0.0153 from the same configuration. **+0.0221 is
+larger than that observed spread and of the same order.** So: suggestive,
+separated on this instrument, and not proof. Only the board settles it, and gold
+OOF has never forecast a score — it ranks.
+
+- **`knee-infer-v1distil` is queued** behind concurrency and will be pushed as a
+  slot frees. **Submitting requires a human click** (`HANDOFF.md` §4b).
+
+**A bug worth recording, caught by hardware rather than by a guard.**
+`knee-train-v2distil` — the 288px resolution probe — died on a CUDA OOM. The
+cause was mine: it shipped `batch=16, accum=4`, copied from the 192px config.
+288px activations are 2.25× a 192px batch, so a per-step 16 does not fit a T4.
+It was also **wrong on its own terms**: effective batch 64 against `v1distil`'s
+16 would have made the batch a *second* variable and destroyed the one-variable
+comparison the probe exists for. E017 hit the same wall and resolved it the same
+way. Corrected to `batch=4, accum=4` — effective 16, matching exactly — and a
+test now asserts the two lineages train at the same effective batch, because a
+batch difference is invisible in a gold score and fatal to the comparison. The
+OOM was luck; the test is the guard.
+
+
+### E077 — CORRECTION: the quota reset band was one observation read as a rule
+- **date**: 2026-09-05. No compute; four free refusals and one acceptance.
+- **`HANDOFF.md` §4 stated the weekly GPU allowance turns over "in an
+  18:17–00:17 UTC band".** That came from exactly **one** observation: a push
+  refused at 2026-08-21 18:17 and accepted at 2026-08-22 00:17. Nothing else
+  ever tested it.
+- **measured, by pushing and reading the refusal** (E039's rule — the push is
+  the probe and costs nothing when it fails):
+
+| attempt | result |
+|---|---|
+| 2026-09-04 18:20 | `Maximum weekly GPU quota` |
+| 2026-09-04 20:30 | `Maximum weekly GPU quota` |
+| 2026-09-04 22:37 | `Maximum weekly GPU quota` |
+| **2026-09-05 00:36** | **pushed successfully** |
+
+  So the true turnover is between **00:17 and 00:36 UTC on 2026-09-05** — past
+  the edge of the predicted band, and the band's own upper bound only survives
+  because it happens to sit 19 minutes earlier than the first success.
+- **the shape is the familiar one.** A single observation was written into the
+  entry-point document as a rule, in a project whose standing rule is that a
+  claim carries the interval it was measured with. An interval was never
+  attached because there was only ever one point. This is the same error as
+  "imaging inverts the CV-to-LB gap" (generalised from n=1) and "the 288px curve
+  is still climbing" — the ninth time it has appeared.
+- **what is now known, and it is deliberately weak**: on the two occasions it
+  has been observed, the reset happened somewhere between 18:17 and 00:36 UTC,
+  and the second was later than the first predicted. The interval is **six
+  hours wide from two points**, and Kaggle's API reports neither the balance nor
+  the reset moment, so **only the account page can settle it**
+  (`https://www.kaggle.com/settings` shows hours remaining and when they reset).
+- **`HANDOFF.md` §4 now carries the band as UNVERIFIED with its measurement
+  dates**, and the practical instruction is unchanged and was always the right
+  one: do not predict the reset, push the thing you want and read the refusal.
+- **cost of being wrong: nothing.** Four refusals, each free, and the work
+  started 16 minutes after the quota actually returned.
+
+
+### E078 — Kaggle changed its input mount layout, and a hardcoded path cost two runs
+- **date**: 2026-09-05. Two failed inference runs, ~0.1 GPU-h.
+- **the symptom**: `knee-infer-v1distil` exited twice with `no checkpoints
+  mounted (checkpoint_fold*.pt)` while all five checkpoints existed, were
+  downloadable by the API, and were listed correctly in `kernel_sources`. The
+  metadata was **byte-identical in structure** to `58_infer_v1pubfull`, which
+  had mounted six checkpoints without complaint four days earlier.
+- **the evidence was one line of the log, in both runs:**
+
+| kernel | printed |
+|---|---|
+| `knee-infer-v1pubfull`, 2026-09-01 | `competition root: /kaggle/input/**competitions**/rsna-…` |
+| `knee-infer-v1distil`, 2026-09-05 | `competition root: /kaggle/input/rsna-…` |
+
+  **Kaggle's input layout went flat between those dates.** The competition moved
+  out of `competitions/`, and mounted notebooks moved out of
+  `notebooks/<user>/<slug>/` with it. The template globbed that path literally,
+  so it matched nothing.
+- **why one finder survived and the other did not.** `find_marker("test.csv")`
+  kept working through the change because it **searches** the mounted tree; the
+  checkpoint glob **assumed** a shape. Both were written at the same time; only
+  one encoded an external system's convention as fact.
+- **the fix**: checkpoint discovery now uses `find_all_markers`, the same
+  recursive finder. Confirmed on the next run — `weights:
+  /kaggle/input/knee-train-v1distil` (flat, as predicted) and **`checkpoints
+  mounted: 5`**.
+- **the test was pinning the bug.** It asserted the hardcoded glob was
+  *present*, so it would have passed forever while the kernel failed. It now
+  asserts the opposite: discovery must search, and a literal `notebooks/` path
+  must not appear. It immediately caught the explanatory comment quoting the old
+  call verbatim, which is the assertion working.
+- **the general lesson, worth more than the fix**: `docs/` is full of rules
+  about not trusting our own single observations. This was a single observation
+  about *someone else's* system — a mount path seen once and written into code
+  as though permanent. An external convention is exactly the kind of fact that
+  changes without notice, and the cheap defence is to discover rather than
+  assume.
+
+
+### E079 — full resolution against a good teacher looks worse, not better
+- **date**: 2026-09-05. Three attempts; the third produced the signal before
+  dying. ~3 GPU-h across all three.
+- **the question** (E046's "one large untested region"): every geometry lever
+  here was measured against a 0.78 teacher. The teacher is now 0.9188. V2's own
+  manifest note records that native pixel spacing has a median of 0.312 mm and
+  **96% of series are finer than 0.60**, so the standing geometry downsamples
+  almost every study ~2×. Does full resolution pay once the labels are clean?
+- **two confounds had to be removed first, and finding the second cost two
+  CUDA OOMs.** The probe shipped `batch=16, accum=4` (effective 64 against
+  v1distil's 16) and `slice_subsample=None`, which feeds **72 slices against
+  60** because V2 carries 24 per plane to V1's 20. Memory scales with per-step
+  batch × slices, which is why halving the batch alone did not help. Corrected
+  to `batch=2, accum=8, slice_subsample=20` — effective batch **16** and
+  **60** slices, both matching `v1distil` exactly, so resolution is the single
+  variable. Tests now assert both.
+- **the third run trained 18 epochs and then died with no error line in its
+  log** — not the time budget (153 min against a 450 min cap) and not an OOM
+  this time. Cause unknown and recorded as unknown. It is not needed: the
+  curve had already answered.
+
+| | v1distil fold 0 | v2distil fold 0 |
+|---|---:|---:|
+| **val macro AUC**, n=881 held-out | **0.9067** | 0.8094 (best 0.8188) |
+| gold, n≈12 | 0.8896 | 0.7632 (best 0.8007) |
+
+- **the val figure is the one that carries weight**: 881 held-out studies, same
+  fold, same split, same teacher, geometry the only difference. **−0.088**, and
+  the gold column agrees at −0.089 on its best epoch. The gold subset alone
+  could not settle this — n≈12 with a ~0.19 interval — but it does not have to.
+- **the gold curve was falling, not rising**: 0.781, 0.801, 0.776, 0.763 across
+  epochs 15–18. This is not a run that needed more time.
+- **verdict: the region is tested and it is negative.** E019 measured 288px at
+  0.688 against 192px's 0.725 with a 0.78 teacher; the honest doubt was that a
+  noisy teacher punished the extra capacity. With a 0.9188 teacher it is
+  **worse by more**, which removes that explanation. E046's last untested region
+  is now tested. **Do not spend the four remaining folds.**
+
+### E080 — PRE-REGISTRATION: a new public label set that is not the answer key, and beats the incumbent
+- **date**: 2026-09-07. Free, CPU only. Written **before** the deciding arm was
+  computed, and committed before the number existed.
+- **the weekly survey (`PATH.md` §2.3) found three new label sets** since E062
+  found none. All three are CC0-1.0, so E043's licence rule admits them. Scored
+  against the 58 expert studies, with E047's answer-key screen attached:
+
+| label set | gold macro, n=58 | verdict |
+|---|---:|---|
+| INCUMBENT public report labels | 0.8927 | the teacher that trained the 0.923 system |
+| `mohammadsaidulislam/rsna-knee-super-labels-v1` | 1.0000 | **answer key** — 100.0% of gold cells reproduce the expert value exactly |
+| `shingo257/…/calibrated_silver_labels.csv` | 1.0000 | **answer key**, same test |
+| `shingo257/…/labels_llm_v4_goldhard.csv` | 1.0000 | **answer key**, same test |
+| **`tsuyu122/rsna-knee-mri-balanced-labels-public`** | **0.9124** | **not the answer key** |
+
+  E047 saw two such sets in five; this survey saw three in four. **A gold macro
+  of 1.0000 is unevaluable, not good**, and the screen is now the exact-cell
+  test rather than the score alone: a set can be built from the answer key
+  without reproducing it perfectly, and the score alone would not say so.
+
+- **`tsuyu122` passes every integrity check that can be run for free.** 0.0% of
+  its gold cells match the expert value exactly; 52,887 distinct values in
+  [0,1], so genuinely soft rather than a thresholded copy; all 4,407 competition
+  studies covered. It is 8,631 studies across four cohorts (RSNA, MRNet, OAI
+  3D-DESS, fastMRI), of which our 4,407 are one.
+
+- **it is a DIFFERENT KIND of source, which is the property E075 says decides
+  this.** Mean per-finding Spearman against the incumbent over all 4,407 studies
+  is **0.665** — not a re-derivation of the same reading. The disagreement is
+  structured, not noise:
+
+| better than incumbent | worse than incumbent |
+|---|---|
+| Fracture **+0.135**, Contusion +0.059, Effusion +0.052, Medial OA +0.045, Lateral OA +0.032, Baker's +0.027 | PF OA −0.055, ACL −0.053, MCL −0.009, Synovitis −0.002 |
+
+  Complementary strength on different findings is the mechanism E023's +0.070
+  union ran on. **E075's correction does not bite**: that correction was about
+  averaging SAME-kind members (two reseeds of one config), which make correlated
+  errors. This is the different-kind case the 0.02 comparability band was
+  measured on.
+
+- **the incumbent for this test is the E069 distilled teacher at 0.9188**, not
+  the report labels at 0.8927. Comparing against 0.8927 would credit this
+  candidate with a gain the project already banked. The candidate sits **0.0064
+  behind** that teacher — comparable, and the first outside member since E023 to
+  be within the band rather than 0.03–0.06 adrift.
+
+**PRE-REGISTERED, and binding:**
+
+1. **Deciding arm**: an **equal-weight rank union of three members** — public
+   report labels, `v1public` out-of-fold, `tsuyu122` — scored on the 58 gold and
+   paired-bootstrapped against the shipped two-member E069 teacher. Equal weight
+   is chosen because it is **parameter-free**; every other split is a free
+   parameter fitted to 58 studies, which E048 declined and E069 declined again.
+2. **Spend GPU only if that union beats the E069 teacher with a 95% interval
+   excluding zero.** If it does not separate, the E069 teacher ships unchanged
+   and this entry closes as a negative — as E072, E074 and E075 each did.
+3. Any other weighting is **printed and not used**, exactly as E069's weight
+   curve was. No argmax.
+
+**WHAT THIS SCREEN CANNOT SEE, stated now rather than discovered later:**
+
+1. **A set built from a model trained on the 58 would score high here for a
+   reason that does not transfer.** 0.9124 measures agreement with 58 expert
+   answers; the job of a teacher is the targets on the other 4,349. Nothing free
+   distinguishes those two, and E069 carried the same caveat about our own OOF.
+2. **Three of four sets in this survey were contaminated.** That base rate is
+   the reason the exact-cell test runs before anything else, and it is not
+   evidence that the fourth is clean — only that the one test that can be run
+   did not fail.
+
+### E081 — the new label set does not separate, and the pre-registered rule says no
+- **date**: 2026-09-07. Free, CPU only. Answers E080's pre-registration, which
+  was committed before this number existed.
+
+| source | gold macro, n=58 |
+|---|---:|
+| public report labels | 0.8927 |
+| `v1public` out-of-fold | 0.8980 |
+| `tsuyu122` balanced labels | 0.9124 |
+| **E069 teacher (SHIPPED, 2 members)** | **0.9188** |
+| equal-weight 3-member union | 0.9250 |
+
+  **3-member − E069 = +0.0062, 95% CI [−0.000, +0.014]. NOT SEPARATED.**
+  **The pre-registered rule says do not spend GPU, and no GPU is spent.** The
+  E069 teacher ships unchanged, as it did through E072, E074 and E075.
+
+- **this is a marginal null, and the distinction is worth keeping.** The lower
+  edge sits at −0.000 rather than well inside, which is not the shape of E074's
+  or E075's clear nulls. Nine of twelve findings improve, Fracture by +0.043 —
+  the finding tsuyu122 reads best and the teacher reads worst. **None of that
+  changes the answer.** A rule written before the data is binding after it, and
+  the whole reason to write one down is the case where it is close and the
+  result is one you wanted.
+- **what would have been the mistake.** The recorded-and-not-used curve peaks at
+  `w=0.40` with 0.9254, and a weighting fitted to 58 studies would have been
+  reported as a separation. That is the argmax E048 declined, E069 declined, and
+  a test asserts this script cannot take. The number is printed because it is
+  informative about the curve's shape, not because it is available.
+
+| w_tsuyu122 | 0.00 | 0.10 | 0.20 | **0.33** | 0.40 | 0.50 |
+|---|---:|---:|---:|---:|---:|---:|
+| gold macro | 0.9188 | 0.9225 | 0.9248 | **0.9250** | 0.9254 | 0.9248 |
+
+- **the instrument, not the candidate, is what ran out.** n=58 is every expert
+  label the competition provides; a +0.006 effect against a ±0.03 seed floor is
+  under a fifth of the noise this rig can resolve, so a real gain of this size
+  and no gain at all look the same here. That is the same limit E046 hit on
+  blending, and it is not fixable by measuring more carefully.
+- **cost: zero.** Four downloads, minutes of CPU. E039's rule held — the probe
+  cost nothing when it succeeded and nothing when it failed.
+
+**What it did buy, and it is not nothing:** `tsuyu122` is the first outside
+member since E023 to land inside the comparability band rather than 0.03–0.06
+adrift, and E048's rule now has a case where the precondition was met and the
+union still did not separate. The rule predicts *which unions are worth trying*,
+not which ones pay. E069 remains the only union that has separated since E023.
+
+### E082 — CORRECTION: the distilled lineage's gold OOF is not clean, and E076 compared a leaked arm against a clean one
+- **date**: 2026-09-07. No compute. Written **before** the board scored the
+  pending submission, so that it is a stated mechanism and not an explanation
+  found afterwards to fit a disappointing number.
+
+**The path, and it is structural rather than a bug.** Both lineages cut the
+same scanner-grouped folds from the same shared cohort builder. So:
+
+1. `v1public` fold *j* trains on every fold except *j*, including fold 0 — and
+   the ~12 gold studies in fold 0 carry `GOLD_WEIGHT=8.0`.
+2. Study *Y* in fold *j* gets its out-of-fold prediction from that fold-*j*
+   model. **Its soft label therefore depends on fold 0's expert answers.**
+3. The E069 teacher's label for *Y* is a union containing that prediction.
+4. `v1pubdistil` fold 0 trains on folds 1–4 — that is, on *Y* and its
+   teacher label.
+5. Fold 0 then predicts fold 0's gold studies and those predictions are pooled
+   into the 0.9201.
+
+**Fold 0's own expert labels reach fold 0's training targets, by way of the
+other four folds' models.** Four hops and heavily diluted, but not zero, and
+not removable by any check `distill_teacher.py` performs: E069's
+self-verification proved no study was predicted twice *within* a lineage, which
+is a different property and was never this one.
+
+**`v1public`'s 0.8980 does NOT carry this path.** Its targets are report labels
+derived from text, which no expert label touches, plus gold weighting on studies
+outside the held-out fold. Its gold OOF is clean.
+
+- **so E076's +0.0221 is a comparison between a clean arm and a leaked arm, and
+  it is biased toward the distilled one.** E076 recorded the right caution for
+  the wrong reason: it said the gain sits inside the ±0.03 seed-draw magnitude,
+  which is true, and treated the residual risk as *noise*. There is also a
+  **mechanism** pushing the estimate up, and a mechanism and noise are not the
+  same kind of doubt. The honest statement of E076 is now: suggestive,
+  separated on an instrument that favours the arm it separated, and not proof.
+- **what it does not touch.** The board holds labels this project has never
+  seen, so no path of this kind exists there. **The pending submission is the
+  clean test**, and it was already the only instrument that prices a teacher.
+- **the fix is nested cross-validation and it is not affordable.** A leak-free
+  teacher for fold *k* needs out-of-fold predictions produced without fold *k* —
+  5 × 4 = 20 trainings, ~30 GPU-h, a whole weekly quota to re-measure one number
+  the board reports for free.
+
+**PRE-REGISTERED reading of the pending board score, written now:**
+
+- **pays clearly** → the teacher lever is real and the leak was second-order.
+- **flat** → E076's gold gain was some mixture of this leak and the seed draw,
+  and **gold OOF stops being trusted for teacher comparisons** until the leak is
+  removed, in the same way E060 retired single-seed gold for architecture.
+
+Either way the number to quote for the distilled lineage is the board's, not
+0.9201. This entry exists so that whichever arrives, it was called in advance.
+
+### E083 — the board answers both: full fit pays at full weight, and the distilled teacher goes BACKWARDS
+- **date**: 2026-09-07. Two submissions, no new compute. Kernel attribution taken
+  from the submissions API `url` field, not inferred from click order — the two
+  landed 11 seconds apart with blank descriptions, and guessing which was which
+  would have assigned a +0.002 and a −0.014 to the wrong lineages.
+
+| submission | members | board |
+|---|---|---:|
+| `v1public` five folds (E044) | 5 fold models | 0.923 |
+| `v1public` + one full-fit (E064) | 6 | 0.924 |
+| `v1public` ten members (E064) | 10, same kind | 0.923 |
+| **`knee-infer-v1distil`** | **5 distilled folds** | **0.910** |
+| **`knee-infer-v1pubfull5`** | **5 full-fit models** | **0.926** |
+
+**1. Full fit pays at full weight. NEW STANDING SCORE 0.926.**
+Against the five-fold ensemble the single variable is how much data each member
+saw: **+0.003**. E064 priced one full-fit member inside six at +0.001 and could
+not tell dilution from a small effect; at full weight it is three times that and
+in the same direction. `PATH.md` §2.1 called this the last lever with a positive
+board reading, and it delivered.
+
+**2. The distilled teacher does not transfer. It reverses.**
+`v1distil` and `v1public` are both five folds over the same cache, geometry and
+hyperparameters; the teacher is the only variable. **0.910 against 0.923 is
+−0.013.**
+
+| instrument | distilled teacher's verdict |
+|---|---|
+| gold pool, n=58 (E076) | **+0.0221**, CI [+0.003, +0.041], separated |
+| **the board** | **−0.013** |
+
+**The rig did not merely overstate the effect. It got the sign wrong**, on a
+measurement whose 95% interval excluded zero. That is worse than any previous
+gold-to-board miss in this log, and it is the first time an interval that
+excluded zero pointed the wrong way.
+
+**E082 called the mechanism before this number existed**, and the pre-registered
+consequence fires:
+
+> *flat → E076's gold gain was some mixture of this leak and the seed draw, and
+> **gold OOF stops being trusted for teacher comparisons** until the leak is
+> removed.*
+
+The board did not come back flat. It came back **negative**, which is the
+stronger form of that branch. Both lineages cut the same folds, so fold 0's
+expert labels reach fold 0's training targets through the other folds' models,
+while `v1public`'s report-text targets carry no such path — E076 scored a leaked
+arm against a clean one and read the bias as a result.
+
+**CONSEQUENCES, binding from here:**
+
+1. **Gold-58 is retired for teacher comparisons**, as E060 retired single-seed
+   gold for architecture. It ranks; it does not price; and on the distilled
+   lineage it did not even rank correctly.
+2. **Every claim resting on E076's +0.0221 is withdrawn**, including E076's own
+   Synovitis-above-the-text-ceiling reading. Synovitis scored 0.827 in a model
+   whose evaluation leaked; the ceiling-breaking claim is not supported by a
+   clean measurement and should not be repeated.
+3. **E069's teacher separated on the same compromised instrument.** Its +0.0261
+   is now suspect for the identical reason, and the board has priced what that
+   teacher produced at −0.013. The distillation route is **closed**, not
+   pending.
+4. **A union that separates offline is not a lever.** E048's rule earns another
+   correction: comparability predicts which unions are worth trying, and this
+   log now has one that met the precondition, separated offline, and lost on the
+   board.
+
+**What survives.** The full-fit result is measured on the board with one
+variable and no leak path available. **0.926 is the standing score**, and the
+lever that produced it is *more data per member* — the same family as the
++0.089 and +0.077 that built this project, and not architecture.
+
+### E084 — the two priced ensembles united, for no training at all, and a log line that was lying
+- **date**: 2026-09-07. ~1.0 h of GPU inference, no training. Ten members: the
+  five `v1public` folds (0.923) and the five full-fit models (0.926), every
+  checkpoint already in existence.
+
+- **the run verified, and the guard that mattered was the member count.**
+  `checkpoints mounted: 10`, `failures: 0`, and the log names five distinct fold
+  checkpoints (`fold0`–`fold4`, val macro 0.8551 / 0.8383 / 0.8725 / 0.8233 /
+  0.8448) alongside five distinct `foldall` seeds. `MEMBERS_EXPECTED=10` would
+  have refused the run otherwise — the failure mode E078 introduced it for is a
+  kernel that never ran mounting as an empty notebook and scoring a short
+  ensemble that nobody notices.
+- **projected 1.048 h on 1,300 studies**, 0.033 h per extra member, against a
+  9 h cap. The three-study count in the manifest is Kaggle's interactive-save
+  sample, not the graded run.
+- **the reading is pre-registered in the kernel note and is repeated here so it
+  cannot be chosen afterwards**: above 0.926 the mix wins and different-kind
+  ensembling is live; 0.924–0.926 is linear dilution and closes the mixing
+  question; below 0.923 means suspect the kernel rather than the science.
+- **awaiting a human click.** `HANDOFF.md` §4b — this competition takes
+  submissions only from notebooks.
+
+**A log line that was lying, found while verifying the above.** Every checkpoint
+printed `epoch 23`, including the fold models, and the trainer's own comment
+says exactly that would be a bug:
+
+> *Fold 1 of the 192px run peaked at 0.7334 on epoch 18 and drifted down to
+> 0.7282 by epoch 23 — and epoch 23 is what got saved, so 0.005 was given away
+> for nothing.*
+
+**The weights were never wrong.** The trainer exports `best_state` and writes
+two different keys beside it: `best_epoch`, the epoch that was exported, and
+`epoch`, the loop's final iteration. Inference printed `epoch`. So the log
+labelled correctly-selected weights with the wrong number, and read as though
+the regression the trainer fixed had come back. Corrected to `best_epoch` with a
+fallback for checkpoints written before that key existed, and a test pins it.
+
+**This changes no score and is recorded anyway.** A future session diagnosing a
+disappointing full-fit result would have found "epoch 23" on every member and
+had a ready, wrong explanation for it — and E083 is a fresh reminder of what a
+plausible wrong explanation costs.
+
+### E085 — the leaderboard was read wrong for a week, and the best remaining lever needs a decision this repo cannot make
+- **date**: 2026-09-07. Free: leaderboard download, five notebook pulls, a
+  licence audit, and one CPU kernel that refused to run.
+
+**1. THE STANDING RANK WAS WRONG, and not by a little.** `PATH.md` and
+`HANDOFF.md` both carried "#866 of 1,866, clears the top-200 cut of 0.917".
+Downloaded and counted:
+
+| | claimed | actual, 2026-09-07 |
+|---|---|---|
+| field size | 1,866 | **3,263** |
+| top score | 0.952 | **0.954** |
+| our rank at 0.926 | — | **1,104** |
+| teams above us | — | **1,094** |
+
+  E070 already corrected the "top-200" line once and the corrected figure went
+  stale in five days, because the field grew by 75%. **A rank is a measurement
+  with a date on it, and this file will now say so every time it quotes one.**
+
+**2. THE PUBLIC NOTEBOOKS ARE AHEAD OF US, and by more than any lever left.**
+
+| cluster | teams | what it is |
+|---|---:|---|
+| 0.936 | **492** | forks of `prvsiyan/head-and-shoulders-knees-and-toes` |
+| 0.937 | 163 | forks of `renta0426/rsna-knee-0-937-weak-label-dinov2-meniscus-resid` |
+| 0.939 | 65 | a further fork of the same family |
+
+  **655 teams are 0.010–0.011 ahead of this project by clicking Copy & Edit.**
+  E046 closed "borrowing public weights" — but it priced the **0.917-era**
+  family, on the gold rig **E083 just caught getting a sign wrong**. Both halves
+  of that closure are stale, so the route is reopened.
+
+**3. THE LICENCE AUDIT IS WHAT MAKES THIS HARD.** Every notebook at 0.936+
+mounts at least one asset E043's rule excludes:
+
+| asset | licence | admissible |
+|---|---|---|
+| `dreaddevelopment/raptor-knee-*` (widedense, maxspan, arms, arms-x, native384) | CC0-1.0 | **yes** |
+| `mattiaangeli/knee-mri-fold-weights`, `pilkwang/rsna-knee-weights` | CC0-1.0 | **yes** |
+| `renta0426/…-meniscus-bag-v1` | apache-2.0 | **yes** |
+| `tonylica/rsna-knee-bend-dinov3-0917-repro-assets` | **other** | no |
+| `prvsiyan/rsna-knee-v52-radimagenet-heads` | **other** | no |
+| `marwanmath/…`, `antoinegg1/…` RadImageNet heads | **CC-BY-NC-SA** | no |
+
+  So **0.936 is not reachable under E043 as written.** The strongest admissible
+  arm is `dreaddevelopment/raptor-knee-widedense`: CC0, upstream-reported 0.924
+  from ONE model with no ensembling and no TTA, and 0.9167 on the same 58 gold
+  studies with gold held out of its training.
+
+**4. THE UNION IS THE RIGHT SHAPE — the best this log has ever had.**
+
+| union | gap | different kind? | result |
+|---|---|---|---|
+| E023 lexicon ∪ LLM | 0.0025 | yes | **+0.070** |
+| E064 folds ∪ reseed | ~0 | **no** | 0.923, exactly the five |
+| E069 labels ∪ own OOF | 0.005 | yes | offline +0.0261, **board −0.013** |
+| **Raptor ∪ our full-fit** | **0.002** | **yes, maximally** | **unpriced** |
+
+  CoAtNet over 64 slices in five fixed plane slots at 336px on a 140 mm
+  physical crop, against resnet34 2.5D at 192px on our own report labels. No
+  shared architecture, geometry, slice selection or label source.
+
+**5. IT DID NOT RUN, AND THE GUARD IS WHY THAT IS NOT A LOSS.** Upstream's
+notebook **persists no output files** — the API returns `files: []`, only a log
+— so mounting its `submission.csv` is impossible. `knee-blend-raptor` mounted
+one member and stopped:
+
+```
+submissions mounted: 1
+  /kaggle/input/notebooks/achelijndiamantidis/knee-infer-v1pubfull5/submission.csv
+```
+
+  Without `MEMBERS_EXPECTED` it would have written our own submission under the
+  blend's name, scored exactly 0.926, and been recorded as *"different-kind
+  blending is a null"* — a false negative that would have closed a live route
+  for good. E078 added that guard for a different failure and it caught this one.
+
+- **the blocker is a decision, not an engineering problem.** Getting the Raptor
+  arm means running it, which means a fork of upstream's notebook under this
+  account. The rules permit it with attribution and 655 teams have done it.
+  Reimplementing it instead is not a way around that: `RaptorClassifier`,
+  `build_backbone`, `eval_windows` and the five-slot selection would have to be
+  reproduced, which is copying the notebook while claiming otherwise, and it
+  adds silent-skew risk with no way to check it. **The account owner decides.**
+  `HANDOFF.md` §4d carries the steps.
+- **a bug the blend's failure exposed**, recorded in E084's spirit: the splice
+  pulled `find_all_markers` without `SKIP_DIRECTORIES`, which each template must
+  declare. A new test now walks every generated `run.py` and asserts each
+  ALL-CAPS name it loads is defined — and **found a second, older instance
+  immediately**: `50_tta_eval` has referenced an undefined `OOF_SCOPE` since
+  that constant was added to `gold_eval` for the distillation dumps, and would
+  have died the same way on its next run. Set to `"gold"`.
+
+### E086 — PRE-REGISTRATION: the full-fit export epoch was read off the wrong models
+- **date**: 2026-09-07. Five full-fit runs, ~7.5 GPU-h, both arms from the same
+  five trajectories. Written **before** either arm reached the board.
+
+**THE ERROR, if it is one.** `FULL_FIT_EPOCH = 20` is documented as *"measured
+rather than chosen: across the five v1public folds the mean val AUC peaks at
+epoch 20"* (E055). Those folds train on **3,526** studies. A full-fit model
+trains on **4,407**. The same epoch number therefore buys a full-fit model **25%
+more optimisation steps**:
+
+| | studies | epochs | study-visits |
+|---|---:|---:|---:|
+| fold model at its measured peak | 3,526 | 20 | **70,520** |
+| full-fit model at the same epoch | 4,407 | 20 | 88,140 |
+| full-fit model at equal visits | 4,407 | **16.0** | 70,520 |
+
+  E055 also measured the fold curves **decaying past 21**. So if the peak is
+  governed by optimisation steps rather than passes over the data, **every
+  full-fit member behind the 0.926 board score is a quarter past its best.**
+
+  The opposite reading is equally defensible and is why this is measured rather
+  than changed: more data per pass can support more passes, in which case 20 is
+  right and 16 is undertrained. **A full-fit model cannot be validated offline
+  by construction** — it trains on all 58 gold studies — so gold cannot answer
+  this even if it were trusted, and E083 says it is not.
+
+**THE DESIGN, and it is the point.** Both exports come from **one trajectory**:
+`checkpoint_foldall.pt` at epoch 20 and `early_foldall.pt` at epoch 16, same
+seed, same data order, same weights up to epoch 16. Two separate runs would have
+differed in seed as well as epoch, and E060 measured a pure reseed at −0.0284 on
+gold — larger than any effect expected here. **The export epoch is the only
+difference between the arms.** The early export is written during a run that was
+happening anyway, so the second arm costs nothing: E039's rule that a probe must
+not cost something when it succeeds.
+
+**VERIFIED BEFORE ANY SUBMISSION**, on `s11`:
+
+```
+epoch 16  ... full-fit EARLY export written at epoch 16 -> early_foldall.pt
+epoch 20  ... full-fit export taken at epoch 20
+```
+
+  `best_epoch` reads 16 and 20 respectively, and **all 186 float tensors differ
+  between the two files** (mean |Δ| 0.035, none identical). A silent no-op here
+  would have produced two identical ensembles and a confident null.
+
+**PRE-REGISTERED READINGS. Three, and the second is free:**
+
+1. `v1pubfe-early` **vs** `v1pubfe` — the export epoch, one variable.
+   *early > late*: the fold-derived epoch was overtraining every full-fit member
+   and 0.926 was left short. *early < late*: more data per pass supports more
+   passes and the step-count argument is wrong. *within 0.001*: flat here as
+   E055 found it flat over 18–21, and the epoch does not matter.
+2. `v1pubfe` **vs** the standing 0.926 — **seeds 11–15 against seeds 3–7, same
+   everything else.** The board has never seen a like-for-like reseed of a
+   full-weight ensemble. E061 priced one on gold at 0.8827 against 0.8980 and
+   E064 priced ten members against five, but neither is this. **Whatever it
+   returns bounds how much of any full-fit result is draw rather than lever** —
+   including the +0.003 that E083 credited to full fit.
+3. Whichever arm wins is submittable on its own merits.
+
+**AN OBSERVATION THAT IS NOT EVIDENCE, recorded so it is not mistaken for some
+later.** The monitor set is *in training*, so its figures are memorisation. They
+moved anyway: gold 0.9922 at epoch 16 against **1.0000** at epoch 20, val macro
+0.9153 against 0.9428. That confirms only that the model is **still actively
+fitting** between 16 and 20 rather than sitting on a plateau. Whether that
+fitting generalises or overfits is the entire question, and training-set
+memorisation cannot distinguish them. **It is not support for either arm.**
+
+### E087 — the two priced ensembles blend to exactly what the better one already scored
+- **date**: 2026-09-07. Ten members, ~1.2 GPU-h of inference, no training.
+  Answers E084's pre-registration.
+
+| submission | members | board |
+|---|---|---:|
+| `v1public` five folds | 5 fold models | 0.923 |
+| `v1public` + one full-fit (E064) | 6 | 0.924 |
+| **`knee-infer-v1pubmix`** | **5 folds + 5 full-fit** | **0.926** |
+| `knee-infer-v1pubfull5` | 5 full-fit | **0.926** |
+
+  **The blend equals the better member exactly.** E084 pre-registered
+  0.924–0.926 as *"linear dilution; pure full-fit stands and the mixing question
+  is closed for good"*, and that is the band it landed in. **Closed.**
+
+- **the linear reading E084 flagged as the case against was right.** Five folds
+  plus one full-fit scored 0.924, which is what interpolation predicts at a
+  sixth weight; at half weight it predicts ~0.9245, and the board reports three
+  decimals. Nothing here is super-additive. **E023 remains the only union in
+  this project's history that beat both of its members.**
+- **so different-kind is necessary and not sufficient.** These two ensembles met
+  the tightest comparability the log has ever had — 0.002 apart — and differ in
+  the one property the board says matters, how much data each member saw. It
+  still bought nothing. E048's rule survives as a filter on what is *worth
+  trying*; it has now failed twice as a predictor of what *pays* (E081 offline,
+  this on the board).
+- **what it cost and what it bought**: 1.2 GPU-h and a free submission, to close
+  a route that would otherwise have stayed open as "surely worth one more try".
+  The standing score is unchanged at **0.926** and the standing system is still
+  `knee-infer-v1pubfull5`, five full-fit members and nothing else.

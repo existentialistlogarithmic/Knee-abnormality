@@ -50,27 +50,28 @@ import pandas as pd
 # supervised by the fused labels. 40 epochs is what the budget
 # affords, not where the curve was shown to flatten.
 #
-RUN_FOLD            = 0
-TARGET_MM_PER_PIXEL = 0.6
-TARGET_SIZE         = 192
-SLICES_PER_PLANE    = 20
-RUN_EPOCHS          = 40
-RUN_BATCH           = 6
-ACCUM_STEPS         = 3
-RUN_LR              = 0.0001
-RUN_BACKBONE        = "vit_small_patch14_dinov2.lvd142m"
-SLICE_SUBSAMPLE     = None
-INPUT_NORM          = True
-PER_FINDING_POOL    = False
-FOCAL_K             = 0
-RUN_SEED            = None
-FULL_FIT_EPOCH      = 20
-RUN_TIME_BUDGET     = 7.5 * 3600
-GOLD_WEIGHT         = 8.0
-ABSTAIN_MASKS_LOSS  = True
-WARMUP_EPOCHS       = 2
-EMA_DECAY           = 0.999
-LABEL_SMOOTH        = 0.02
+RUN_FOLD             = 0
+TARGET_MM_PER_PIXEL  = 0.6
+TARGET_SIZE          = 192
+SLICES_PER_PLANE     = 20
+RUN_EPOCHS           = 40
+RUN_BATCH            = 6
+ACCUM_STEPS          = 3
+RUN_LR               = 0.0001
+RUN_BACKBONE         = "vit_small_patch14_dinov2.lvd142m"
+SLICE_SUBSAMPLE      = None
+INPUT_NORM           = True
+PER_FINDING_POOL     = False
+FOCAL_K              = 0
+RUN_SEED             = None
+FULL_FIT_EPOCH       = 20
+FULL_FIT_EPOCH_EARLY = None
+RUN_TIME_BUDGET      = 7.5 * 3600
+GOLD_WEIGHT          = 8.0
+ABSTAIN_MASKS_LOSS   = True
+WARMUP_EPOCHS        = 2
+EMA_DECAY            = 0.999
+LABEL_SMOOTH         = 0.02
 # --------------------------------------------------------------------------- #
 
 FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
@@ -840,6 +841,42 @@ def main() -> int:
             if epoch == min(FULL_FIT_EPOCH, args.epochs - 1):
                 best_macro, best_epoch, best_state = macro, epoch, ema_state
                 print(f"  full-fit export taken at epoch {epoch}")
+
+            # A SECOND export from the same trajectory, so the export epoch can
+            # be compared with nothing else changing — same seed, same data
+            # order, same weights up to this point. Two separate runs would
+            # confound the epoch with the seed draw, and E060 measured that
+            # draw at +-0.03 on gold, larger than any effect expected here.
+            #
+            # Why the epoch is in question at all: FULL_FIT_EPOCH=20 was read
+            # off the FOLD models (E055), which train on 3,526 studies. A
+            # full-fit model trains on 4,407, so at the same epoch number it
+            # has taken 25% more optimisation steps. If the peak is governed by
+            # steps rather than passes, the fold optimum of 20 x 3,526 = 70,520
+            # study-visits lands at epoch 16 here, and every full-fit member
+            # behind the 0.926 board score is trained a quarter past its peak —
+            # into the region where E055 measured the fold curves DECAYING.
+            #
+            # It may equally be that more data per pass supports more passes,
+            # in which case 20 is right and 16 is undertrained. That is why
+            # this is measured rather than changed.
+            #
+            # Named so it does NOT match `checkpoint_fold*.pt`: an inference
+            # kernel globbing that pattern would otherwise mount both exports
+            # of every model and silently double-count each one.
+            if (FULL_FIT_EPOCH_EARLY is not None
+                    and epoch == min(FULL_FIT_EPOCH_EARLY, args.epochs - 1)):
+                early_path = out_dir / f"early_fold{'all' if full_fit else args.fold}.pt"
+                torch.save({"model": ema_state, "epoch": epoch,
+                            "best_epoch": epoch, "macro_auc": macro,
+                            "backbone": args.backbone,
+                            "slice_subsample": SLICE_SUBSAMPLE,
+                            "input_norm": INPUT_NORM,
+                            "per_finding_pool": PER_FINDING_POOL,
+                            "focal_k": FOCAL_K,
+                            }, early_path)
+                print(f"  full-fit EARLY export written at epoch {epoch} "
+                      f"-> {early_path.name}")
         elif macro == macro and macro > best_macro:      # NaN-safe
             best_macro, best_epoch = macro, epoch
             best_state = ema_state

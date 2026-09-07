@@ -37,6 +37,13 @@ import numpy as np
 import pandas as pd
 import pydicom
 
+# Which weight files count as ensemble members. Declared BEFORE the generated
+# block so a kernel can override it there and every existing kernel keeps the
+# behaviour it already had — the generated assignment simply comes later and
+# wins. It exists because a full-fit run writes two exports from one trajectory
+# and each arm must be able to mount exactly one of them.
+CHECKPOINT_GLOB = "checkpoint_fold*.pt"
+
 # --------------------------------------------------------------------------- #
 # GENERATED CONFIG — written by eda/generate_kernels.py from src/pipeline.py.
 # Edit the manifest, not this file. Everything outside this block is shared by
@@ -501,13 +508,19 @@ def main() -> int:
     #
     # find_marker("test.csv") never broke, because it searches rather than
     # assumes. This now does the same, so a future layout change costs nothing.
+    # The pattern is a constant because a full-fit run now writes TWO exports
+    # from one trajectory — `checkpoint_foldall.pt` at FULL_FIT_EPOCH and
+    # `early_foldall.pt` at FULL_FIT_EPOCH_EARLY. They are deliberately named so
+    # that neither glob matches the other: mounting both would double-count
+    # every model and quietly halve the ensemble's diversity while the member
+    # count still looked right.
     checkpoints = sorted(
         path
-        for directory in find_all_markers("checkpoint_fold*.pt")
-        for path in sorted(directory.glob("checkpoint_fold*.pt"))
+        for directory in find_all_markers(CHECKPOINT_GLOB)
+        for path in sorted(directory.glob(CHECKPOINT_GLOB))
     )
     if not checkpoints:
-        raise SystemExit("no checkpoints mounted (checkpoint_fold*.pt)")
+        raise SystemExit(f"no checkpoints mounted ({CHECKPOINT_GLOB})")
     print(f"weights: {checkpoints[0].parent}")
     print(f"checkpoints mounted: {len(checkpoints)}")
 

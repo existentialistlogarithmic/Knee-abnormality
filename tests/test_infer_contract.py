@@ -344,16 +344,49 @@ def test_inference_discovers_full_fit_checkpoints():
         "inference must not require a numbered fold: full-fit members are "
         "written as checkpoint_foldall.pt"
     )
-    assert 'find_all_markers("checkpoint_fold*.pt")' in source, (
+    assert "find_all_markers(CHECKPOINT_GLOB)" in source, (
         "checkpoint discovery must SEARCH, not assume a mount path"
     )
     assert 'glob("notebooks/' not in source, (
         "a hardcoded notebooks/ path encodes Kaggle's mount layout; it went "
         "flat between 2026-09-01 and 2026-09-05 and cost two inference runs"
     )
-    # and the wildcard has to actually admit the full-fit filename
+    # This kernel must still resolve the glob to the default, and the default
+    # has to admit the full-fit filename. Asserting the literal call site used
+    # to stand in for both; it no longer can, because the pattern is a constant
+    # so that a full-fit run's two exports can be mounted separately.
     import fnmatch
-    assert fnmatch.fnmatch("checkpoint_foldall.pt", "checkpoint_fold*.pt")
+    glob = re.search(r'^CHECKPOINT_GLOB\s*=\s*"([^"]+)"', source, re.M)
+    assert glob and glob.group(1) == "checkpoint_fold*.pt", \
+        "the full-fit ensemble must mount the epoch-20 export"
+    assert fnmatch.fnmatch("checkpoint_foldall.pt", glob.group(1))
+
+
+def test_the_two_full_fit_exports_cannot_be_mounted_together():
+    """One trajectory writes two checkpoints; each arm must see exactly one.
+
+    The epoch comparison only means anything if the arms are disjoint. If
+    either glob matched the other's file, every model would be counted twice
+    and the ensemble's diversity silently halved — while MEMBERS_EXPECTED, which
+    counts files, still read exactly right.
+    """
+    import fnmatch
+
+    late = _source(REPO_ROOT / "kaggle" / "80_infer_v1pubfe" / "run.py")
+    early = _source(REPO_ROOT / "kaggle" / "79_infer_v1pubfe_early" / "run.py")
+    patterns = {}
+    for name, source in (("late", late), ("early", early)):
+        found = re.findall(r'^CHECKPOINT_GLOB\s*=\s*"([^"]+)"', source, re.M)
+        patterns[name] = found[-1]      # the generated block overrides the default
+
+    assert patterns["late"] == "checkpoint_fold*.pt"
+    assert patterns["early"] == "early_fold*.pt"
+    for arm, filename in (("late", "checkpoint_foldall.pt"),
+                          ("early", "early_foldall.pt")):
+        other = "early" if arm == "late" else "late"
+        assert fnmatch.fnmatch(filename, patterns[arm]), f"{arm} misses its own export"
+        assert not fnmatch.fnmatch(filename, patterns[other]), \
+            f"{other} would also mount {filename} and double-count every model"
 
 
 def test_full_fit_ensemble_mounts_only_full_fit_members():

@@ -1,0 +1,24 @@
+{
+  "id": "achelijndiamantidis/knee-infer-v1pubfe",
+  "title": "knee-infer-v1pubfe",
+  "code_file": "run.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [
+    "achelijndiamantidis/knee-train-v1pubfe-s11",
+    "achelijndiamantidis/knee-train-v1pubfe-s12",
+    "achelijndiamantidis/knee-train-v1pubfe-s13",
+    "achelijndiamantidis/knee-train-v1pubfe-s14",
+    "achelijndiamantidis/knee-train-v1pubfe-s15"
+  ],
+  "model_sources": []
+}

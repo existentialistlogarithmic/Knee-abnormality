@@ -138,6 +138,27 @@ class TrainConfig:
     there is no held-out set left to early-stop on and picking the epoch from
     the monitor set would be picking it from training data.
     """
+    full_fit_epoch_early: int | None = None
+    """A SECOND full-fit export, from the same trajectory, or None for one.
+
+    `full_fit_epoch` above is 20 because that is where the FOLD models peak
+    (E055). Those models train on 3,526 studies; a full-fit model trains on
+    4,407, so the same epoch number buys it 25% more optimisation steps. If the
+    peak is governed by steps rather than by passes over the data, the fold
+    optimum of 20 x 3,526 = 70,520 study-visits falls at epoch 16 here — and
+    E055 measured the fold curves DECAYING past 21, so the standing setting may
+    be exporting every full-fit member a quarter past its best.
+
+    The opposite is equally arguable: more data per pass can support more
+    passes. Nothing in this repo settles it, and the full-fit models cannot be
+    validated offline by construction, so only the board can.
+
+    Setting this writes `early_fold{tag}.pt` alongside the normal export.
+    Because both come from ONE run, the export epoch is the only difference
+    between the two arms — no seed draw, no data-order change. E060 measured a
+    pure reseed at -0.0284 on gold, which is larger than any effect expected
+    here, so two separate runs would not have been able to answer this.
+    """
     seed: int | None = None
     """Explicit RNG seed, or None to leave the process unseeded.
 
@@ -161,6 +182,7 @@ class TrainConfig:
                 "FOCAL_K": self.focal_k,
                 "RUN_SEED": self.seed,
                 "FULL_FIT_EPOCH": self.full_fit_epoch,
+                "FULL_FIT_EPOCH_EARLY": self.full_fit_epoch_early,
                 "RUN_TIME_BUDGET": Raw("7.5 * 3600"),
                 "GOLD_WEIGHT": 8.0, "ABSTAIN_MASKS_LOSS": True,
                 "WARMUP_EPOCHS": 2, "EMA_DECAY": 0.999, "LABEL_SMOOTH": 0.02}
@@ -1124,6 +1146,117 @@ EXTRAS = [
              "weight and it is the smallest move the board can show, so it\n"
              "is a direction rather than a size. These four exist so the\n"
              "lever can be measured at full weight instead.",
+    ),
+    *[
+        Kernel(
+            slug=f"knee-train-v1pubfe-s{seed}",
+            directory=f"{74 + index}_train_v1pubfe_s{seed}",
+            template="train",
+            gpu=True,
+            internet=True,
+            depends=["knee-cache-build-0", "knee-cache-build-1",
+                     "knee-cache-build-2", "knee-cache-build-3"],
+            datasets=[PUBLIC_DATASET],
+            constants={"RUN_FOLD": -1,          # negative = train on everything
+                       **V1.constants(),
+                       **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                     lr=6e-4, seed=seed,
+                                     full_fit_epoch_early=16).constants()},
+            note=f"Full-fit member {index + 1} of five, writing TWO exports from\n"
+                 "one trajectory: checkpoint_foldall.pt at epoch 20 and\n"
+                 "early_foldall.pt at epoch 16.\n"
+                 "\n"
+                 "THE QUESTION. FULL_FIT_EPOCH=20 was read off the FOLD models\n"
+                 "(E055), which train on 3,526 studies. A full-fit model trains\n"
+                 "on 4,407, so the same epoch number buys it 25% more\n"
+                 "optimisation steps. If the peak is governed by steps rather\n"
+                 "than by passes, the fold optimum of 20 x 3,526 = 70,520\n"
+                 "study-visits lands at epoch 16 here — and E055 measured the\n"
+                 "fold curves DECAYING past 21. On that reading every full-fit\n"
+                 "member behind the 0.926 board score is a quarter past its\n"
+                 "best. On the other reading, more data per pass supports more\n"
+                 "passes and 16 is simply undertrained. Nothing in this repo\n"
+                 "settles it, and a full-fit model cannot be validated offline\n"
+                 "by construction, so the board decides.\n"
+                 "\n"
+                 "WHY BOTH EXPORTS COME FROM ONE RUN. Two separate runs would\n"
+                 "differ in seed as well as epoch, and E060 measured a pure\n"
+                 "reseed at -0.0284 on gold — larger than any effect expected\n"
+                 "here. Same seed, same data order, same weights up to epoch\n"
+                 "16 makes the export epoch the only difference between the\n"
+                 "two arms.\n"
+                 "\n"
+                 "THE BONUS ARM, and it is free. These are new seeds, so the\n"
+                 "epoch-20 ensemble is also a five-member SEED CONTROL against\n"
+                 "the standing 0.926. E061 priced a reseed on gold and E064\n"
+                 "priced one at ten members against five, but the board has\n"
+                 "never seen a like-for-like reseed of a full-weight ensemble.\n"
+                 "\n"
+                 "Cost: ~1.5 GPU-h each. The early export is written during a\n"
+                 "run that was happening anyway, so the second arm is free —\n"
+                 "E039's rule that a probe must not cost anything when it\n"
+                 "succeeds.",
+        )
+        for index, seed in enumerate((11, 12, 13, 14, 15))
+    ],
+    Kernel(
+        slug="knee-infer-v1pubfe-early",
+        directory="79_infer_v1pubfe_early",
+        template="infer",
+        gpu=True,
+        internet=False,     # a submission kernel
+        # The epoch-16 arm. CHECKPOINT_GLOB is why this and the epoch-20 arm
+        # can share five training runs without contaminating each other: the
+        # two exports are named so neither glob matches the other, and a kernel
+        # that mounted both would double-count every model while its member
+        # count still looked right.
+        depends=[f"knee-train-v1pubfe-s{seed}" for seed in (11, 12, 13, 14, 15)],
+        constants={**V1.constants(),
+                   "BATCH_STUDIES": V1.infer_batch,
+                   "SLICE_SUBSAMPLE_EXPECTED": None,
+                   "INPUT_NORM_EXPECTED": False,
+                   "CHECKPOINT_GLOB": "early_fold*.pt",
+                   "MEMBERS_EXPECTED": 5},
+        note="Five full-fit members exported at epoch 16 instead of 20.\n"
+             "\n"
+             "Against knee-infer-v1pubfe — the same five models, same seeds,\n"
+             "same trajectory, exported at epoch 20 — the export epoch is the\n"
+             "ONLY variable. That is the comparison. The standing 0.926 is a\n"
+             "different seed draw and is NOT it.\n"
+             "\n"
+             "PRE-REGISTERED READING:\n"
+             "  early > late   the fold-derived epoch was overtraining every\n"
+             "                 full-fit member and 0.926 was left short\n"
+             "  early < late   more data per pass supports more passes, 20 is\n"
+             "                 right, and the step-count argument is wrong\n"
+             "  within 0.001   the curve is as flat here as E055 found it over\n"
+             "                 18-21, and the export epoch does not matter",
+    ),
+    Kernel(
+        slug="knee-infer-v1pubfe",
+        directory="80_infer_v1pubfe",
+        template="infer",
+        gpu=True,
+        internet=False,     # a submission kernel
+        # The epoch-20 arm from the same five runs. Serves twice: as the
+        # control for the epoch comparison, and as the board's first
+        # like-for-like reseed of a full-weight five-member ensemble.
+        depends=[f"knee-train-v1pubfe-s{seed}" for seed in (11, 12, 13, 14, 15)],
+        constants={**V1.constants(),
+                   "BATCH_STUDIES": V1.infer_batch,
+                   "SLICE_SUBSAMPLE_EXPECTED": None,
+                   "INPUT_NORM_EXPECTED": False,
+                   "MEMBERS_EXPECTED": 5},
+        note="Five full-fit members at epoch 20 — the control arm for\n"
+             "knee-infer-v1pubfe-early, and a seed control for 0.926.\n"
+             "\n"
+             "Against the standing 0.926 (knee-infer-v1pubfull5, seeds 3-7)\n"
+             "this changes only the seed. E061 priced a reseed on gold at\n"
+             "0.8827 against 0.8980 and E064 priced one on the board at ten\n"
+             "members against five, but no like-for-like reseed of a\n"
+             "full-weight ensemble has ever been submitted. Whatever it\n"
+             "returns bounds how much of any future full-fit result is draw\n"
+             "rather than lever.",
     ),
     Kernel(
         slug="knee-infer-v1pubfull5",

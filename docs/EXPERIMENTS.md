@@ -4790,3 +4790,62 @@ predictor of what pays. **A CC0 CoAtNet arm is worth measuring and is not worth
 believing**, and it is one arm of four — it is not 0.937 on its own. The two
 E086 arms remain unsubmitted and remain the only pending measurement this
 project actually owns.
+
+### E089 — the public label route is closed on a measurement, and the screen that closed it needed a control first
+- **date**: 2026-09-08. CPU only, no quota, no submission. Follows E088's census,
+  which found two CC0 label sets the weekly survey had never seen because it
+  searched by author name rather than by what the field actually mounts.
+
+**THE CANDIDATES, ALL CC0, SCORED ON THE 58 GOLD.** The bar is the incumbent this
+project already trains on, not zero:
+
+| label set | rows | gold | exact | floor | macro AUC | verdict |
+|---|---:|---:|---:|---:|---:|---|
+| **`stevenleehans` v4 blend (incumbent)** | 4,407 | 58 | 0.1% | 65.5% | **0.8927** | what we train on |
+| `pilkwang/rsna-knee-llm-labels` | 4,406 | 57 | 0.0% | 65.5% | **0.8700** | **behind by 0.023** |
+| `lixin73/…-report-labels-sol56` | 4,407 | 58 | 79.9% | 65.5% | **0.8352** | **behind by 0.058** |
+| `dreaddevelopment/rsna-knee-labels` | 4,349 | **0** | — | 65.5% | — | **unscoreable** |
+
+- **Neither new set is an upgrade.** 182 and 89 public notebooks mount them
+  respectively, so this is not an obscure corner of the field — it is two of the
+  most-used label sets in the competition, and both are behind what this project
+  already has. **Three surveys have now looked (E047, E080/E081, this one) and
+  none has found a public label set that beats `stevenleehans`.** The label
+  lever, which paid +0.089 and +0.077 and is the largest in the log, is
+  **closed by measurement rather than by assumption.**
+
+**AND THE SCREEN NEARLY MISREAD ONE OF THEM.** `PATH.md` §2.3 states the
+answer-key test as *"what fraction of gold cells equal the expert value
+exactly"*, with no threshold and no control. Read that way, `lixin73` at **79.9%**
+looks like a leak.
+
+  **It is not. The gold set is 34.5% positive, so a labeler that answers zero to
+  everything already reproduces 65.5% of gold cells exactly.** 79.9% is 14
+  points above that floor — ordinary accuracy from a coarse labeler (32 distinct
+  values), not a reproduction of the answer key. E047's and E080's genuine leaks
+  read **100%**, which is what the rule was built on and what makes it work.
+
+- **so the rule needed the control it was asking of everything else.** E057 was
+  wrong because it had no control arm and E060 supplied one; the same failure was
+  sitting inside the screen this project uses to decide what to trust. It is now
+  `eda/survey_public_labels.py`, which prints the all-zeros floor beside every
+  exact-cell rate and refuses to compare a candidate against anything but the
+  incumbent, with seven tests.
+- **one guard found while testing it.** With no finding carrying both classes on
+  the overlap there is no AUC, and `float(np.mean([]))` is `nan`. Because
+  `nan >= incumbent` is False, an unguarded screen prints **"BEHIND the
+  incumbent"** — a measurement that could not be made, dressed as one that came
+  back bad. It now says so instead.
+
+**THE ONE SET THAT CANNOT BE ANSWERED THIS WAY.**
+`dreaddevelopment/rsna-knee-labels` is all 4,407 studies minus *exactly* the 58
+gold, so gold-58 has zero overlap and no offline instrument this project owns can
+price it. Its authors report **+0.013** from adopting it (E088), measured on
+their own 58-study gate — the same finding this project's decomposition reaches
+from the other side. **It is the only label candidate left, it is CC0, and only
+the board can settle it.**
+
+- **cost**: zero. Four CSV downloads and a merge. **No GPU, no submission.**
+- **what it changes**: `PATH.md` §2.3's weekly survey stops being an open-ended
+  hope. Three passes have now closed it, and the fourth candidate is a board
+  question rather than an offline one.

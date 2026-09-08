@@ -156,6 +156,32 @@ Three things follow and they are binding:
 3. **A union that separates offline is not a lever.** E048's comparability rule
    says which unions are worth an afternoon, not which ones pay.
 
+### 3. Survey public label sets — **CLOSED BY MEASUREMENT (E089)**, not by assumption
+**Three passes have now looked and none found a public set that beats the
+incumbent.** E089 screened the two most-mounted CC0 label sets in the field —
+182 and 89 public notebooks respectively, both missed by earlier surveys because
+those searched by author name rather than by what the field mounts:
+
+| label set | gold macro AUC | against our 0.8927 |
+|---|---:|---|
+| `pilkwang/rsna-knee-llm-labels` | 0.8700 | **behind by 0.023** |
+| `lixin73/…-report-labels-sol56` | 0.8352 | **behind by 0.058** |
+
+**One candidate survives and it is a board question, not an offline one.**
+`dreaddevelopment/rsna-knee-labels` is CC0 and covers all 4,407 studies *minus
+exactly the 58 gold*, so gold-58 cannot price it at all. Its authors report
+**+0.013** from adopting it. It is the label set behind the CC0 CoAtNet weights
+in §2.0.
+
+**And the screen itself needed the control it demanded of everything else.** The
+rule below said "what fraction of gold cells equal the expert value exactly"
+with no threshold. **The gold set is 34.5% positive, so all-zeros already
+reproduces 65.5% of cells** — `lixin73` reads 79.9% and is ordinary, not leaked,
+while E047's and E080's real answer keys read 100%. `eda/survey_public_labels.py`
+now prints the floor beside every rate and compares only against the incumbent.
+
+The original guidance, still worth following if a genuinely new set appears:
+
 ### 3. Survey public label sets weekly — free, CPU only
 Both of the largest board jumps came from label sets appearing. E047 found four
 new sets in five days; E062's survey on 2026-09-02 found none since. Check

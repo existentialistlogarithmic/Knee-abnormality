@@ -321,7 +321,7 @@ has reached the board.** The API cannot submit (§4b), so:
 
 Four of five daily slots were spent on 2026-09-07 and the allowance resets at
 00:00 UTC, so from then both fit in one day and neither needs to go first.
-**Record the result as E089** — E088 is the 2026-09-08 field-and-licence survey. The three readings are pre-registered in E086 and
+**Record the result as E090** — E088 is the field-and-licence survey and E089 the label screen, both 2026-09-08. The three readings are pre-registered in E086 and
 must not be re-derived after the scores land:
 
 1. `v1pubfe-early` vs `v1pubfe` — the export epoch, one variable, same five

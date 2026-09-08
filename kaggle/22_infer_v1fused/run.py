@@ -37,6 +37,13 @@ import numpy as np
 import pandas as pd
 import pydicom
 
+# Which weight files count as ensemble members. Declared BEFORE the generated
+# block so a kernel can override it there and every existing kernel keeps the
+# behaviour it already had — the generated assignment simply comes later and
+# wins. It exists because a full-fit run writes two exports from one trajectory
+# and each arm must be able to mount exactly one of them.
+CHECKPOINT_GLOB = "checkpoint_fold*.pt"
+
 # --------------------------------------------------------------------------- #
 # GENERATED CONFIG — written by eda/generate_kernels.py from src/pipeline.py.
 # Edit the manifest, not this file. Everything outside this block is shared by
@@ -53,6 +60,7 @@ SLICES_PER_PLANE         = 20
 BATCH_STUDIES            = 4
 SLICE_SUBSAMPLE_EXPECTED = None
 INPUT_NORM_EXPECTED      = False
+MEMBERS_EXPECTED         = 5
 # --------------------------------------------------------------------------- #
 
 FINDINGS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
@@ -67,6 +75,32 @@ FALLBACK_PRIOR = 0.3     # used only if a study cannot be read at all
 # --------------------------------------------------------------------------- #
 # from kaggle/_templates/_shared/discovery.py
 # --------------------------------------------------------------------------- #
+def find_all_markers(pattern: str, max_depth: int = 4) -> list[Path]:
+    """Every mounted directory containing a file matching `pattern`.
+
+    The cache is built as four shard kernels and mounted as four separate
+    inputs. Finding only the first would silently train on a quarter of the
+    data at full apparent success — the worst kind of bug, because the loss
+    curve would look fine.
+    """
+    found = []
+    frontier = [(Path("/kaggle/input"), 0)]
+    while frontier:
+        directory, depth = frontier.pop(0)
+        if depth > max_depth:
+            continue
+        try:
+            entries = sorted(directory.iterdir())
+        except (FileNotFoundError, PermissionError):
+            continue
+        if any(e.is_file() and e.match(pattern) for e in entries):
+            found.append(directory)
+        for entry in entries:
+            if entry.is_dir() and entry.name not in SKIP_DIRECTORIES:
+                frontier.append((entry, depth + 1))
+    return found
+
+
 def find_marker(marker: str, max_depth: int = 4):
     frontier = [(Path("/kaggle/input"), 0)]
     while frontier:
@@ -408,12 +442,9 @@ def main() -> int:
 
     started = time.time()
     root = find_marker("test.csv")
-    weights_dir = find_marker("checkpoint_fold0.pt")
     if root is None:
         raise SystemExit("competition data not found")
-    if weights_dir is None:
-        raise SystemExit("trained weights not mounted (checkpoint_fold0.pt)")
-    print(f"competition root: {root}\nweights: {weights_dir}")
+    print(f"competition root: {root}")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cuda":
@@ -423,12 +454,60 @@ def main() -> int:
             print("pre-Volta GPU; falling back to CPU to avoid a CUDA failure")
             device = "cpu"
 
-    # Every mounted training kernel contributes one fold. Discovered rather than
-    # listed, so adding a fold means mounting it and nothing else.
-    checkpoints = sorted(Path("/kaggle/input").glob("notebooks/*/*/checkpoint_fold*.pt"))
+    # Every mounted training kernel contributes one member. Discovered rather
+    # than listed, so adding a member means mounting it and nothing else.
+    #
+    # This glob is the ONLY discovery path for weights, and the wildcard in
+    # `fold*` is load-bearing. A full-fit model is written as
+    # checkpoint_foldall.pt, so a kernel mounting nothing but full-fit members
+    # contains no checkpoint_fold0.pt anywhere. An earlier version guarded on
+    # that exact filename before reaching this line and would have refused to
+    # start with five perfectly good checkpoints mounted.
+    # DISCOVERED, not a hardcoded path. This used to glob a fixed
+    # notebooks/<user>/<slug>/ path under /kaggle/input, which encoded Kaggle's
+    # mount layout as of 2026-09-01. Between then and
+    # 2026-09-05 that layout went FLAT — the competition moved from
+    # /kaggle/input/competitions/<comp> to /kaggle/input/<comp>, and mounted
+    # notebooks with it — so the glob silently matched nothing and two
+    # inference runs died with "no checkpoints mounted" while five perfectly
+    # good checkpoints sat one directory away.
+    #
+    # find_marker("test.csv") never broke, because it searches rather than
+    # assumes. This now does the same, so a future layout change costs nothing.
+    # The pattern is a constant because a full-fit run now writes TWO exports
+    # from one trajectory — `checkpoint_foldall.pt` at FULL_FIT_EPOCH and
+    # `early_foldall.pt` at FULL_FIT_EPOCH_EARLY. They are deliberately named so
+    # that neither glob matches the other: mounting both would double-count
+    # every model and quietly halve the ensemble's diversity while the member
+    # count still looked right.
+    checkpoints = sorted(
+        path
+        for directory in find_all_markers(CHECKPOINT_GLOB)
+        for path in sorted(directory.glob(CHECKPOINT_GLOB))
+    )
     if not checkpoints:
-        raise SystemExit("no checkpoints mounted")
+        raise SystemExit(f"no checkpoints mounted ({CHECKPOINT_GLOB})")
+    print(f"weights: {checkpoints[0].parent}")
     print(f"checkpoints mounted: {len(checkpoints)}")
+
+    # A member that never trained mounts as an EMPTY notebook, not as an error.
+    # The glob then finds fewer checkpoints, the ensemble runs, and it produces
+    # a perfectly valid submission for an experiment nobody declared — which is
+    # unattributable the moment its board score arrives.
+    #
+    # This is not hypothetical. On 2026-09-02 the weekly GPU quota ran out with
+    # two of five full-fit members unbuilt: one had died on an uncorrectable ECC
+    # error and one was never pushed. Every check up to here would have passed.
+    #
+    # E061 verified "checkpoints mounted: 10" and "6" by reading the log after
+    # the fact. Reading a log is not a guard, so the count is declared in the
+    # manifest and asserted here instead.
+    if MEMBERS_EXPECTED is not None and len(checkpoints) != MEMBERS_EXPECTED:
+        raise SystemExit(
+            f"expected {MEMBERS_EXPECTED} ensemble members, mounted "
+            f"{len(checkpoints)}: {[p.parent.parent.name for p in checkpoints]}. "
+            "Refusing to submit an ensemble that is not the one declared."
+        )
 
     # Averaging is only meaningful between models that were fed the same way.
     # Two properties are invisible in the weights and fatal if they differ:
@@ -495,8 +574,17 @@ def main() -> int:
                              f"unexpected={len(unexpected)}; refusing to predict")
         model.eval()
         models.append(model)
+        # best_epoch, NOT epoch. The trainer exports the best-scoring weights
+        # but writes the LOOP's final epoch under "epoch", so printing that
+        # labelled every checkpoint "epoch 23" — which is exactly the bug the
+        # trainer's own comment says it fixed (fold 1 peaked at 18 and epoch 23
+        # got saved, giving away 0.005). A future session reading this log would
+        # have concluded the regression was back. The weights were always right;
+        # the label was not. Fall back to "epoch" for checkpoints written before
+        # best_epoch existed.
+        exported = state.get("best_epoch", state.get("epoch"))
         print(f"  {path.parent.parent.name}/{path.name}: {backbone}, "
-              f"epoch {state.get('epoch')}, val macro AUC "
+              f"epoch {exported}, val macro AUC "
               f"{state.get('macro_auc', float('nan')):.4f}")
     print(f"ensembling {len(models)} models")
     model.eval()

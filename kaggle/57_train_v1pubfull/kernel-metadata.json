@@ -1,0 +1,25 @@
+{
+  "id": "achelijndiamantidis/knee-train-v1pubfull",
+  "title": "knee-train-v1pubfull",
+  "code_file": "run.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "achelijndiamantidis/knee-phase1-public"
+  ],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [
+    "achelijndiamantidis/knee-cache-build-0",
+    "achelijndiamantidis/knee-cache-build-1",
+    "achelijndiamantidis/knee-cache-build-2",
+    "achelijndiamantidis/knee-cache-build-3"
+  ],
+  "model_sources": []
+}

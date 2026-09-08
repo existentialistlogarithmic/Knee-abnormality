@@ -325,3 +325,170 @@ def test_fold_ensemble_decodes_once_for_all_models():
     source = _source(FOLDS)
     build_calls = source.count("build_study(root,")
     assert build_calls == 1, f"volume built {build_calls} times; should be once per study"
+
+
+# --------------------------------------------------------------------------- #
+# full-fit members are discoverable
+# --------------------------------------------------------------------------- #
+def test_inference_discovers_full_fit_checkpoints():
+    """A full-fit-only ensemble has no `checkpoint_fold0.pt` anywhere in it.
+
+    A full-fit run exports `checkpoint_foldall.pt` — that name is what keeps
+    `pool_gold_oof.py` from scoring a model that trained on all 58 gold
+    studies. So a kernel mounting five full-fit members and nothing else
+    contains no numbered fold at all, and any guard naming one refuses to
+    start with five perfectly good checkpoints mounted.
+    """
+    source = _source(REPO_ROOT / "kaggle" / "63_infer_v1pubfull5" / "run.py")
+    assert 'find_marker("checkpoint_fold0.pt")' not in source, (
+        "inference must not require a numbered fold: full-fit members are "
+        "written as checkpoint_foldall.pt"
+    )
+    assert "find_all_markers(CHECKPOINT_GLOB)" in source, (
+        "checkpoint discovery must SEARCH, not assume a mount path"
+    )
+    assert 'glob("notebooks/' not in source, (
+        "a hardcoded notebooks/ path encodes Kaggle's mount layout; it went "
+        "flat between 2026-09-01 and 2026-09-05 and cost two inference runs"
+    )
+    # This kernel must still resolve the glob to the default, and the default
+    # has to admit the full-fit filename. Asserting the literal call site used
+    # to stand in for both; it no longer can, because the pattern is a constant
+    # so that a full-fit run's two exports can be mounted separately.
+    import fnmatch
+    glob = re.search(r'^CHECKPOINT_GLOB\s*=\s*"([^"]+)"', source, re.M)
+    assert glob and glob.group(1) == "checkpoint_fold*.pt", \
+        "the full-fit ensemble must mount the epoch-20 export"
+    assert fnmatch.fnmatch("checkpoint_foldall.pt", glob.group(1))
+
+
+def test_the_two_full_fit_exports_cannot_be_mounted_together():
+    """One trajectory writes two checkpoints; each arm must see exactly one.
+
+    The epoch comparison only means anything if the arms are disjoint. If
+    either glob matched the other's file, every model would be counted twice
+    and the ensemble's diversity silently halved — while MEMBERS_EXPECTED, which
+    counts files, still read exactly right.
+    """
+    import fnmatch
+
+    late = _source(REPO_ROOT / "kaggle" / "80_infer_v1pubfe" / "run.py")
+    early = _source(REPO_ROOT / "kaggle" / "79_infer_v1pubfe_early" / "run.py")
+    patterns = {}
+    for name, source in (("late", late), ("early", early)):
+        found = re.findall(r'^CHECKPOINT_GLOB\s*=\s*"([^"]+)"', source, re.M)
+        patterns[name] = found[-1]      # the generated block overrides the default
+
+    assert patterns["late"] == "checkpoint_fold*.pt"
+    assert patterns["early"] == "early_fold*.pt"
+    for arm, filename in (("late", "checkpoint_foldall.pt"),
+                          ("early", "early_foldall.pt")):
+        other = "early" if arm == "late" else "late"
+        assert fnmatch.fnmatch(filename, patterns[arm]), f"{arm} misses its own export"
+        assert not fnmatch.fnmatch(filename, patterns[other]), \
+            f"{other} would also mount {filename} and double-count every model"
+
+
+def test_full_fit_ensemble_mounts_only_full_fit_members():
+    """The lever is 'every member saw all the data'. A fold model dilutes it."""
+    import json
+    metadata = json.loads(
+        (REPO_ROOT / "kaggle" / "63_infer_v1pubfull5" / "kernel-metadata.json").read_text())
+    sources = metadata["kernel_sources"]
+    assert len(sources) == 5, sources
+    assert all("v1pubfull" in slug for slug in sources), sources
+
+
+# --------------------------------------------------------------------------- #
+# the out-of-fold dump must not change what gold means
+# --------------------------------------------------------------------------- #
+def test_oof_scope_all_still_scores_only_gold():
+    """Widening the holdout must not widen the gold instrument.
+
+    `pool_gold_oof.py` reads `gold_oof_fold*.json` and every gold number on
+    record came from it. If a scope="all" run wrote the whole holdout into that
+    artifact, the pooled macro would silently become a report-label score over
+    4,407 studies rather than an expert score over 58 — a different quantity
+    with the same name, which is the single most expensive shape of error in
+    this project's log.
+    """
+    source = _source(REPO_ROOT / "kaggle" / "64_oof_v1pub" / "run.py")
+    assert 'OOF_SCOPE           = "all"' in source
+    # the gold artifact is built from the gold subset, not from `positions`
+    assert '"studies": [studies[p] for p in gold_positions],' in source
+    assert '"predicted": gold_predicted.round(5).tolist(),' in source
+    # and the AUC that gets printed is the gold one
+    assert "roc_auc_score(y, gold_predicted[:, i])" in source
+    # the full holdout goes to its own file
+    assert 'f"oof_all_fold{fold}_{tag}.json"' in source
+
+
+def test_gold_eval_default_scope_is_unchanged():
+    """The existing kernel keeps predicting gold only, so its cost is unchanged."""
+    source = _source(REPO_ROOT / "kaggle" / "23_gold_eval" / "run.py")
+    assert 'OOF_SCOPE           = "gold"' in source
+
+
+def test_oof_dump_runs_without_a_gpu():
+    """It is 4,407 forward passes on checkpoints that already exist. Spending
+    GPU quota on it would be spending the scarce allowance to avoid the free
+    one — CPU is a separate allowance with five slots."""
+    import json
+    metadata = json.loads(
+        (REPO_ROOT / "kaggle" / "64_oof_v1pub" / "kernel-metadata.json").read_text())
+    assert metadata["enable_gpu"] is False
+    assert metadata["enable_internet"] is False
+
+
+# --------------------------------------------------------------------------- #
+# an ensemble must be the ensemble that was declared
+# --------------------------------------------------------------------------- #
+def test_every_inference_kernel_declares_its_member_count():
+    """A member that never trained mounts as an EMPTY notebook, not an error.
+
+    The glob then finds fewer checkpoints, the ensemble runs, and it produces a
+    valid submission for an experiment nobody declared — unattributable the
+    moment its score arrives. On 2026-09-02 the weekly quota ran out with two of
+    five full-fit members unbuilt, and every other check would have passed.
+    """
+    import json
+    import sys
+    sys.path.insert(0, str(REPO_ROOT))
+    from src.pipeline import all_kernels
+
+    generated = [k for k in all_kernels() if k.template == "infer"]
+    assert generated, "no inference kernels in the manifest"
+    for kernel in generated:
+        directory = REPO_ROOT / "kaggle" / kernel.directory
+        source = (directory / "run.py").read_text()
+        assert "MEMBERS_EXPECTED" in source, directory.name
+        metadata = json.loads((directory / "kernel-metadata.json").read_text())
+        declared = re.search(r"^MEMBERS_EXPECTED\s*=\s*(\d+|None)", source, re.M)
+        assert declared, directory.name
+        if declared.group(1) != "None":
+            assert int(declared.group(1)) == len(metadata["kernel_sources"]), (
+                f"{directory.name}: declares {declared.group(1)} members but "
+                f"mounts {len(metadata['kernel_sources'])} notebooks"
+            )
+
+
+def test_the_guard_refuses_rather_than_warns():
+    """Printing a count is what E061 did, and reading a log is not a guard."""
+    source = _source(REPO_ROOT / "kaggle" / "63_infer_v1pubfull5" / "run.py")
+    assert "raise SystemExit(" in source.split("MEMBERS_EXPECTED is not None")[1][:400]
+
+
+def test_infer_reports_the_exported_epoch_not_the_last_one():
+    """The trainer saves the BEST weights but writes the loop's final epoch.
+
+    Printing state["epoch"] therefore labelled every checkpoint with the last
+    epoch trained, which reads exactly like the regression the trainer's own
+    comment says it fixed: fold 1 peaked at 18, epoch 23 got saved, 0.005 given
+    away. The weights were never wrong; a future session reading the log would
+    have thought they were.
+    """
+    source = (REPO_ROOT / "kaggle" / "_templates" / "infer.py.in").read_text()
+    assert 'state.get("best_epoch"' in source, \
+        "inference must report the epoch it actually exported"
+    assert "f\"epoch {state.get('epoch')}\"" not in source, \
+        "reporting the loop's last epoch mislabels every checkpoint"

@@ -51,7 +51,7 @@ Six measurements govern everything downstream:
   point bought that way is worth nothing on the board. See `FINDINGS.md` §11.
 
   **Consequence: there is no trustworthy offline selection signal**, and the
-  board allows 2 submissions a day. The one scalable alternative is out-of-fold
+  board allows 5 submissions a day. The one scalable alternative is out-of-fold
   scoring against the 58 expert-labelled studies — training already uses expert
   labels for gold studies and splits afterwards, so a complete 5-fold run yields
   one expert-scored prediction per gold study from a model that never saw it.

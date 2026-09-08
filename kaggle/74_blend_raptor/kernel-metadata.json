@@ -1,0 +1,21 @@
+{
+  "id": "achelijndiamantidis/knee-blend-raptor",
+  "title": "knee-blend-raptor",
+  "code_file": "run.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "machine_shape": "",
+  "dataset_sources": [],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [
+    "achelijndiamantidis/knee-infer-v1pubfull5",
+    "achelijndiamantidis/knee-infer-raptorcc0"
+  ],
+  "model_sources": []
+}

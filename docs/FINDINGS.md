@@ -76,8 +76,11 @@ clever workaround.
 | 2.12 | **Hidden test set size** | `VERIFIED` | data-description page: "There are about 1300 studies in the test set." The 3-row `test.csv` is a stub replaced at scoring time. |
 | 2.13 | **Efficiency score formula** | `VERIFIED (quoted)` | `Efficiency = AUC / (Benchmark − maxAUC) + RuntimeSeconds / 32400`, minimised, where `Benchmark` is `sample_submission.csv`'s score and `maxAUC` the best private-LB score. 32,400 s is the 9-hour cap. Eligibility: must be a selected submission and must beat the `sample_submission.csv` benchmark on the private LB. *(As written the first term is negative, since Benchmark < maxAUC; recorded verbatim rather than "corrected", but worth watching the forum for an erratum.)* |
 | 2.14 | **Timeline** | `VERIFIED` | Start 2026-07-30; entry and team-merger deadline 2026-10-15; final submission 2026-10-22; winners' requirement deadline 2026-11-05. All 23:59 UTC. *(The API's `enabled_date` says 2026-08-05, which disagrees with the Timeline page's start date; immaterial, but noted.)* |
-| 2.10 | Submission limits | `VERIFIED` | `max_daily_submissions` = 5, `max_team_size` = 5 |
-| 2.11 | Field size | `VERIFIED` | `team_count` = 1,866 as of this run |
+| 2.15 | **One account per participant** | `VERIFIED (quoted)` | Rules page, verbatim: *"You cannot sign up to Kaggle from multiple accounts and therefore you cannot enter or submit from multiple accounts."* Training this competition's model on a second account's GPU quota is entering from multiple accounts. **Teams are the sanctioned route** — max size 5, mergers allowed, entry and merger deadlines both 2026-10-15 — and teammates each run their own account and share results as datasets, never credentials. |
+| 2.10 | Submission limits | **`VERIFIED` twice** | `max_daily_submissions` = **5**, `max_team_size` = 5. Confirmed live on 2026-08-22: submitting the fused 5-fold returned "4 submissions remaining today". **Three other files in this repo said 2 a day and were wrong** — README, this file twice, and PATH.md — which had the practical effect of rationing a resource that was never that scarce. Corrected everywhere. |
+| 2.11 | Field size | `VERIFIED`, and **it moves fast** | `team_count` = 1,866 when first read; **3,263 on 2026-09-07 (E085) and 3,309 later the same day.** The field grew 75% in five days, which is why a rank must always be quoted with its date. |
+| 2.16 | **Why the API cannot submit** | `VERIFIED` | The competition metadata carries `is_kernels_submissions_only = True`, read from `competitions_list` on 2026-09-07. So `kaggle competitions submit`'s HTTP 400 — *"This competition only accepts Submissions from Notebooks"* — is **by design and permanent**, not a transient competition-side change as `HANDOFF.md` §4b previously hedged. Do not retry it periodically, and do not debug the CSV. The same call confirms 2.10, 2.14 and 2.15's deadlines first-hand. |
+| 2.17 | **Final submission selection** | **`UNVERIFIED`** | How the private leaderboard picks which submissions count has never been checked. The API exposes no selection cap, and `privateScore` is empty on every submission row. 2.13 quotes the efficiency prize as requiring a *selected* submission, so selection exists; the number allowed and the default at the 2026-10-22 deadline are unknown. **Every score in `STATUS.md` §1A is a public score.** |
 
 ---
 
@@ -413,7 +416,7 @@ OA 0.519 and Lateral OA 0.599, both far *below* the 192px model. This is a
 comparison across different folds and so is suggestive, not conclusive.
 
 **What this costs the project.** There is now **no trustworthy offline
-model-selection signal**. The board allows 2 submissions per day. Every
+model-selection signal**. The board allows 5 submissions per day. Every
 configuration choice from here is either paid for at that rate or made on a
 signal that has been shown to mis-rank.
 
@@ -560,6 +563,10 @@ kind of detail that silently invalidates everything downstream.
 ## 8. Where the leaderboard actually sits — `VERIFIED`
 
 Read via `competition_leaderboard_view` on 2026-08-18, top 200 of 1,866 teams.
+**SUPERSEDED — see E070.** Re-measured 2026-09-02: 0.917 no longer enters the
+top 200, 0.924 is rank #866, and 477 teams tie at 0.936. A leaderboard
+position decays faster than any other number in this log, so every figure in
+this section is read as of its date and not as a standing fact.
 
 | score | approximate rank | percentile |
 |---:|---:|---|
@@ -698,7 +705,7 @@ discovering later.
 ## 13. How much the gold set can actually settle — `VERIFIED` by simulation
 
 §11 leaves the project with report-label CV that mis-ranks, a leaderboard that
-allows two submissions a day, and 58 expert-labelled studies. Before building a
+allows five submissions a day, and 58 expert-labelled studies. Before building a
 development loop on those 58 studies it is worth knowing what they can resolve.
 Simulated at macro AUC ≈ 0.73 over 12 findings, 400 bootstrap resamples,
 5 repeats — `eda/pool_gold_oof.py` carries the same method:
@@ -744,6 +751,8 @@ studies, 2,000-sample bootstrap (E030).
 | # | Claim | Tag | Note |
 |---|---|---|---|
 | 14.1 | Fused labels (lexicon ∪ LLM) beat lexicon labels for a trained head | **`VERIFIED` — +0.0508, CI [+0.001, +0.102]** | replicated at seeds 1 and 2: +0.0838 [+0.035, +0.134] and +0.0501 [−0.011, +0.111]. Direction consistent 3/3, **mean +0.062**. Two of three intervals exclude zero. |
+| 14.5 | Gold OOF predicts the board score without correction | **`CONTRADICTED`** | E026 measured the offset at **+0.005** on the lexicon model and concluded no correction was needed. E034 measured **+0.054** on the fused 5-fold — same architecture, same cache. An order of magnitude apart, from a relationship established at n=1. Both understate the board, so the error is not dangerous, and gold OOF *ranked* the two models correctly. It is a selector, not a forecaster. |
+| 14.4 | The same swap helps the **fine-tuned** model, not just a frozen head | **`VERIFIED` — +0.0717, CI [+0.042, +0.103]** | E032, all five folds, paired on all 58 gold studies. E031 measured +0.0721 at n=12 and could not separate it; five-fold raises n to 58, narrows the interval as `§13` predicted, and the point estimate moves by 0.0004. Four instruments sharing no code path — teacher +0.070, rig +0.062, fold-0 +0.0721, five-fold +0.0717 — span 0.010. Medial Meniscus 0.516 → 0.786; Synovitis 0.654 → 0.616, the one finding E029 flagged as unknown to the fused teacher. |
 | 14.2 | Focal top-k pooling (k=3) is worth ~+0.060 | **`CONTRADICTED` — +0.0060, CI [−0.041, +0.051]** | the +0.060 was the model-to-teacher *headroom* on focal findings, never a measured gain from this change. The rig's positive control recovers a planted focal effect at +0.0445 [+0.025, +0.064], so it can see effects of this size. This one is absent. |
 | 14.3 | Per-finding attention maps help | `UNVERIFIED` — +0.0389, CI [−0.009, +0.090] | same verdict as the n=12 measurement (+0.014), now with n=58 behind it. Suggestive, not separated. |
 

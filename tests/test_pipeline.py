@@ -12,6 +12,7 @@ These tests pin the properties that replaced it.
 from __future__ import annotations
 
 import ast
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -440,7 +441,12 @@ def test_exactly_one_labels_dataset_is_mounted_per_trainer():
     inputs. Two datasets carrying that file would make the targets depend on
     directory order — a silent, unreproducible choice of what the model learns.
     """
-    known = {pipeline.ARTIFACTS_DATASET, pipeline.FUSED_DATASET}
+    # Derived from the manifest rather than listed here. A hardcoded set turns
+    # "a new label source was added" into a test failure that looks like a
+    # mounting bug, which is exactly what it did when the public-label lineage
+    # arrived (E041). Every lineage declares its own labels dataset; the guard
+    # is that a trainer mounts exactly one of them, not which ones exist.
+    known = {lineage.labels for lineage in pipeline.LINEAGES}
     for lineage in pipeline.LINEAGES:
         for kernel in lineage.kernels():
             if kernel.template != "train":
@@ -498,8 +504,16 @@ def test_the_gold_evaluator_takes_the_fold_from_the_filename():
     one mistake this kernel exists to avoid."""
     source = (KAGGLE / "23_gold_eval" / "run.py").read_text()
     assert 'stem.rsplit("fold", 1)[1]' in source
-    assert "positions = [p for p in val_idx if is_gold[p]]" in source, \
-        "it must score the VALIDATION half of the fold, never the training half"
+    # Both scopes draw from val_idx and neither may touch the training half.
+    # OOF_SCOPE "all" widens WHICH held-out studies are predicted; it must never
+    # widen the split.
+    assert 'list(val_idx) if OOF_SCOPE == "all"' in source, \
+        "the wide scope must still be the VALIDATION half of the fold"
+    assert "else [p for p in val_idx if is_gold[p]]" in source, \
+        "the gold scope must be unchanged"
+    for line in source.splitlines():
+        if "positions" in line and "=" in line:
+            assert "_train_idx" not in line and "train_idx[" not in line, line
 
 
 def test_focal_pooling_is_a_strict_extension():
@@ -572,3 +586,440 @@ def test_inference_and_gold_eval_read_focal_k_from_the_checkpoint():
     for directory in ("11_infer_folds", "23_gold_eval"):
         source = (KAGGLE / directory / "run.py").read_text()
         assert 'state.get("focal_k", 0)' in source, directory
+
+
+# --------------------------------------------------------------------------- #
+# seeding: a second seed has to be a mechanism, not a comment
+# --------------------------------------------------------------------------- #
+def test_the_second_seed_differs_in_exactly_one_constant():
+    """v1publicB exists only to be a different draw of v1public.
+
+    If anything else moved, its contribution to the ensemble would no longer be
+    attributable to the seed, and the +0.032-for-1-to-5-folds coefficient it is
+    banking on would not be the coefficient in play.
+    """
+    baseline = constants(KAGGLE / "37_train_v1pub_fold0" / "run.py")
+    variant = constants(KAGGLE / "45_train_v1pubB_fold0" / "run.py")
+    differing = {k for k in set(baseline) | set(variant)
+                 if baseline.get(k) != variant.get(k)}
+    assert differing == {"RUN_SEED"}, differing
+    assert baseline["RUN_SEED"] is None and variant["RUN_SEED"] == 1
+
+
+def test_a_seeded_run_seeds_every_generator_the_training_loop_draws_from():
+    """Head init, batch order and augmentation all have to descend from it.
+
+    Seeding torch alone would leave the augmentation stream free-running, and
+    the run would still not be reproducible — which is the only thing the field
+    is for.
+    """
+    source = (KAGGLE / "45_train_v1pubB_fold0" / "run.py").read_text()
+    for call in ("random.seed(RUN_SEED)", "np.random.seed(RUN_SEED)",
+                 "torch.manual_seed(RUN_SEED)", "torch.cuda.manual_seed_all(RUN_SEED)"):
+        assert call in source, call
+
+
+def test_lineages_that_already_ran_are_left_unseeded():
+    """RUN_SEED is None for them on purpose, and None is not 0.
+
+    Their checkpoints were produced by an unseeded process. Emitting a seed
+    into the source that made them would not reproduce them; it would only
+    claim to, and the claim would never fail loudly.
+    """
+    for directory in ("04_train", "21_train_v1fused", "37_train_v1pub_fold0",
+                      "43_train_dinov2pub_fold0"):
+        assert constants(KAGGLE / directory / "run.py")["RUN_SEED"] is None, directory
+
+
+# --------------------------------------------------------------------------- #
+# test-time augmentation
+# --------------------------------------------------------------------------- #
+def test_the_first_tta_view_is_the_deterministic_one():
+    """View 0 is what every gold number on record was computed from.
+
+    The kernel reports it as `predicted`, so the TTA run stays directly
+    comparable to the runs before TTA existed instead of silently redefining
+    the baseline it is being measured against.
+    """
+    for directory in ("23_gold_eval", "50_tta_eval"):
+        views = constants(KAGGLE / directory / "run.py")["TTA_VIEWS"]
+        assert views[0] == "identity", (directory, views)
+
+
+def test_tta_never_flips_left_to_right():
+    """The one TTA view that is obvious elsewhere and wrong here.
+
+    Right knees were mirrored during the cache build so every volume shows the
+    same anatomy. Four of the twelve findings are explicitly medial or lateral,
+    so a flip would not be a second look at the same question — it would move
+    the answer.
+    """
+    views = constants(KAGGLE / "50_tta_eval" / "run.py")["TTA_VIEWS"]
+    assert set(views) <= {"identity", "reverse", "shift_pos", "shift_neg"}, views
+    assert not any("flip" in v or "mirror" in v for v in views), views
+
+
+def test_every_declared_tta_view_is_implemented():
+    """An unimplemented view raises at the end of a CPU session, not the start."""
+    import runpy
+
+    ns = runpy.run_path(str(KAGGLE / "50_tta_eval" / "run.py"), run_name="__not_main__")
+    numpy = pytest.importorskip("numpy")
+    volume = numpy.zeros((3, 4, 32, 32), dtype=numpy.float32)
+    for view in ns["TTA_VIEWS"]:
+        assert ns["apply_view"](volume, view).shape == volume.shape, view
+
+
+def test_the_tta_kernel_scores_on_the_labels_its_checkpoints_trained_on():
+    """Otherwise 'out-of-fold' would be a false claim rather than a wrong one.
+
+    The cohort is the intersection of the cache with the label file's index, so
+    the label set decides the study list and therefore the GroupKFold split.
+    Mounting a different one would hand each checkpoint a validation fold it had
+    partly trained on, and every number would still look held-out.
+    """
+    kernels = {k.slug: k for k in pipeline.all_kernels()}
+    tta = kernels["knee-tta-eval"]
+    lineage = next(x for x in pipeline.LINEAGES if x.name == "v1public")
+    assert tta.datasets == [lineage.labels], (tta.datasets, lineage.labels)
+    assert {t.slug for t in lineage.trainers} <= set(tta.depends)
+
+
+# --------------------------------------------------------------------------- #
+# what the architecture can and cannot see
+# --------------------------------------------------------------------------- #
+def test_the_model_is_permutation_invariant_over_slices():
+    """Slice ORDER cannot reach the output. This is arithmetic, not a claim.
+
+    Each slice is embedded independently and the study vector is a
+    softmax-weighted sum over the token axis. There is no positional encoding
+    and no operation that mixes neighbouring slices, so any permutation of them
+    — reversal included — leaves the output identical.
+
+    Two things rest on this. Slice-reversal augmentation was removed from
+    training because it provably could not change the loss, and slice-reversal
+    TTA was measured at exactly zero because it provably could not change a
+    prediction (E050).
+
+    So if this test fails, it is not necessarily a bug: someone has given the
+    architecture a way to read slice order, and both of those should come back.
+    """
+    torch = pytest.importorskip("torch")
+    pytest.importorskip("torchvision")
+    import runpy
+
+    ns = runpy.run_path(str(KAGGLE / "04_train" / "run.py"), run_name="__not_main__")
+    torch.manual_seed(0)
+    volume = torch.randn(2, 3, 12, 64, 64)
+    for focal_k in (0, 3):
+        model = ns["build_model"]("resnet18", 3, 12, False, False, focal_k).eval()
+        with torch.no_grad():
+            plain = model(volume)
+            reversed_slices = model(volume.flip(2))
+            shuffled = model(volume[:, :, torch.randperm(12)])
+        assert torch.allclose(plain, reversed_slices, atol=1e-5), focal_k
+        assert torch.allclose(plain, shuffled, atol=1e-5), focal_k
+
+
+def test_training_does_not_reverse_slice_order():
+    """The augmentation that the invariance above makes free of any effect."""
+    source = (KAGGLE / "04_train" / "run.py").read_text()
+    assert "array[:, ::-1]" not in source
+
+
+def test_the_pooling_lineage_differs_from_its_baseline_in_pooling_and_a_seed():
+    """v1pubpool against the five folds behind the 0.923 board result.
+
+    Two constants move, not one, and the second is deliberate. v1public ran
+    unseeded, so it is one uncontrolled draw from the initialisation
+    distribution; v1pubpool records which draw it took. That distribution is
+    not narrow — measured on frozen embeddings, the same head over four
+    restarts spanned 0.699 to 0.735 — so a lineage worth 7 GPU-h is worth being
+    able to reproduce.
+    """
+    baseline = constants(KAGGLE / "37_train_v1pub_fold0" / "run.py")
+    variant = constants(KAGGLE / "51_train_v1pubpool_fold0" / "run.py")
+    differing = {k for k in set(baseline) | set(variant)
+                 if baseline.get(k) != variant.get(k)}
+    assert differing == {"PER_FINDING_POOL", "RUN_SEED"}, differing
+    assert variant["PER_FINDING_POOL"] is True
+
+
+def test_the_ensemble_may_mix_pooled_and_unpooled_members():
+    """Otherwise the new folds could not join the five they are measured against.
+
+    Two properties are invisible in the weights and fatal if members disagree —
+    slice count and input normalisation — and inference refuses to average
+    across them. Pooling is not one of those: it changes the shape of the
+    weights, so it is read from each checkpoint and the right architecture is
+    built per member.
+    """
+    source = (KAGGLE / "11_infer_folds" / "run.py").read_text()
+    assert 'state.get("per_finding_pool", False)' in source
+    expectations = constants(KAGGLE / "42_infer_v1pub" / "run.py")
+    assert "PER_FINDING_POOL_EXPECTED" not in expectations
+
+
+def test_the_ten_member_ensemble_mounts_two_lineages_that_agree():
+    """Ten members only load if both lineages were fed identically.
+
+    The guard refuses to average models that disagree on slice count or input
+    normalisation, because neither is visible in the weights and either one
+    costs AUC silently. v1public and v1publicB agree on both by construction —
+    they differ in a seed — but "by construction" is what this asserts rather
+    than assumes.
+    """
+    kernels = {k.slug: k for k in pipeline.all_kernels()}
+    ten = kernels["knee-infer-v1pub10"]
+    a = next(x for x in pipeline.LINEAGES if x.name == "v1public")
+    b = next(x for x in pipeline.LINEAGES if x.name == "v1publicB")
+
+    assert {t.slug for t in a.trainers} | {t.slug for t in b.trainers} == set(ten.depends)
+    assert len(ten.depends) == 10
+    assert a.train.slice_subsample == b.train.slice_subsample
+    assert a.train.input_norm == b.train.input_norm
+    assert ten.constants["SLICE_SUBSAMPLE_EXPECTED"] == a.train.slice_subsample
+    assert ten.constants["INPUT_NORM_EXPECTED"] == a.train.input_norm
+    assert ten.internet is False, "a submission kernel must have internet off"
+
+
+def test_the_second_seed_is_an_equal_strength_member_by_construction():
+    """E054 measured ten members WORSE than five when the five added were weak.
+
+    That ensemble failed because v1fused was 0.107 behind, not because ten is
+    too many. The distinction this pins is that v1publicB differs from v1public
+    in the seed and nothing else — so whatever it scores, it is not weak by
+    configuration.
+    """
+    a = next(x for x in pipeline.LINEAGES if x.name == "v1public")
+    b = next(x for x in pipeline.LINEAGES if x.name == "v1publicB")
+    assert a.labels == b.labels
+    assert a.cache is b.cache
+    differing = {f for f in ("backbone", "epochs", "batch", "lr", "accum",
+                             "slice_subsample", "input_norm", "per_finding_pool",
+                             "focal_k")
+                 if getattr(a.train, f) != getattr(b.train, f)}
+    assert not differing, differing
+
+
+# --------------------------------------------------------------------------- #
+# full fit: an ensemble member that must never be scored out-of-fold
+# --------------------------------------------------------------------------- #
+def test_full_fit_trains_on_every_study():
+    source = (KAGGLE / "57_train_v1pubfull" / "run.py").read_text()
+    assert constants(KAGGLE / "57_train_v1pubfull" / "run.py")["RUN_FOLD"] == -1
+    assert "full_fit = args.fold < 0" in source
+    assert "train_idx = np.arange(len(studies))" in source
+
+
+def test_full_fit_writes_no_gold_dump():
+    """It trained on all 58 gold studies, so it has no out-of-fold anything.
+
+    A dump from this model would be globbed straight into `pool_gold_oof.py`
+    alongside honest ones and would score near-perfectly, exactly the leak
+    shape E047 caught in two public label sets.
+    """
+    source = (KAGGLE / "57_train_v1pubfull" / "run.py").read_text()
+    assert "if gold_positions and best_epoch == epoch and not full_fit:" in source
+
+
+def test_full_fit_is_an_ensemble_member_but_not_a_gold_eval_subject():
+    """checkpoint_foldall.pt: inference globs it in, gold_eval cannot parse it.
+
+    gold_eval reads the fold number out of the filename and skips what it
+    cannot read, so "all" is refused there while `checkpoint_fold*.pt` still
+    matches it at inference. The naming is what enforces this, so it is pinned.
+    """
+    source = (KAGGLE / "57_train_v1pubfull" / "run.py").read_text()
+    assert 'tag = "all" if full_fit else str(args.fold)' in source
+    infer = (KAGGLE / "56_infer_v1pub10" / "run.py").read_text()
+    assert "checkpoint_fold*.pt" in infer
+    gold = (KAGGLE / "23_gold_eval" / "run.py").read_text()
+    assert 'int(stem.rsplit("fold", 1)[1])' in gold
+    assert "except (IndexError, ValueError):" in gold
+
+
+def test_full_fit_exports_a_fixed_epoch_not_the_best_monitor_score():
+    """Its validation set is inside its training set, so "best val" is a lie."""
+    source = (KAGGLE / "57_train_v1pubfull" / "run.py").read_text()
+    assert "if epoch == min(FULL_FIT_EPOCH, args.epochs - 1):" in source
+    assert constants(KAGGLE / "57_train_v1pubfull" / "run.py")["FULL_FIT_EPOCH"] == 20
+
+
+def test_the_fold_trainers_are_unchanged_by_full_fit_existing():
+    """Adding the branch must not alter any lineage that already ran."""
+    for directory in ("37_train_v1pub_fold0", "45_train_v1pubB_fold0"):
+        assert constants(KAGGLE / directory / "run.py")["RUN_FOLD"] >= 0, directory
+
+
+def test_the_full_fit_submission_changes_exactly_one_thing():
+    """Six members = the five behind 0.923, plus one. Nothing else moves.
+
+    The full-fit member is invisible to every offline instrument this project
+    owns, so the board is the only thing that can price it. That only works if
+    the submission differs from the 0.923 one in this single addition —
+    combining it with v1publicB's five would make a board move unattributable
+    between two changes neither of which can be measured offline.
+    """
+    kernels = {k.slug: k for k in pipeline.all_kernels()}
+    six = kernels["knee-infer-v1pubfull"]
+    baseline = next(x for x in pipeline.LINEAGES if x.name == "v1public")
+
+    assert set(six.depends) == {t.slug for t in baseline.trainers} | {"knee-train-v1pubfull"}
+    assert six.internet is False, "a submission kernel must have internet off"
+    # and it must not quietly pull in the second seed as well
+    other = next(x for x in pipeline.LINEAGES if x.name == "v1publicB")
+    assert not ({t.slug for t in other.trainers} & set(six.depends))
+
+
+def test_full_fit_never_calls_its_monitor_set_held_out():
+    """A full-fit model holds out nothing, and its gold column is memorisation.
+
+    The seed-4 and seed-6 runs printed "gold studies held out in this fold: 12"
+    beside a gold figure climbing to 0.9976. Both statements are produced by
+    correct code and read together they describe a held-out score of 0.9976,
+    which does not exist. A number that is not a score being read as one is the
+    single most repeated error in this project's log, so the full-fit path says
+    what the number is instead.
+    """
+    source = (KAGGLE / "59_train_v1pubfull_s4" / "run.py").read_text()
+    assert "gold studies in the monitor set" in source
+    assert "IN TRAINING, held out from nothing" in source
+    assert "memorisation, not a score" in source
+    # and a fold run must keep saying "held out", because it truly is
+    fold = (KAGGLE / "37_train_v1pub_fold0" / "run.py").read_text()
+    assert "gold studies held out in this fold" in fold
+
+
+def test_the_two_geometries_train_at_the_same_effective_batch():
+    """v2distil exists to make GEOMETRY the single variable against v1distil.
+
+    Batch size is invisible in a gold score and fatal to the comparison: a
+    different effective batch means the probe measures two things at once and
+    its answer is unattributable. The first v2distil attempt shipped batch 16 x
+    accum 4 — effective 64 against v1distil's 16 — and died on a CUDA OOM before
+    anyone had to notice the confound, which was luck rather than a guard.
+    """
+    def effective(directory: str) -> int:
+        source = (KAGGLE / directory / "run.py").read_text()
+        values = {}
+        for name in ("RUN_BATCH", "ACCUM_STEPS"):
+            match = re.search(rf"^{name}\s*=\s*(\d+)", source, re.M)
+            assert match, f"{directory}: no {name}"
+            values[name] = int(match.group(1))
+        return values["RUN_BATCH"] * values["ACCUM_STEPS"]
+
+    assert effective("72_train_v2distil_fold0") == effective("65_train_v1distil_fold0")
+
+
+def test_the_two_geometries_feed_the_same_number_of_slices():
+    """Resolution is the probe's variable. Slice count must NOT be a second one.
+
+    V2 carries 24 slices per plane against V1's 20, so leaving the subsample
+    unset silently feeds 72 slices against 60 — a confound invisible in a gold
+    score, and the reason two runs died on CUDA OOM before anyone looked, since
+    memory scales with per-step batch x slices.
+    """
+    def slices(directory: str) -> int:
+        source = (KAGGLE / directory / "run.py").read_text()
+        per_plane = int(re.search(r"^SLICES_PER_PLANE\s*=\s*(\d+)", source, re.M).group(1))
+        sub = re.search(r"^SLICE_SUBSAMPLE\s*=\s*(\d+|None)", source, re.M).group(1)
+        return (per_plane if sub == "None" else int(sub)) * 3
+
+    assert slices("72_train_v2distil_fold0") == slices("65_train_v1distil_fold0")
+
+
+def test_external_kernels_reach_the_metadata_but_not_the_manifest_check():
+    """A foreign kernel source must mount without switching the manifest off.
+
+    `depends` is resolved against this file, so an unknown slug there is a typo
+    or a deleted kernel and must stay an error. Foreign "owner/slug" mounts
+    cannot be resolved that way, so they live in their own field — and the risk
+    is that the field becomes a hole anyone can post a bad `depends` through.
+    """
+    # The mechanism, tested on a kernel written here rather than on whichever
+    # manifest entry happens to use it today. `knee-blend-raptor` was that entry
+    # until E088 retargeted it onto `knee-infer-raptorcc0` — the same model, run
+    # in our own kernel from CC0 weights, because upstream persists no outputs
+    # and could never have supplied a submission to blend. Pinning the mechanism
+    # to one kernel made a legitimate retarget look like a regression.
+    probe = pipeline.Kernel(
+        slug="probe", directory="00_probe", template="rank_blend",
+        depends=["knee-infer-v1pubfull5"],
+        external_kernels=["someone-else/their-notebook"],
+    )
+    sources = probe.metadata()["kernel_sources"]
+    assert "someone-else/their-notebook" in sources, "external mounts must reach metadata"
+    assert f"{pipeline.ACCOUNT}/knee-infer-v1pubfull5" in sources, \
+        "own dependencies must still be account-qualified in metadata"
+
+    # Every external entry is owner-qualified; a bare slug here would silently
+    # mount nothing rather than failing, because Kaggle would not resolve it.
+    for kernel in pipeline.all_kernels():
+        for source in kernel.external_kernels:
+            assert source.count("/") == 1 and not source.startswith(pipeline.ACCOUNT), \
+                f"{kernel.slug}: {source!r} is not a foreign owner/slug"
+
+    # The manifest check still resolves every `depends` against this file, so
+    # the escape hatch did not become a way to smuggle an unresolvable name in.
+    known = {k.slug for k in pipeline.all_kernels()}
+    for kernel in pipeline.all_kernels():
+        for dependency in kernel.depends:
+            assert dependency in known, \
+                f"{kernel.slug} mounts unknown kernel {dependency}"
+    assert not pipeline.check(), pipeline.check()
+
+
+def test_a_blend_refuses_a_short_mount():
+    """A kernel that never ran mounts as an EMPTY directory rather than failing.
+
+    E078 cost two runs to that failure mode. For a blend it is worse than for an
+    ensemble: blending one member produces that member's own submission wearing
+    the blend's name, scoring exactly what it already scored, and looking like a
+    null result about blending.
+    """
+    source = (KAGGLE / "74_blend_raptor" / "run.py").read_text()
+    assert "MEMBERS_EXPECTED = 2" in source
+    assert "!= MEMBERS_EXPECTED" in source, "the blend must count what it mounted"
+
+
+def test_no_generated_kernel_references_an_undefined_constant():
+    """A spliced helper can reference a constant the template does not define.
+
+    `_shared/discovery.py` uses SKIP_DIRECTORIES but does not own it: each
+    template declares its own. `@@INCLUDE discovery:find_all_markers@@` brings
+    the function and not the constant, so a template that forgets it generates a
+    file that imports cleanly, passes every local check, and dies with a
+    NameError on Kaggle -- which is exactly what it did, because nothing here
+    executes a generated kernel.
+
+    ALL-CAPS names are checked because that is precisely the splice-dependency
+    class: shared helpers read configuration through module constants.
+    """
+    import builtins
+
+    problems = []
+    for directory in sorted(KAGGLE.glob("*/")):
+        run = directory / "run.py"
+        if not run.exists():
+            continue
+        tree = ast.parse(run.read_text())
+        defined = set(dir(builtins))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+                defined.add(node.id)
+            elif isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+                defined.add(node.name)
+            elif isinstance(node, (ast.Import, ast.ImportFrom)):
+                for alias in node.names:
+                    defined.add(alias.asname or alias.name.split(".")[0])
+            elif isinstance(node, ast.Global):
+                defined.update(node.names)
+
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+                    and node.id.isupper() and node.id not in defined):
+                problems.append(f"{directory.name}/run.py:{node.lineno} {node.id}")
+
+    assert not problems, "generated kernels reference undefined constants:\n" + \
+        "\n".join(sorted(set(problems)))

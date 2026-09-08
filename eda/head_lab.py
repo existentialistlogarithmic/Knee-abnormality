@@ -12,11 +12,33 @@ Measured costs, on four CPU threads:
 So the question "does focal top-k pooling help" costs a coffee rather than a GPU
 session, and the weekly GPU allowance is spent.
 
-**What transfers and what does not.** A frozen backbone is not the fine-tuned
-model that scored 0.725, so absolute numbers here do not predict the board. What
-transfers is *comparisons above the backbone* — pooling and labels — because
-those are exactly what is being trained. Every comparison below is therefore run
-as a one-variable A/B and reported with a paired interval, not as a score.
+**What transfers and what does not.** This claim used to read "comparisons
+above the backbone transfer, because those are what is being trained". It was
+checked in E057/E058 and it is wrong for architecture:
+
+    per-finding pooling, rig on frozen DINOv2      +0.0338 [+0.009, +0.061]
+    per-finding pooling, rig on frozen resnet34    +0.0528 [+0.013, +0.097]
+    per-finding pooling, FINE-TUNED resnet34       -0.0338 [-0.067, -0.007]
+
+Matching the backbone made the disagreement wider, not narrower, so the split
+is freezing rather than architecture. On frozen features the encoder cannot
+adapt, so a richer head is the only route to extracting more and head capacity
+is rewarded on its own merits; fine-tuned, the encoder adapts to the head it
+has, and extra head capacity buys parameters and overfitting instead. **This rig
+systematically over-values head capacity, because head capacity is the only
+capacity it has.**
+
+So, concretely:
+
+* **Labels: trust it.** A label comparison changes the target, not the head's
+  capacity, so freezing does not bite. It called the fused labels at +0.0508
+  and the board paid +0.089 — right sign, understated size.
+* **Architecture: do not act on it.** Pooling, focal top-k, positional
+  embeddings and anything else that adds head capacity will read high here.
+  Treat a positive as "not ruled out", never as a reason to spend GPU.
+
+Absolute numbers never transferred and still do not. Every comparison below is
+run as a one-variable A/B and reported with a paired interval, not as a score.
 
     python eda/head_lab.py --embeddings artifacts/embed/embeddings.npy \
         --index artifacts/embed/embeddings_index.json --compare focal
@@ -35,7 +57,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.report_schema import FINDINGS  # noqa: E402
+from src.report_schema import AUXILIARY_FINDINGS, FINDINGS  # noqa: E402
 
 BOOTSTRAP = 2000
 
@@ -65,12 +87,19 @@ def macro(expert, score):
     return float(np.mean(values)) if values else float("nan")
 
 
-def build_head(channels, focal_k, per_finding, seed):
+def build_head(channels, focal_k, per_finding, seed, positional=0, n_aux=0):
+    """`n_aux` extra output rows for auxiliary report targets.
+
+    They share the trunk, the attention and — when `per_finding` is off — the
+    single pooled vector, so the only thing they add to the scored twelve is
+    gradient. At scoring time the first twelve columns are read and the rest
+    discarded, which is exactly what the GPU trainer would do at inference.
+    """
     import torch
     import torch.nn as nn
 
     torch.manual_seed(seed)
-    n_out = len(FINDINGS)
+    n_out = len(FINDINGS) + n_aux
 
     class Head(nn.Module):
         def __init__(self):
@@ -85,8 +114,26 @@ def build_head(channels, focal_k, per_finding, seed):
             self.focal_k = focal_k
             if focal_k:
                 self.mix = nn.Parameter(torch.zeros(n_out))
+            # A learned vector per TOKEN POSITION, which is the one thing this
+            # architecture currently cannot see. Attention scores are computed
+            # from embedding content alone and pooled with a sum, so the study
+            # is an unordered bag of 60 slices: E050 measured the model exactly
+            # invariant to reversing them, and to any permutation at all. That
+            # discards two facts the tokens carry positionally — which of the
+            # three planes a slice came from (0-19 sagittal, 20-39 coronal,
+            # 40-59 axial) and where in its stack it sat, so that a finding on
+            # three ADJACENT slices looks different from one on three scattered
+            # ones.
+            #
+            # Initialised to exact zeros, so at step 0 this head IS the
+            # baseline and every difference it later shows is something it
+            # learned rather than something it started with.
+            self.position = (nn.Parameter(torch.zeros(positional, channels))
+                             if positional else None)
 
         def forward(self, embedded):
+            if self.position is not None:
+                embedded = embedded + self.position[:embedded.shape[1]]
             scores = self.attention(embedded).softmax(dim=1)
             if self.per_finding:
                 pooled = torch.einsum("btf,btc->bfc", scores, embedded)
@@ -106,23 +153,44 @@ def build_head(channels, focal_k, per_finding, seed):
 
 
 def run_config(embeddings, targets, masks, expert, is_gold, splits, *,
-               focal_k, per_finding, epochs, batch, lr, seed, label):
-    """Five folds. Returns out-of-fold predictions for every study."""
+               focal_k, per_finding, epochs, batch, lr, seed, label,
+               positional=0, seeds=1, n_aux=0):
+    """Five folds, averaged over `seeds` restarts. Out-of-fold for every study.
+
+    Averaging restarts is not a nicety. Measured on the focal top-k A/B against
+    the public labels, one seed each: the focal arm landed on 0.7361, 0.7428,
+    0.7433, 0.7419 — a range of 0.007 — while the baseline arm landed on 0.7106,
+    0.7292, 0.6990, 0.7347, a range of 0.036. The DIFFERENCE therefore swung
+    from +0.007 to +0.044 depending almost entirely on which baseline was drawn.
+
+    A single-seed A/B on 58 gold studies is reading that swing as if it were the
+    architecture. Averaging the out-of-fold predictions across restarts before
+    scoring removes it from both arms, which is the difference between measuring
+    a head and measuring an initialisation.
+    """
     import torch
     import torch.nn as nn
 
     torch.set_num_threads(4)
     channels = embeddings.shape[2]
-    out_of_fold = np.full((len(targets), len(FINDINGS)), np.nan, np.float32)
+    width = len(FINDINGS) + n_aux
+    if targets.shape[1] != width:
+        raise ValueError(f"{label}: targets are {targets.shape[1]} wide, head is {width}")
+    accumulated = np.zeros((len(targets), width), np.float64)
+    counts = np.zeros((len(targets), 1), np.float64)
     started = time.time()
 
-    for fold, (train_idx, val_idx) in enumerate(splits):
-        head = build_head(channels, focal_k, per_finding, seed + fold)
+    for restart in range(seeds):
+      run_seed = seed + restart * 100
+      out_of_fold = np.full((len(targets), width), np.nan, np.float32)
+      for fold, (train_idx, val_idx) in enumerate(splits):
+        head = build_head(channels, focal_k, per_finding, run_seed + fold, positional,
+                          n_aux=n_aux)
         optimiser = torch.optim.AdamW(head.parameters(), lr=lr, weight_decay=1e-4)
         criterion = nn.BCEWithLogitsLoss(reduction="none")
         order = np.array(train_idx)
         for epoch in range(epochs):
-            rng = np.random.default_rng(seed * 1000 + epoch)
+            rng = np.random.default_rng(run_seed * 1000 + epoch)
             rng.shuffle(order)
             head.train()
             for start in range(0, len(order), batch):
@@ -140,11 +208,19 @@ def run_config(embeddings, targets, masks, expert, is_gold, splits, *,
                 idx = np.array(val_idx[start:start + 256])
                 e = torch.from_numpy(embeddings[idx].astype(np.float32))
                 out_of_fold[idx] = torch.sigmoid(head(e)).numpy()
+      scored = ~np.isnan(out_of_fold[:, 0])
+      accumulated[scored] += out_of_fold[scored]
+      counts[scored] += 1
 
+    out_of_fold = np.divide(accumulated, counts, out=np.full_like(accumulated, np.nan),
+                            where=counts > 0).astype(np.float32)
+    # auxiliary columns are dropped here, exactly as the trainer drops them at
+    # inference: they are supervision, never a prediction anyone reads
+    out_of_fold = out_of_fold[:, :len(FINDINGS)]
     gold = is_gold & ~np.isnan(out_of_fold[:, 0])
     score = macro(expert[gold], out_of_fold[gold])
     print(f"  {label:28s} gold n={int(gold.sum())}  macro {score:.4f}  "
-          f"({time.time() - started:.0f}s)")
+          f"({seeds} seed{'s' if seeds > 1 else ''}, {time.time() - started:.0f}s)")
     return out_of_fold, gold
 
 
@@ -174,12 +250,19 @@ def main(argv=None) -> int:
     parser.add_argument("--fused", default="artifacts/kaggle_dataset_fused/soft_labels.parquet")
     parser.add_argument("--headers", default="artifacts/kaggle_dataset/series_headers.parquet")
     parser.add_argument("--train", default="data/train.csv")
-    parser.add_argument("--compare", choices=["focal", "pool", "labels", "all"],
+    parser.add_argument("--compare",
+                        choices=["focal", "pool", "labels", "position", "stack",
+                                 "auxiliary", "all"],
                         default="all")
+    parser.add_argument("--auxiliary",
+                        default="artifacts/auxiliary/auxiliary_labels.parquet")
     parser.add_argument("--epochs", type=int, default=24)
     parser.add_argument("--batch", type=int, default=64)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--seeds", type=int, default=1,
+                        help="restarts per arm, averaged before scoring. One "
+                             "seed measures an initialisation as much as a head")
     args = parser.parse_args(argv)
 
     index = json.loads(Path(args.index).read_text())
@@ -227,7 +310,7 @@ def main(argv=None) -> int:
         return t, m
 
     common = {"epochs": args.epochs, "batch": args.batch, "lr": args.lr,
-              "seed": args.seed}
+              "seed": args.seed, "seeds": args.seeds}
     base_t, base_m = targets_from(args.labels)
 
     if args.compare in ("focal", "all"):
@@ -245,6 +328,85 @@ def main(argv=None) -> int:
         b, _ = run_config(embeddings, base_t, base_m, expert, is_gold, splits,
                           focal_k=0, per_finding=False, label="baseline", **common)
         paired("per-finding", a, "baseline   ", b, expert, gold)
+
+    if args.compare in ("position", "all"):
+        print("\n=== slice position, one variable ===")
+        tokens = embeddings.shape[1]
+        a, gold = run_config(embeddings, base_t, base_m, expert, is_gold, splits,
+                             focal_k=0, per_finding=False, positional=tokens,
+                             label=f"positional ({tokens} tokens)", **common)
+        b, _ = run_config(embeddings, base_t, base_m, expert, is_gold, splits,
+                          focal_k=0, per_finding=False, label="baseline", **common)
+        paired("positional", a, "baseline  ", b, expert, gold)
+
+    if args.compare in ("stack", "all"):
+        # Both levers move positive on their own, and both were built to fix the
+        # SAME thing: one attention map over twelve findings compromises about
+        # which slices matter, and the focal findings pay for it. So this asks
+        # whether they compose or merely substitute. The baseline is per-finding
+        # pooling ALONE, not the plain head, which is what makes focal the one
+        # variable.
+        print("\n=== focal top-k ON TOP OF per-finding pooling, one variable ===")
+        a, gold = run_config(embeddings, base_t, base_m, expert, is_gold, splits,
+                             focal_k=3, per_finding=True,
+                             label="pooling + focal", **common)
+        b, _ = run_config(embeddings, base_t, base_m, expert, is_gold, splits,
+                          focal_k=0, per_finding=True,
+                          label="pooling alone", **common)
+        paired("pooling+focal", a, "pooling      ", b, expert, gold)
+
+    if args.compare in ("auxiliary", "all") and Path(args.auxiliary).exists():
+        # PRE-REGISTERED 2026-09-02, before the numbers existed (E054's rule).
+        #
+        # Adding auxiliary outputs changes TWO things at once: the head gains
+        # thirteen output rows, and those rows carry real report content. This
+        # rig is known to over-value head capacity — that is E058's finding and
+        # E060 left it standing — so "auxiliary − baseline" cannot decide
+        # anything on its own, and is reported here as description only.
+        #
+        # The deciding arm is the CONTROL: identical head, identical thirteen
+        # extra rows, identical marginal target distribution, but the auxiliary
+        # block permuted across studies so it says nothing about the images in
+        # front of it. Capacity is then held fixed and the single remaining
+        # variable is whether the auxiliary reports carry information.
+        #
+        # ACT (spend GPU on a v1pubaux lineage) only if BOTH hold:
+        #   1. auxiliary − shuffled separates from zero at 95%, and
+        #   2. its point estimate is at least +0.02.
+        # Anything less is inside the +-0.03 fine-tuned noise floor E060
+        # measured and cannot survive the trip to the board.
+        print("\n=== auxiliary report targets, against a shuffled control ===")
+        aux = pd.read_parquet(args.auxiliary).set_index("StudyInstanceUID")
+        aux = aux.reindex(studies)
+        aux_t = np.nan_to_num(aux[AUXILIARY_FINDINGS].to_numpy(np.float32), nan=0.0)
+        aux_m = np.column_stack(
+            [(aux[f"{f}__channel"] != "absent").to_numpy(np.float32)
+             for f in AUXILIARY_FINDINGS])
+        print(f"  {len(AUXILIARY_FINDINGS)} auxiliary findings, "
+              f"{aux_m.mean():.1%} of their slots supervised")
+
+        # one permutation, drawn once and reused, so the control arm is a fixed
+        # comparator rather than a fresh random draw per restart
+        shuffle = np.random.default_rng(args.seed).permutation(len(studies))
+        arms = {
+            "auxiliary": (np.hstack([base_t, aux_t]), np.hstack([base_m, aux_m])),
+            "shuffled ": (np.hstack([base_t, aux_t[shuffle]]),
+                          np.hstack([base_m, aux_m[shuffle]])),
+        }
+        a, gold = run_config(embeddings, *arms["auxiliary"], expert, is_gold, splits,
+                             focal_k=0, per_finding=False,
+                             n_aux=len(AUXILIARY_FINDINGS),
+                             label="auxiliary targets", **common)
+        c, _ = run_config(embeddings, *arms["shuffled "], expert, is_gold, splits,
+                          focal_k=0, per_finding=False,
+                          n_aux=len(AUXILIARY_FINDINGS),
+                          label="shuffled control", **common)
+        b, _ = run_config(embeddings, base_t, base_m, expert, is_gold, splits,
+                          focal_k=0, per_finding=False, label="baseline", **common)
+        print("\n  DECIDING ARM — capacity held fixed, information is the variable:")
+        paired("auxiliary", a, "shuffled ", c, expert, gold)
+        print("\n  description only — confounds information with head capacity:")
+        paired("auxiliary", a, "baseline ", b, expert, gold)
 
     if args.compare in ("labels", "all") and Path(args.fused).exists():
         print("\n=== fused labels versus lexicon labels, one variable ===")

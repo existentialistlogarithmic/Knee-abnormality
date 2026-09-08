@@ -4510,3 +4510,185 @@ either arm. E088 is still unwritten and both clicks are still owed.
   a route that would otherwise have stayed open as "surely worth one more try".
   The standing score is unchanged at **0.926** and the standing system is still
   `knee-infer-v1pubfull5`, five full-fit members and nothing else.
+
+### E088 — 0.95 is not a gap, it is the top twelve; and the screen was hiding the one asset it exists to find
+- **date**: 2026-09-08. CPU and Kaggle API only. No quota, no submission, no
+  training. Prompted by a direct question — what would it take to reach 0.95 —
+  which is worth answering with the leaderboard's own shape rather than an
+  opinion.
+
+**THE FIELD, PULLED 2026-09-08 11:05 UTC. 3,332 teams, top 0.954.**
+
+| score | teams | share |
+|---|---:|---:|
+| ≥ 0.954 | 2 | 0.06% |
+| **≥ 0.950** | **12** | **0.36%** |
+| ≥ 0.945 | 48 | 1.4% |
+| ≥ 0.940 | 141 | 4.2% |
+| ≥ 0.939 | 306 | 9.2% |
+| ≥ 0.936 | 933 | 28.0% |
+| **≥ 0.926 (ours)** | **1,166** | **35.0%** |
+
+**The plateaus separate what is bought from what is earned.** 461 teams sit at
+*exactly* 0.936, 165 at *exactly* 0.939 and 129 at 0.937 — the signature of a
+forked notebook, not of independent work. Above 0.939 the clustering stops
+dead: 26 at 0.940, 26 at 0.941, then single digits all the way up.
+
+- **so the best fork available lands at 0.939**, and **141 teams are above it by
+  work they have not published**.
+- **0.95 is 0.011 beyond the strongest public system**, and 129 of those 141
+  teams have not got there either.
+
+**THE ANSWER, PLAINLY. There is no route to 0.95 that consists of acquiring
+something.** Copying every public asset in this competition — every notebook,
+every checkpoint, every label set, licence questions set aside entirely — lands
+at 0.939. The remaining 0.011 is unpublished by construction: it is what the top
+twelve have and have not shared. Asking this repo for 0.95 is asking it to
+finish in the prize band (top 10 of 3,332), and no lever in this log has a
+coefficient that reaches it. **The honest target to discuss is 0.939, not 0.95**,
+and even that is commodity rather than achievement.
+
+**WHAT IS LEFT, PRICED, AND IT IS NOT MUCH.** Every board-measured lever:
+own fused labels **+0.089**, public CC0 labels **+0.077**, ensembling one fold
+to five **+0.032**, full fit at full weight **+0.003**, a distilled teacher
+**−0.013**, architecture **0.000 every time**. E064 closed more seeds, E087
+closed mixing families, E079 closed resolution, E063 closed auxiliary targets,
+E059 closed Synovitis from text. **The sum of what remains measured is +0.003
+and it has already been spent.**
+
+**THE SCREEN WAS REPORTING A FALSE NEGATIVE ON THE BEST ADMISSIBLE ASSET.**
+`eda/survey_public_checkpoints.py` is the tool `PATH.md` §2.3 tells every future
+session to run before mounting anything. Run against
+`dreaddevelopment/raptor-knee-widedense` it printed:
+
+```
+no self-reported scores found — this family cannot be screened for free
+```
+
+  That is false. The file states everything:
+
+| field | value |
+|---|---|
+| `arch` | `coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k` |
+| `res` | 384 |
+| `gold_auc` | **0.9167** |
+| `aucs` | a full per-finding table |
+| `lab` | the 12 finding names, in order |
+| `src` | `timm-pretrained` |
+
+  **The screen read the wrong spellings.** `METADATA_KEYS` looks for `backbone`,
+  `image_size` and `auc_gold`, which is how shingo257's family writes them;
+  this family writes `arch`, `res` and `gold_auc`. Only `epoch` overlapped. The
+  fix is an alias table, and it is committed with two regression tests, because
+  a screen that silently under-reports is worse than no screen — it converts
+  "we have not looked" into "we looked and there was nothing".
+
+  **Screened correctly, against our pooled 0.8980** (the honest comparator: this
+  is a `_full` model trained on the whole corpus, not one fold):
+
+```
+gap to ours (pooled 0.8980): -0.0187
+  COMPARABLE — worth measuring properly (E048's band)
+  NOTE: it reports AHEAD of ours.
+```
+
+  **Inside E048's ±0.02 band and ahead of us. The first public family in this
+  log to be both.**
+
+**THE CC0 FAMILY IS FIFTEEN DATASETS, NOT ONE.** `PATH.md` §2.0 credits
+`dreaddevelopment` with a single asset. The account publishes **15 datasets,
+every one CC0-1.0**, carrying **14 checkpoints**:
+
+| dataset | checkpoint |
+|---|---|
+| `raptor-knee-widedense` | `coatnet_v4_full`, `coatnet_v4_full_swa` |
+| `raptor-knee-maxspan` | `coatnet_v5_full_swa` |
+| `raptor-knee-widefov` | `coatnet_v6_full_swa` |
+| `raptor-knee-fullspan` | `coatnet_v7_full_swa` |
+| `raptor-knee-native384` | `coatnet_v8_full_swa` |
+| `raptor-knee-finespacing` | `coatnet_v9_full` |
+| `raptor-knee-native384dense` | `coatnet_v10_full` |
+| `raptor-knee-arms` | `cnv2b336`, `coatnet384`, `effv2l480` |
+| `raptor-knee-arms-x` | `coatnet384x` |
+| `raptor-cnn336` | `cnn336` |
+| `rsna-knee-model` | `model.pt` |
+
+  Three backbone families and seven geometry variants of one, all public domain.
+  **This project has used none of them.**
+
+**AND THE REIMPLEMENTATION OBJECTION IS NARROWER THAN `HANDOFF.md` §4d STATES.**
+§4d says using this arm means "reproducing `RaptorClassifier`, `build_backbone`,
+`eval_windows` and the five-slot selection, which is copying the notebook while
+claiming otherwise". The checkpoint disproves half of that: the model is
+**fully determined by the file**, not by the notebook.
+
+```
+backbone.*  478 tensors   timm coatnet_rmlp_2_rw_384, feature dim 1024
+norm.*        2 tensors   LayerNorm(1024)
+att.0, att.3  4 tensors   Linear(1024->256) -> Linear(256->12)
+clsW, clsb    2 tensors   Linear(1024->12)
+```
+
+  A named timm backbone plus an eight-tensor head is a specification, not a
+  copy. **What the file does not carry is the input pipeline** — how slices are
+  chosen, cropped and windowed — and that part of §4d's objection stands.
+  So the blocker is real but it is *preprocessing*, not architecture, and it is
+  smaller than the paragraph implies.
+
+  **Its per-finding profile is complementary in the one place that matters
+  here**: Baker's 0.9873, Medial OA 0.9860, Effusion 0.9789, ACL 0.9669 — but
+  **Synovitis 0.7575**, which is *below* our 0.779. E059 called Synovitis this
+  project's floor; it is this model's floor too, and by more.
+
+**A CC0 LABEL SET THAT IS CLEAN BY CONSTRUCTION AND UNSCOREABLE BY
+CONSTRUCTION.** `dreaddevelopment/rsna-knee-labels` (`labels_llm_soft.csv`,
+CC0) carries soft labels for **4,349 studies — every study except exactly the
+58 gold**, verified as a set identity, not a count.
+
+- **E080's answer-key screen passes trivially and means nothing here**: the set
+  cannot reproduce the expert values because the expert rows are absent. This is
+  the *inverse* of E080's failure mode and the log has no category for it.
+- **and gold-58 cannot score it at all.** Zero overlap. The project's only
+  trusted offline instrument is structurally blind to this set, which E062's
+  lesson says must be stated before running anything, not after.
+- what *is* measurable: against the incumbent `stevenleehans` v4 blend on the
+  4,349 shared studies, **mean Spearman 0.811** — closer than E081's `tsuyu122`
+  at 0.665, which E048's rule called comparable. It diverges most on
+  **Synovitis (0.520)** and **Fracture (0.609)**, and reads Synovitis
+  substantially more often (mean 0.449 against 0.338).
+- **the rig reproduces the incumbent's 0.8927 gold AUC exactly**, so the
+  measurement above is not resting on a mis-wired comparison.
+
+**TWO CITATIONS IN THE STANDING DOCS HAVE DRIFTED FROM WHAT THEY CITE.**
+
+1. **E043 does not say what `PATH.md` §2.0 says it says.** The docs read
+   *"E043's licence rule excludes every asset they use (`other`, or
+   CC-BY-NC-SA)"*. E043 says the opposite of that second clause, verbatim:
+   *"non-commercial matches this competition's own CC-BY-NC 4.0 winner licence,
+   so NC is not the obstacle it first looked like; ShareAlike on derivatives is
+   the part to read before shipping."* Its avoid-tier is **`not-declared`**, not
+   CC-BY-NC-SA. **A "needs reading before shipping" has hardened into an
+   "excluded", and it is doing so on the single largest measured gap in the
+   project.** Whether ShareAlike actually permits it is still unanswered — but
+   it is unanswered, not settled.
+2. **E046's closure is stale, in exactly the way E070's rank was.** It closed
+   borrowing with *"we now beat what we were borrowing"* — measured 2026-08-29
+   against a public system at **0.917**, when ours read 0.8980 gold. The public
+   systems now score **0.936–0.939 on the board against our 0.926.** The
+   sentence was true when written and is false now. **A closure that depends on
+   a moving external number needs a date on it and a re-read, like a rank.**
+
+- **and the one asset that IS cleanly excluded is excluded for a reason nobody
+  had checked.** `tonylica/rsna-knee-bend-dinov3-0917-repro-assets`, which gates
+  the 0.937 notebook, is licensed `other` — *"Other (specified in
+  description)"*. **Its description is empty.** Nothing is specified, so no
+  grant exists, which puts it in E043's `not-declared` tier on the merits rather
+  than on the label. The 0.937 notebook's other four sources are three CC0
+  raptor datasets and one Apache-2.0 set.
+
+- **cost**: zero. One leaderboard pull, twelve dataset listings, one 292 MB
+  download and a label-set merge. **No GPU, no submission, no quota.**
+- **what it does not do**: it measures nothing on the board. Every number here
+  is either the leaderboard's own, an author's self-report, or an agreement
+  statistic. **The two E086 arms are still unsubmitted and remain the only
+  pending measurement this project actually owns.**

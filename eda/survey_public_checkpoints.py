@@ -61,6 +61,30 @@ KNOWN_DEAD_BEYOND = 0.03
 METADATA_KEYS = ("backbone", "image_size", "num_slices", "fold", "epoch",
                  "auc_gold", "auc_all", "auc", "cv", "score")
 
+# The same six facts get written under different names by different authors, and
+# reading only one spelling makes the screen report "cannot be priced for free"
+# about a file that states everything. That is a FALSE NEGATIVE on exactly the
+# assets this screen exists to find, and it happened: `raptor_ft_coatnet_v4_full.pt`
+# carries arch, res, gold_auc and a per-finding AUC table, and the screen said it
+# carried nothing because it spells them differently from shingo257's family.
+# Any new spelling met in the wild belongs here, not in a special case downstream.
+ALIASES = {
+    "arch": "backbone",
+    "model_name": "backbone",
+    "encoder": "backbone",
+    "res": "image_size",
+    "img_size": "image_size",
+    "size": "image_size",
+    "n_slices": "num_slices",
+    "slices": "num_slices",
+    "gold_auc": "auc_gold",
+    "auc_gold_oof": "auc_gold",
+    "val_auc": "auc",
+}
+
+# Not a scalar fact, so it is collected separately: a dict of per-finding AUCs.
+PER_FINDING_KEYS = ("aucs", "auc_per_class", "per_finding")
+
 
 def describe(path: Path) -> dict:
     """Everything a checkpoint says about itself, without building the model."""
@@ -70,9 +94,13 @@ def describe(path: Path) -> dict:
     if not isinstance(blob, dict):
         return {"file": path.name, "note": "not a dict; no self-description"}
     found = {"file": path.name}
-    for key in METADATA_KEYS:
+    for key in (*METADATA_KEYS, *ALIASES):
         if key in blob and not hasattr(blob[key], "shape"):
-            found[key] = blob[key]
+            found[ALIASES.get(key, key)] = blob[key]
+    for key in PER_FINDING_KEYS:
+        if isinstance(blob.get(key), dict):
+            found["aucs"] = blob[key]
+            break
     state = next((blob[k] for k in ("model_state_dict", "model", "state_dict")
                   if isinstance(blob.get(k), dict)), None)
     found["tensors"] = len(state) if state else 0
@@ -111,6 +139,10 @@ def main(argv=None) -> int:
     scores = []
     for row in rows:
         score = row.get("auc_gold", row.get("auc", row.get("score")))
+        # A per-finding table is a stronger description than the macro alone:
+        # it says WHERE a foreign member would help, which is the only thing
+        # E048's comparability band cannot tell you.
+        row["per_finding"] = row.get("aucs")
         if isinstance(score, (int, float)):
             scores.append(float(score))
         print(f"{str(row.get('file'))[:32]:32s} {str(row.get('backbone', '?'))[:16]:16s} "

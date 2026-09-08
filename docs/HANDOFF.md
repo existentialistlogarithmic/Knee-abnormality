@@ -262,10 +262,33 @@ are written, tested and ready.
 notebook persists no output files (`files: []`), so its submission cannot be
 mounted — E085 ran the blend and it correctly refused with one member. The arm
 has to be RUN, which means a fork of someone else's notebook under this account.
-Reimplementing it instead is not a way around that: it means reproducing
-`RaptorClassifier`, `build_backbone`, `eval_windows` and the five-slot
-selection, which is copying the notebook while claiming otherwise, with silent
-train/inference skew and no way to check it.
+
+**E088 narrows this objection by half, and the half it leaves standing is the
+preprocessing.** The paragraph above used to say reimplementing means
+reproducing `RaptorClassifier`, `build_backbone`, `eval_windows` and the
+five-slot selection. **The checkpoint specifies the model itself**, so
+`RaptorClassifier` and `build_backbone` are not reverse-engineered from anyone:
+
+```
+arch = 'coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k'   res = 384   src = timm-pretrained
+backbone.*  478 tensors    norm.*  2 (LayerNorm 1024)
+att.0/att.3  4 tensors     Linear(1024->256) -> Linear(256->12)
+clsW/clsb    2 tensors     Linear(1024->12)
+```
+
+  A named timm backbone plus an eight-tensor head is a specification, not a
+  copy. **What the file does not carry is the input pipeline** — slice choice,
+  crop, windowing — and there `eval_windows` and the five-slot selection are
+  still someone else's work, with real silent-skew risk and no way to check it.
+  **So the decision below is still the account owner's**; it is just a narrower
+  decision than this section claimed.
+
+**And the CC0 family is fifteen datasets, not one (E088).** `dreaddevelopment`
+publishes 15 datasets, every one CC0-1.0, carrying **14 checkpoints** — CoAtNet
+in seven geometry variants, plus ConvNeXtV2-B336, EfficientNetV2-L480 and a
+CNN336. This project has used none of them. `eda/survey_public_checkpoints.py`
+was reporting "cannot be screened for free" about them because it read the wrong
+metadata spellings; that is fixed and has two regression tests.
 
 **So it is the account owner's call.** If the answer is yes:
 
@@ -298,7 +321,7 @@ has reached the board.** The API cannot submit (§4b), so:
 
 Four of five daily slots were spent on 2026-09-07 and the allowance resets at
 00:00 UTC, so from then both fit in one day and neither needs to go first.
-**Record the result as E088.** The three readings are pre-registered in E086 and
+**Record the result as E089** — E088 is the 2026-09-08 field-and-licence survey. The three readings are pre-registered in E086 and
 must not be re-derived after the scores land:
 
 1. `v1pubfe-early` vs `v1pubfe` — the export epoch, one variable, same five

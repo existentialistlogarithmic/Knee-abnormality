@@ -43,7 +43,9 @@ every time it has been measured**. Labels and data are +0.166 of +0.201.
 field then grew 75% in five days and both statements went stale without anything
 about this project changing. 492 teams now sit at exactly 0.936 and 163 at
 0.937, forks of two public notebooks — **655 teams are 0.010+ ahead by clicking
-Copy & Edit**, and E043's licence rule excludes every asset they mount.
+Copy & Edit**. **E043's rule excludes less of that than this file used to claim
+— see E088**: E043 treats CC-BY-NC-SA as needing a ShareAlike read, not as
+excluded, and reserves "avoid" for undeclared licences.
 
 **Three board results closed levers rather than opening them.**
 
@@ -188,6 +190,9 @@ pattern matters more than any individual entry.
 | "Synovitis clears the report-text ceiling under a distilled teacher" (E076) | **withdrawn** — it rested on the leaked evaluation above. Synovitis stands where E059 left it, unwritten in the reports rather than badly read | nothing further; withdrawn with the lineage |
 | "a union that separates offline is a lever" (E048's comparability rule) | **not a predictor** — it has now failed twice at forecasting what pays: E081 offline (+0.0062, CI touching zero) and E087 on the board (0.926, exactly the better member). It survives as a filter on what is *worth an afternoon*, not on what pays | two afternoons and 1.2 GPU-h |
 | "all five full-fit runs are complete and both arms are verified" (a session handoff, 16:30 UTC) | **contradicted** — `s15` was 20 minutes into a 97-minute run and neither arm had started. `lastRunTime` in Kaggle's kernel listing is when a run **starts**, not when it ends | nothing; caught before a click, and the arms have since run for real |
+| "E043's licence rule excludes every asset the 0.936 notebooks use, CC-BY-NC-SA included" | **corrected (E088)** — E043 says the opposite: NC matches the competition's own CC-BY-NC 4.0 winner licence, and its avoid-tier is `not-declared`. A "read ShareAlike before shipping" hardened into an "excluded" and sat on the largest measured gap in the project for a week | not yet counted; the ShareAlike question is still unanswered, and answering it is free |
+| "we now beat what we were borrowing" (E046) | **stale (E088)** — true on 2026-08-29 against a public system at 0.917. The public systems now score 0.936-0.939 against our 0.926. A closure resting on a moving external number needs a date and a re-read, exactly like a rank | a month of treating the borrowing route as closed while it reopened |
+| "the raptor family cannot be screened for free" | **contradicted (E088)** — the tool said it, and the tool was reading the wrong metadata spellings. The checkpoint states `arch`, `res`, a per-finding AUC table and `gold_auc` = 0.9167, which is **ahead of our pooled 0.8980 and inside E048's band**. A screen that silently under-reports converts "we have not looked" into "we looked and there was nothing" | the one CC0 asset that reports ahead of us, left unexamined; fixed with two regression tests |
 
 The common shape: **a small number of observations read as a trend.** The
 countermeasure now in place is that every comparison is one-variable by

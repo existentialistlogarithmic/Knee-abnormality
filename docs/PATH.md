@@ -2,18 +2,22 @@
 
 Standing: **0.926 on the leaderboard** (2026-09-07, E083 — five full-fit
 members), up from 0.924, 0.923, 0.846 and 0.725.
-Leaderboard top **0.954**. 3,263 teams. Final submission **2026-10-22**.
+Leaderboard top **0.954**. **3,332 teams.** Final submission **2026-10-22**.
 
-**Rank 1,104 of 3,263, measured 2026-09-07 (E085).** The field grew 75% in five
-days, which is why E070's "#866 of 1,866" went stale almost immediately — a rank
-is a measurement with a date on it. **492 teams sit at exactly 0.936 and 163 at
-0.937**, forks of two public notebooks, so the free public baseline is 0.010+
-ahead of this project's independently built system. E043's licence rule excludes
-every asset those notebooks depend on; see §2.0.
+**Rank ~1,166 of 3,332, measured 2026-09-08 11:05 UTC (E088)** — 1,104 of 3,263
+a day earlier (E085), #866 of 1,866 on 2026-09-02 (E070). The field grew 75% in
+five days and 69 teams overnight. **A rank is a measurement with a date on it**,
+and this one decays whether or not the score moves.
 
-Last rewritten 2026-09-07, revised 23:20 UTC the same day to add §2 NOW (E086's
-two arms, built and unsubmitted) and E087. If this header ever reads more than a
-week old, distrust the priorities below before distrusting the numbers.
+**461 teams sit at exactly 0.936 and 165 at exactly 0.939**, forks of public
+notebooks, so the free public baseline is 0.010+ ahead of this project's
+independently built system. **E043's rule excludes fewer of those assets than
+this file claimed for a week — corrected in §2.0.** And §4 now answers the 0.95
+question with the field's own shape: **the best available fork lands at 0.939**,
+so 0.95 is not a gap that acquiring anything closes.
+
+Last rewritten 2026-09-08 (E088). If this header ever reads more than a week
+old, distrust the priorities below before distrusting the numbers.
 
 ---
 
@@ -64,9 +68,22 @@ a full-weight ensemble, and it bounds how much of §2.1's +0.003 is draw rather
 than lever.
 
 ### 0. The public-notebook route — **the largest gap, blocked on a decision**
-655 teams are 0.010+ ahead of us by forking a public notebook, which the rules
-permit. **E043's licence rule excludes every asset they use** (`other`, or
-CC-BY-NC-SA), so 0.936 is not reachable under that rule as written.
+**933 teams** are 0.010+ ahead of us by forking a public notebook, which the
+rules permit (E088, 2026-09-08).
+
+**CORRECTED BY E088: this paragraph used to say E043 excludes every asset those
+notebooks use, `other` and CC-BY-NC-SA alike. E043 does not say that.** Verbatim,
+its middle tier reads *"non-commercial matches this competition's own CC-BY-NC
+4.0 winner licence, so NC is not the obstacle it first looked like; ShareAlike on
+derivatives is the part to read before shipping."* Its avoid-tier is
+**`not-declared`**. A "read this before shipping" had hardened into an
+"excluded", on the largest measured gap in the project. **The ShareAlike question
+is unanswered, not settled** — and answering it is free.
+
+What *is* cleanly excluded, and on the merits rather than the label:
+`tonylica/rsna-knee-bend-dinov3-0917-repro-assets`, which gates the 0.937
+notebook, is licensed *"Other (specified in description)"* **with an empty
+description**. Nothing is specified, so no grant exists (E088).
 
 The strongest admissible arm is `dreaddevelopment/raptor-knee-widedense` — CC0,
 0.924 upstream from one model, 0.9167 on the 58 gold with gold held out. Against
@@ -172,7 +189,7 @@ a future session does not re-derive them as ideas:
 | self-distillation, the whole route | **closed by E083** — separated offline at +0.0261 and +0.0221, scored −0.013 on the board; the offline rig was leaking (E082) |
 | more seeds of the 5-fold config | **closed by E064** — ten members scored 0.923, exactly the five |
 | **mixing fold and full-fit members** | **closed by E087** — ten mixed members scored 0.926, exactly what five full-fit already scored. Purely linear, nothing super-additive |
-| borrowing public weights | **closed by E046** for the family it priced; re-opened as a question by E066 and closed again for shingo257's CC0 ConvNeXt family at 0.8034 vs our 0.8477 |
+| borrowing public weights | **E046's closure is STALE (E088).** It closed the route with "we now beat what we were borrowing", measured 2026-08-29 against a public system at 0.917. The public systems now score **0.936-0.939 against our 0.926**. True when written, false now — a closure resting on a moving external number needs a date and a re-read, exactly like a rank. shingo257's CC0 ConvNeXt family stays closed at 0.8034 vs our 0.8477 (E066) |
 | `mattiaangeli/rsna-knee-cnx-m448-f0-public` | licensed **`other`**, so excluded by E043's rule despite shipping complete geometry and model code |
 | blending anything with anything | three attempts: +0.0046, +0.0022, +0.0036, none separated |
 | a Synovitis reader | **closed by E059** — only 13 of 27 true cases are written about at all; a perfect reader caps at 0.8076 and the model already scores 0.790 |
@@ -198,46 +215,78 @@ the lineage that produced it at −0.013. Synovitis stands where E059 left it.
 So 0.94 has **one** candidate mechanism, not two: **more data per model**, which
 is §2.1 and which the board has actually paid for. There is no measured second.
 
-## 4. About 0.95, plainly
+## 4. About 0.95, plainly — answered with the field's own shape
 
-**0.952 is rank 1 of 1,866 teams.** Asking how this code reaches 0.95 is asking
-how it wins the competition outright, and no plan should pretend otherwise.
+**Measured 2026-09-08 11:05 UTC (E088). 3,332 teams, top 0.954.**
 
-Two things are true of the systems up there, both from their own published
-notebooks:
+| score | teams | share |
+|---|---:|---:|
+| ≥ 0.954 | 2 | 0.06% |
+| **≥ 0.950** | **12** | **0.36%** |
+| ≥ 0.945 | 48 | 1.4% |
+| ≥ 0.940 | 141 | 4.2% |
+| ≥ 0.939 | 306 | 9.2% |
+| ≥ 0.936 | 933 | 28.0% |
+| **≥ 0.926 (ours)** | **1,166** | **35.0%** |
 
-1. **They are aggregations, not single models.** The strongest public notebook
-   is a rank blend of twenty DINOv2 checkpoints plus a DINOv3 ViT plus two
-   RadImageNet stages, and its author credits ten other competitors by name for
-   the checkpoints, the label sets and the aggregation ideas. That is hundreds
-   of GPU-hours of *pooled community* compute, not one team's 30 a week.
-2. **Their advantage starts at the labels.** This project's own biggest single
-   jump came from adopting one publicly shared CC0 label set.
+**The plateaus say which scores are bought and which are earned.** 461 teams sit
+at *exactly* 0.936, 165 at *exactly* 0.939, 129 at 0.937 — forks. Above 0.939 the
+clustering stops: 26, 26, 12, 15, 14, then single digits. **The best fork lands
+at 0.939. 141 teams are above it on unpublished work.**
 
-The rules permit this: *"It's okay to share code if made available to all
-Participants on the forums."* Publicly shared weights and label sets are
-legitimate inputs, with attribution.
+**So the answer is structural, not tactical. There is no route to 0.95 that
+consists of acquiring something.** Copying every public asset in this
+competition — every notebook, checkpoint and label set, licence questions set
+aside entirely — reaches **0.939**. The remaining **0.011** is unpublished by
+construction: it is precisely what the top twelve have and have not shared. And
+129 of the 141 teams above the fork line have not closed it either.
 
-**The honest split, updated for where the board actually is:**
+**0.95 is the prize band.** Top 10 of 3,332, against a top of 0.954. Asking this
+repo how to reach it is asking how it wins the competition outright, and no
+lever in this log has a coefficient that gets there. **Anyone proposing one
+should be asked for the coefficient and the interval it was measured with.**
 
-- **0.926 is banked.** It was #866-territory at 0.924 and has not been re-ranked.
-- **0.93–0.94 has one live mechanism and no measured coefficient for it.**
-  Full fit paid +0.003 at full weight. Nothing in the log says a second helping
-  of the same lever pays again — E064 showed ten same-kind members scoring
-  exactly what five scored — so +0.003 is a measurement, not a rate.
-- **0.945+ has no route this file can draw.** The teacher route was the
-  candidate and the board closed it at −0.013. The label-set route was surveyed
-  on 2026-09-07: three of four new sets were answer keys, and the clean one did
-  not separate (E080, E081). What remains is waiting for a genuinely new public
-  asset, which is not a plan so much as a subscription.
-- **0.95+ has no measured path from here.** If anyone proposes one, ask for the
-  coefficient and the interval it was measured with. Every route this project
-  has tried and closed is listed in §2.5, with its number.
+### What the honest targets actually are
 
-**The lesson of 2026-09-07 is worth more than the +0.002.** An offline
-instrument said +0.0221 with a 95% interval excluding zero, and the board said
-−0.013. The interval was honest and the instrument was compromised, and no
-amount of care with the statistics would have caught it — only E082's reading of
-*how the folds touch each other*, and then the board. **This project has now
-overturned nine of its own confident claims, and every single one was caught by
-a measurement rather than by reasoning.**
+- **0.926 is banked** and is rank ~1,166 of 3,332.
+- **0.929 or so is the one measurement this project still owns.** E086's two
+  arms are built, verified and unsubmitted; the export-epoch question is a
+  genuine coin flip and the reseed arm bounds how much of full fit's +0.003 is
+  draw. Cost: two clicks. See §2 NOW.
+- **0.936–0.939 is commodity, and it is where the licence question actually
+  bites.** It is 28% of the field. Reaching it means using public assets, and
+  §2.0 now records that E043 excludes fewer of them than this file claimed for a
+  week. **The unanswered question is ShareAlike, and answering it costs a read.**
+- **0.940+ needs something nobody has published.** There is no measured
+  mechanism in this log, and §1's decomposition says why: labels and data
+  contributed +0.166 of the +0.201 and are spent, ensembling is closed by E064,
+  mixing by E087, resolution by E079, distillation by E083, and architecture has
+  measured **0.000 every single time** against a ±0.03 noise floor it was never
+  able to see through.
+- **0.95 has no path this file can draw**, and E088 is the measurement that says
+  so rather than the opinion that says so.
+
+### The one genuinely unexploited asset, and what it is worth
+
+E088 found that `dreaddevelopment` publishes **15 datasets, all CC0**, carrying
+**14 checkpoints** across CoAtNet (seven geometry variants), ConvNeXtV2-B336,
+EfficientNetV2-L480 and a CNN336 — and that this project has used **none** of
+them. The screen that should have surfaced them was reporting a false negative
+because it read the wrong metadata spellings; that is fixed and tested.
+
+Screened correctly, `raptor_ft_coatnet_v4_full` self-reports **0.9167 gold
+against our pooled 0.8980** — inside E048's ±0.02 band and **ahead of ours, the
+first public family in this log to be both**. Its per-finding profile is
+complementary where it counts least and most: Baker's 0.9873 and Medial OA
+0.9860, but **Synovitis 0.7575, below our 0.779**.
+
+**This is worth measuring. It is not worth believing yet.** Every number in the
+paragraph above is the author's, on the author's split. E048's comparability
+rule has now failed twice as a predictor of what *pays* (E081 offline, E087 on
+the board), and four unions in this log have returned +0.0046, +0.0022, +0.0036
+and +0.0027, none separated. **A different-in-kind member that reports ahead of
+us is the best-shaped union the log has ever had, and the log's own history says
+the most likely outcome is still nothing.**
+
+What it plausibly buys, if it behaves: something in the 0.93s. **It does not
+reach 0.95, and nothing here does.**

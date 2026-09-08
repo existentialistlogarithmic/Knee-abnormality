@@ -5001,11 +5001,48 @@ studies that is comfortable for `81` and genuinely tight for `82`. The
 projection now prints from study 100 of each group, so it is visible early —
 but **run the control first for this reason as well as the scientific one.**
 
-**WHAT STILL CANNOT BE CHECKED OFFLINE: the DICOM path.** `build_study` needs
-real series, and the CC0 corpus is published at a different geometry from the
-one any of these arms uses, so there is no offline gold evaluation for this arm
-at all. **The board control is the only thing that can price it**, which is
-exactly why it is a separate kernel.
+**THE DICOM PATH IS NOW CHECKED TOO, AGAINST UPSTREAM'S OWN CODE.** The
+addendum above said it could not be. It can: not against real series, but
+against **the reference implementation on identical synthetic ones**. Five
+DICOM series were synthesised from fixed seeds — two sagittal, two coronal, one
+axial, with real `ImageOrientationPatient`, `ImagePositionPatient` and
+`PixelSpacing` — and pushed through **both** `build_study` implementations,
+ours driven with upstream's own v4 constants so the comparison is like for like.
+
+```
+upstream volume (64, 336, 336) mask sum 64
+ours     volume (64, 336, 336) mask sum 64
+max |delta| 0   differing voxels 0 / 7,225,344
+VOLUMES IDENTICAL: True    MASKS IDENTICAL: True
+```
+
+  **Byte for byte, every voxel.** That covers the whole path E090 could not
+  otherwise reach: series ordering by `ImagePositionPatient` projected on the
+  slice normal, slot selection and its fluid-sensitive preference, the span
+  pick, the 2nd/98th percentile window, the millimetre crop, the resize and the
+  uint8 quantisation. **This is the control arm for code, run to completion** —
+  bug 1 and bug 2 were found by reading the reference; this one was found to be
+  right by executing it.
+
+- **it is locked in without vendoring their notebook.** `tests/
+  test_raptor_build_study.py` carries the SHA-256 of the agreed volume and
+  refuses any drift, plus two behavioural cases the hash alone would not
+  explain: a missing plane must leave its slot **blank rather than back-filled**
+  (slots are positional and the model reads the stack by position), and a study
+  with no series must yield an empty mask, which is how a schema change would
+  present on every study at once.
+- **and one hazard found while writing it.** Upstream imports
+  `pydicom.pixel_data_handlers.util`, which pydicom 3.x deprecated and 4.0
+  removes. On an image carrying pydicom 4.x that raises **inside the reader** —
+  which is to say on the first study, an hour into a GPU session. The template
+  now tries `pydicom.pixels` first and falls back. The golden hash is unchanged
+  by the fix, which is what the hash is for.
+
+**WHAT STILL CANNOT BE CHECKED OFFLINE: whether the model is any good on real
+knees.** The pipeline is verified; the *result* is not. The CC0 corpus is
+published at a different geometry from the one any of these arms uses, so there
+is no offline gold evaluation available for this arm. **The board control is the
+only thing that can price it**, which is exactly why it is a separate kernel.
 
 **Two smaller things, both in the project's existing idiom.**
 `infer_manifest.json` is now written with the same shape `infer` uses, carrying

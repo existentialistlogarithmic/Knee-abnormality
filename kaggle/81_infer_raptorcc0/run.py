@@ -229,7 +229,13 @@ def rankpct(x):
 def _make_reader():
     import cv2
     import pydicom
-    from pydicom.pixel_data_handlers.util import apply_modality_lut
+    try:
+        # pydicom 3.x moved this and 4.0 removes the old path. Upstream imports
+        # the old one only; on an image with pydicom 4.x that raises inside the
+        # reader, which is to say on the first study, an hour into the session.
+        from pydicom.pixels import apply_modality_lut
+    except ImportError:
+        from pydicom.pixel_data_handlers.util import apply_modality_lut
 
     def order_and_meta(sdir):
         recs, spacings = [], []

@@ -290,7 +290,19 @@ CNN336. This project has used none of them. `eda/survey_public_checkpoints.py`
 was reporting "cannot be screened for free" about them because it read the wrong
 metadata spellings; that is fixed and has two regression tests.
 
-**So it is the account owner's call.** If the answer is yes:
+**E088 REMOVED THIS BLOCKER FOR THE COATNET ARM, AND IT IS NOW BUILT.**
+`kaggle/81_infer_raptorcc0` and `kaggle/82_infer_raptorcc0x4` run the CC0
+CoAtNet weights **in our own kernel**, mounting `dreaddevelopment`'s datasets
+directly. Nothing is forked and nothing restricted is mounted: the `tonylica`
+asset that gates the 0.937 system's DINOv3 arm stays out, and
+`tests/test_raptor_arm.py` asserts every mounted asset is CC0 or Apache against
+the dated licence snapshot, so E043's rule is now enforced rather than described.
+
+The fork question below still stands for the DINOv2, DINOv3 and RadImageNet
+arms. It no longer stands for the strongest one.
+
+**So the remaining fork decision is the account owner's call.** If the answer is
+yes, for the other three arms:
 
 1. Open `kaggle.com/code/dreaddevelopment/knee-mri-twelve-findings-from-a-single-model`
    and **Copy & Edit**. Keep the attribution cell.
@@ -348,7 +360,31 @@ Kaggle's kernel listing is the moment a run **starts**, not the moment it ends �
 confirmed at five consecutive queue transitions. Read it that way before
 concluding anything is finished.
 
-**After E088, the log is out of measured levers on its own work.** §4d's
+**THEN THE CC0 COATNET ARM, IN THIS ORDER AND NOT ANOTHER.**
+
+```bash
+bash eda/preflight.sh && kaggle kernels push -p kaggle/81_infer_raptorcc0
+# wait for COMPLETE, verify the log, submit it, and READ THE SCORE FIRST
+kaggle kernels push -p kaggle/82_infer_raptorcc0x4      # only after that
+```
+
+`81` is one CC0 checkpoint, no blending, no TTA — **the control**. Upstream
+self-reports this family at 0.924 on the board and 0.9167 on the 58 gold with
+gold held out. **If it does not come back near 0.92, our mounting or
+preprocessing is wrong and no later blend can be read at all.** `82` is the same
+model family at the published four-sub-model weights (0.55 / 0.20 / 0.15 / 0.10,
+the third being a horizontal flip that costs no extra checkpoint). Pushing `82`
+first would give a mounting bug four places to hide.
+
+`74_blend_raptor` is retargeted onto `81` and must not be pushed until `81` has
+**scored**, not merely run.
+
+**Runtime is the risk to watch, not correctness.** CoAtNet at 384px over 42
+windows is far heavier than our resnet34 at 192px, which projects 0.86 h for
+1,300 studies. Read `81`'s own per-100-study timing line before assuming `82`
+fits the 9 h cap; if it does not, drop the 0.10 member first.
+
+**After E088 and E089, the log is out of measured levers on its own work.** §4d's
 public-notebook route is the only remaining item with a large measured gap and
 it is blocked on an account-owner decision, not on engineering. **Do not spend
 GPU on architecture of any kind** — the instrument that made those ideas look

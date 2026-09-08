@@ -331,6 +331,32 @@ class Lineage:
 # is queued to run; nothing here is aspirational.
 # --------------------------------------------------------------------------- #
 
+# ---------------------------------------------------------------------- #
+# The CC0 CoAtNet arm's geometry. NOT this project's — it is fixed by the
+# published weights and must match them exactly or the model sees inputs it was
+# never trained on. Recorded here rather than in each kernel so the two raptor
+# kernels cannot drift apart, and sourced from the public training notebook
+# `dreaddevelopment/knee-mri-training-the-twelve-finding-model` (E088).
+#
+# The five slots are (plane, fluid-sensitive, count) and sum to 64 slices.
+# Preferring a fluid-sensitive series for some slots and not others is
+# deliberate upstream: fluid-sensitive sequences show swelling, effusion and
+# acute injury, the others show anatomy and cartilage, and the twelve findings
+# split across both.
+RAPTOR_GEOMETRY: dict[str, object] = {
+    "IMG": 336,
+    "CROP_MM": 140.0,
+    "SLOTS": (("Sagittal", 1, 18), ("Sagittal", 0, 14), ("Coronal", 1, 12),
+              ("Coronal", 0, 8), ("Axial", -1, 12)),
+    "SPAN_LO": 0.06,
+    "SPAN_HI": 0.94,
+    # Every window position the volume holds, not an evenly spaced subset.
+    "K_EVAL": 42,
+    "LAB": ("ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
+            "Lateral OA", "PF OA", "Effusion", "Synovitis", "Baker's",
+            "Contusion", "Fracture"),
+}
+
 V1 = Geometry(
     mm_per_pixel=0.6, size=192, slices=20,
     note="0.6 mm/px over 192 px covers ~115 mm, which contains the knee joint\n"
@@ -1354,6 +1380,101 @@ EXTRAS = [
              "Cost: no training at all. E050 measured 0.037 h per member, so\n"
              "ten is ~1.2 h against a 9 h cap, out of 10.75 h left this week.",
     ),
+    # ------------------------------------------------------------------ #
+    # THE CC0 CoAtNet ARM. Someone else's model, our kernel, their credit.
+    # ------------------------------------------------------------------ #
+    # E088 changed what is reachable here. The blocker was never the licence on
+    # the weights — those are CC0-1.0 — it was that upstream persists no output
+    # files, so its predictions cannot be mounted (E085 tried; the blend
+    # correctly refused with one member). The weights ARE published as datasets,
+    # so the arm can be RUN here from CC0 inputs with attribution, instead of
+    # forking a notebook or mounting an output that does not exist.
+    #
+    # E088 also found the model is fully specified by the checkpoint: `arch`
+    # names a stock timm backbone, `res` the geometry, and the head is eight
+    # tensors. HANDOFF.md §4d's "reproducing RaptorClassifier and build_backbone
+    # is copying while claiming otherwise" is therefore only half true — the
+    # model is given. What is genuinely theirs is the input pipeline, and the
+    # template says so at the top and names every source.
+    Kernel(
+        slug="knee-infer-raptorcc0",
+        directory="81_infer_raptorcc0",
+        template="raptor_infer",
+        gpu=True,
+        internet=False,
+        datasets=["dreaddevelopment/raptor-knee-maxspan"],
+        constants={
+            "MEMBERS_EXPECTED": 1,
+            "ARM_FILES": ("raptor_ft_coatnet_v5_full_swa.pt",),
+            "ARM_WEIGHTS": (1.0,),
+            "ARM_FLIP": (False,),
+            **RAPTOR_GEOMETRY,
+        },
+        note="THE CONTROL, and it must be submitted before any blend.\n"
+             "\n"
+             "One CC0 CoAtNet checkpoint, no blending, no TTA. Upstream\n"
+             "self-reports this family at 0.924 on the board from a single\n"
+             "model and 0.9167 on the 58 gold with gold held out.\n"
+             "\n"
+             "PRE-REGISTERED READING, before the score arrives:\n"
+             "  near 0.92   the arm reproduces and is a trustworthy member\n"
+             "  under 0.90  something in OUR mounting or preprocessing is\n"
+             "              wrong, and no later blend can be read at all\n"
+             "  over 0.93   the self-report understated it; re-read before\n"
+             "              believing, because that is not what upstream says\n"
+             "\n"
+             "E039: run the thing that costs nothing if it succeeds. This\n"
+             "costs one submission and answers whether the member is real.\n"
+             "\n"
+             "ATTRIBUTION: model, geometry and slot layout are Dread\n"
+             "Development's, from the public notebooks named in the template\n"
+             "header. Weights CC0-1.0, licence read 2026-09-08 (E088).",
+    ),
+    Kernel(
+        slug="knee-infer-raptorcc0x4",
+        directory="82_infer_raptorcc0x4",
+        template="raptor_infer",
+        gpu=True,
+        internet=False,
+        datasets=["dreaddevelopment/raptor-knee-maxspan",
+                  "dreaddevelopment/raptor-knee-native384",
+                  "dreaddevelopment/raptor-knee-native384dense"],
+        constants={
+            "MEMBERS_EXPECTED": 4,
+            # The four sub-models and weights published with the 0.937 system.
+            # maxspan-v5 appears twice: once straight and once horizontally
+            # flipped, which is a free member because knees are near-symmetric
+            # and it needs no fourth checkpoint.
+            "ARM_FILES": ("raptor_ft_coatnet_v5_full_swa.pt",
+                          "raptor_ft_coatnet_v8_full_swa.pt",
+                          "raptor_ft_coatnet_v5_full_swa.pt",
+                          "raptor_ft_coatnet_v10_full.pt"),
+            "ARM_WEIGHTS": (0.55, 0.20, 0.15, 0.10),
+            "ARM_FLIP": (False, False, True, False),
+            **RAPTOR_GEOMETRY,
+        },
+        note="The CoAtNet arm of the public 0.937 system, at its published\n"
+             "weights: maxspan-v5 0.55, native384-v8 0.20, maxspan-v5 flipped\n"
+             "0.15, native384dense-v10 0.10. Its authors call CoAtNet their\n"
+             "strongest single arm and give it base weight 0.60 of four.\n"
+             "\n"
+             "EVERY WEIGHT FILE HERE IS CC0-1.0. The `tonylica` asset that\n"
+             "gates that system's DINOv3 arm is deliberately NOT mounted: its\n"
+             "licence reads `Other (specified in description)` and the\n"
+             "description is EMPTY, so no grant exists and E043's avoid tier\n"
+             "applies on the merits rather than on the label (E088).\n"
+             "\n"
+             "DO NOT PUSH THIS BEFORE `knee-infer-raptorcc0` HAS SCORED.\n"
+             "Three checkpoints and a flip is four ways for a mounting bug to\n"
+             "hide; the single-arm control is what makes this readable.\n"
+             "\n"
+             "Weights are published, not fitted here. A weight tuned on 58\n"
+             "studies is a free parameter fitted to 58 studies, which this\n"
+             "project has declined four times (E048, E069, E081, E084).\n"
+             "\n"
+             "ATTRIBUTION: as `knee-infer-raptorcc0`, plus the blend weights\n"
+             "from the public write-up `4-arm-ensemble-explained-rsna-knee-0-937`.",
+    ),
     Kernel(
         slug="knee-blend-raptor",
         directory="74_blend_raptor",
@@ -1422,11 +1543,20 @@ EXTRAS = [
         # call to make rather than something this file should assume. See
         # HANDOFF.md §4d for the exact steps if the answer is yes.
         #
-        # Left mounted at upstream so the declaration stays honest about where
-        # the arm comes from. Do not push this kernel until a Raptor arm exists.
-        depends=["knee-infer-v1pubfull5"],
-        external_kernels=[
-            "dreaddevelopment/knee-mri-twelve-findings-from-a-single-model"],
+        # RETARGETED 2026-09-08 (E088). This used to mount upstream's notebook
+        # directly, which cannot work: it persists no output files, so there is
+        # no submission.csv to blend and E085's run correctly refused with one
+        # member. `knee-infer-raptorcc0` is that same model run in OUR kernel
+        # from the CC0 weights, so the arm is now a real dependency inside this
+        # manifest rather than a foreign kernel that can never supply one.
+        #
+        # The attribution below does not change and must not: the model is still
+        # Dread Development's. What changed is only where it runs.
+        #
+        # DO NOT PUSH until `knee-infer-raptorcc0` has SCORED on the board. Its
+        # own note says why — an unpriced member makes the blend unreadable
+        # rather than merely unproven.
+        depends=["knee-infer-v1pubfull5", "knee-infer-raptorcc0"],
         constants={"MEMBERS_EXPECTED": 2},
         note="A 50/50 rank blend of the public CC0 Raptor model and this\n"
              "project's full-fit ensemble. No model, no GPU, no training —\n"

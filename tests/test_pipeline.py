@@ -937,10 +937,21 @@ def test_external_kernels_reach_the_metadata_but_not_the_manifest_check():
     cannot be resolved that way, so they live in their own field — and the risk
     is that the field becomes a hole anyone can post a bad `depends` through.
     """
-    blend = next(k for k in pipeline.all_kernels() if k.slug == "knee-blend-raptor")
-    sources = blend.metadata()["kernel_sources"]
-    assert "dreaddevelopment/knee-mri-twelve-findings-from-a-single-model" in sources
-    assert f"{pipeline.ACCOUNT}/knee-infer-v1pubfull5" in sources
+    # The mechanism, tested on a kernel written here rather than on whichever
+    # manifest entry happens to use it today. `knee-blend-raptor` was that entry
+    # until E088 retargeted it onto `knee-infer-raptorcc0` — the same model, run
+    # in our own kernel from CC0 weights, because upstream persists no outputs
+    # and could never have supplied a submission to blend. Pinning the mechanism
+    # to one kernel made a legitimate retarget look like a regression.
+    probe = pipeline.Kernel(
+        slug="probe", directory="00_probe", template="rank_blend",
+        depends=["knee-infer-v1pubfull5"],
+        external_kernels=["someone-else/their-notebook"],
+    )
+    sources = probe.metadata()["kernel_sources"]
+    assert "someone-else/their-notebook" in sources, "external mounts must reach metadata"
+    assert f"{pipeline.ACCOUNT}/knee-infer-v1pubfull5" in sources, \
+        "own dependencies must still be account-qualified in metadata"
 
     # Every external entry is owner-qualified; a bare slug here would silently
     # mount nothing rather than failing, because Kaggle would not resolve it.

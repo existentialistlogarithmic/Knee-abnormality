@@ -15,7 +15,7 @@
   ],
   "kernel_sources": [
     "achelijndiamantidis/knee-infer-v1pubfull5",
-    "dreaddevelopment/knee-mri-twelve-findings-from-a-single-model"
+    "achelijndiamantidis/knee-infer-raptorcc0"
   ],
   "model_sources": []
 }

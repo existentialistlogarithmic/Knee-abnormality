@@ -4974,6 +4974,39 @@ the board, 0.9167 on gold"* to the arm it runs. Those are **v4's** numbers;
 widened to 0.92–0.93 to reflect that v5's own file reads 0.9214 against v4's
 0.9167 — so v5 should land at or slightly above v4's 0.924 if it reproduces.
 
+**AND ALL THREE NOW RUN, WITH REAL WEIGHTS, THROUGH OUR OWN CODE.**
+`eda/verify_raptor_checkpoint.py` loads a checkpoint through the generated
+kernel's own `load_model`, builds that arm's windows and pushes them forward on
+CPU. Run against all three:
+
+| arm | img | span | k_eval | windows built | forward | reverse Δ |
+|---|---:|---|---:|---|---|---:|
+| maxspan-v5 | 336 | 0.02–0.98 | 62 | (62, 3, 384, 384) | 12 probs in [0.109, 0.576] | 0.1951 |
+| native384-v8 | 384 | 0.06–0.94 | 42 | (42, 3, 384, 384) | 12 probs in [0.200, 0.476] | 0.1843 |
+| native384dense-v10 | 384 | 0.02–0.98 | 62 | (62, 3, 384, 384) | 12 probs in [0.076, 0.684] | 0.0628 |
+
+  **`strict=True` resolved all 486 tensors in every one**, which is what
+  actually proves the architecture was reconstructed correctly rather than
+  merely plausibly — a timm whose `coatnet_rmlp_2_rw_384` had a different
+  feature width would fail here instead of an hour into a GPU session. Each arm
+  built windows at **its own** geometry, which is bug 1 verified fixed rather
+  than assumed fixed. And the reverse member moves the output by up to 0.195, so
+  the slice-triplet reversal is not a no-op — had it been, the 0.15-weighted
+  member would silently duplicate the 0.55 one and reweight the blend.
+
+**THE RUNTIME RISK, SIZED.** Forward costs ~1.0–1.1 s per window on this CPU.
+The control pushes 62 windows per study; the four-arm kernel pushes 228 across
+three preprocessing passes, **3.7× the control**. Against a 9 h cap on ~1,300
+studies that is comfortable for `81` and genuinely tight for `82`. The
+projection now prints from study 100 of each group, so it is visible early —
+but **run the control first for this reason as well as the scientific one.**
+
+**WHAT STILL CANNOT BE CHECKED OFFLINE: the DICOM path.** `build_study` needs
+real series, and the CC0 corpus is published at a different geometry from the
+one any of these arms uses, so there is no offline gold evaluation for this arm
+at all. **The board control is the only thing that can price it**, which is
+exactly why it is a separate kernel.
+
 **Two smaller things, both in the project's existing idiom.**
 `infer_manifest.json` is now written with the same shape `infer` uses, carrying
 per-arm geometry, fallbacks, wall clock, the projection to 1,300 studies and

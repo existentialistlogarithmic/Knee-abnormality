@@ -379,10 +379,28 @@ first would give a mounting bug four places to hide.
 `74_blend_raptor` is retargeted onto `81` and must not be pushed until `81` has
 **scored**, not merely run.
 
-**Runtime is the risk to watch, not correctness.** CoAtNet at 384px over 42
-windows is far heavier than our resnet34 at 192px, which projects 0.86 h for
-1,300 studies. Read `81`'s own per-100-study timing line before assuming `82`
-fits the 9 h cap; if it does not, drop the 0.10 member first.
+**Verify the weights before pushing, and it costs nothing:**
+
+```bash
+kaggle datasets download dreaddevelopment/raptor-knee-maxspan \
+    -f raptor_ft_coatnet_v5_full_swa.pt -p ckpt
+python eda/verify_raptor_checkpoint.py --checkpoint ckpt/raptor_ft_coatnet_v5_full_swa.pt
+```
+
+All three mounted checkpoints have passed this: fingerprint matched, all 486
+tensors loaded `strict=True`, windows built at each arm's own geometry, twelve
+calibrated outputs, reverse member not a no-op (E090). Re-run it if upstream
+ever changes a file — the kernel will refuse to start on a fingerprint
+mismatch, but finding that out here costs a second rather than a GPU session.
+
+**Runtime is the remaining risk, and it is sized.** Forward is ~1.0-1.1 s per
+window on CPU; `81` pushes 62 windows per study and `82` pushes **228 across
+three preprocessing passes, 3.7x the control**. Against a 9 h cap on ~1,300
+studies that is comfortable for `81` and genuinely tight for `82`. Each group
+now prints its projected hours from study 100, so a run that will not fit is
+visible early. If `82` does not fit, drop the 0.10 member (`native384dense-v10`)
+first — never change a `k_eval` or a span to save time, because those are the
+geometry the weights were trained at and E090 is what happens when they drift.
 
 **After E088 and E089, the log is out of measured levers on its own work.** §4d's
 public-notebook route is the only remaining item with a large measured gap and

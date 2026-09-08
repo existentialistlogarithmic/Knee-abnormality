@@ -4849,3 +4849,79 @@ the board can settle it.**
 - **what it changes**: `PATH.md` §2.3's weekly survey stops being an open-ended
   hope. Three passes have now closed it, and the fourth candidate is a board
   question rather than an offline one.
+
+### E090 — the pre-push sanity check found two bugs that would have run, submitted, and been wrong
+- **date**: 2026-09-08. CPU only, no quota, no submission. Prompted by a request
+  to sanity-check the CC0 CoAtNet kernel against normal practice **before**
+  pushing it. Both findings came from reading the reference implementations
+  rather than from running anything.
+
+**BUG 1 — ONE GEOMETRY APPLIED TO FOUR MODELS THAT DISAGREE.** The first draft
+gave every arm a single shared geometry, taken from the notebook it was written
+from. That notebook runs `v4`, which upstream labels `LEGACY_ARM` and **none of
+the four published sub-models uses**:
+
+| arm | img | slices | span | windows |
+|---|---:|---:|---|---:|
+| maxspan-v5 | 336 | 64 | 0.02–0.98 | 62 |
+| native384dense-v10 | **384** | 64 | 0.02–0.98 | 62 |
+| maxspan-v5-reverse | 336 | 64 | 0.02–0.98 | 62 |
+| native384-v8 | **384** | **44** | **0.06–0.94** | **42** |
+| *(v4, what the draft used)* | *336* | *64* | *0.06–0.94* | *42* |
+
+  Not one of the four was configured correctly, the control included. **This is
+  precisely the silent train/inference skew `HANDOFF.md` §4d warned about** — it
+  runs, it writes a well-formed submission, and the model sees inputs it was
+  never trained on. Confirmed against two independent reproductions
+  (`evgendvorkin/rsna-baseline` and
+  `hyakumanben2025/rsna-knee-0937-meniscus-resid-repro`) which agree line for
+  line.
+
+**BUG 2 — "REVERSE" IS NOT A HORIZONTAL FLIP.** Upstream's prose says
+*"горизонтальное отражение окон"* — horizontal reflection of the windows — and
+the published English summary repeats it as *"reverse horizontal flip variant"*.
+The code is `xw.flip(1)` on a tensor shaped **(K, 3, H, W)**. Dim 1 is the
+**three neighbouring slices**, not width: it reverses the triplet
+(c−1, c, c+1 → c+1, c, c−1) and leaves the image geometry untouched.
+
+  The draft implemented the prose, `flip(-1)`, a true left-right mirror. That is
+  a different operation and a far larger distribution shift for a backbone never
+  trained on mirrored knees. **The description and the implementation disagree,
+  and the implementation is what produced the published numbers.**
+
+**A GUARD ADDED, FOR THE FAILURE THIS KERNEL IS SHAPED TO HIDE.** Every failure
+mode here — a renamed column in the hidden test's series table, a missing series
+directory, an unreadable DICOM — lands in the same `except` and yields a
+constant-0.5 row. The result is a **well-formed submission that scores 0.500 and
+is indistinguishable on the leaderboard from a model that does not work.**
+`FALLBACK_LIMIT` (2%) now refuses to write, and an all-zero mask counts as a
+failure rather than passing silently as a study with no findings. E084's
+`MEMBERS_EXPECTED` stopped this class on the mounting side; this is the data
+side.
+
+**WHAT CHECKED OUT.** Recorded so it is not re-derived: the competition's series
+table really does use `Anatomical_Plane` ∈ {Axial, Coronal, Sagittal} and
+`Fluid_Sensitive` ∈ {0, 1}, matching the slot definitions exactly; `CROP_MM` is
+140.0 for the CoAtNet branch (the 130.0 in the same file belongs to the
+RadImageNet and DINOv2 branches, and copying it would have been a third
+instance of bug 1); `k_eval` equals slices − 2 for every arm, which is what
+"every window position the volume holds" means and is now asserted; the head
+loads `strict=True` against the checkpoint's own key names; and timm resolves
+`coatnet_rmlp_2_rw_384` with `pretrained=False`, so nothing is downloaded with
+internet off.
+
+**UPSTREAM'S OWN GOLD-58 FIGURES, for the pre-registration.** Self-reported, on
+their split, with gold held out of training: maxspan-v5 **0.9198**,
+native384dense-v10 **0.9170**, maxspan-v5-reverse **0.9167**, native384-v8
+**0.9116**, four-arm blend **0.9254**. Against this project's pooled 0.8980 that
+is **+0.027**. Treat as a claim, not a measurement — but it does mean the
+control has a number to be checked against, which is the point of running it
+first.
+
+- **cost**: zero. Two notebooks read, one template rewritten, 21 tests.
+- **the lesson, and it is the project's own rule pointed at itself**: the draft
+  was written by reading *one* reference implementation and assuming the family
+  shared its constants. Neither bug is subtle in hindsight and neither would
+  have been visible in the output — a wrong-geometry run and a wrong-flip run
+  both produce a plausible submission. **Reading the second implementation is
+  what a control arm looks like for code.**

@@ -332,30 +332,60 @@ class Lineage:
 # --------------------------------------------------------------------------- #
 
 # ---------------------------------------------------------------------- #
-# The CC0 CoAtNet arm's geometry. NOT this project's — it is fixed by the
+# The CC0 CoAtNet arm. NOT this project's geometry — it is fixed by the
 # published weights and must match them exactly or the model sees inputs it was
-# never trained on. Recorded here rather than in each kernel so the two raptor
-# kernels cannot drift apart, and sourced from the public training notebook
-# `dreaddevelopment/knee-mri-training-the-twelve-finding-model` (E088).
+# never trained on.
 #
-# The five slots are (plane, fluid-sensitive, count) and sum to 64 slices.
-# Preferring a fluid-sensitive series for some slots and not others is
-# deliberate upstream: fluid-sensitive sequences show swelling, effusion and
-# acute injury, the others show anatomy and cartilage, and the twelve findings
-# split across both.
-RAPTOR_GEOMETRY: dict[str, object] = {
-    "IMG": 336,
-    "CROP_MM": 140.0,
-    "SLOTS": (("Sagittal", 1, 18), ("Sagittal", 0, 14), ("Coronal", 1, 12),
-              ("Coronal", 0, 8), ("Axial", -1, 12)),
-    "SPAN_LO": 0.06,
-    "SPAN_HI": 0.94,
-    # Every window position the volume holds, not an evenly spaced subset.
-    "K_EVAL": 42,
-    "LAB": ("ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
-            "Lateral OA", "PF OA", "Effusion", "Synovitis", "Baker's",
-            "Contusion", "Fracture"),
-}
+# THE FOUR SUB-MODELS DISAGREE ON ALMOST EVERYTHING, and that is the trap. An
+# earlier version of this manifest gave all four one shared geometry, taken from
+# the v4 notebook — which is the LEGACY arm none of these four uses. Reading one
+# notebook and assuming the family shares its constants is exactly the silent
+# train/inference skew `HANDOFF.md` §4d warned about, and it was caught by
+# reading the reference implementations rather than by running anything.
+#
+# Sourced from `evgendvorkin/rsna-baseline` and `hyakumanben2025/
+# rsna-knee-0937-meniscus-resid-repro`, which agree line for line, and from the
+# public training notebook `dreaddevelopment/knee-mri-training-the-twelve-
+# finding-model` (E088, E090).
+#
+# Slots are (plane, fluid-sensitive, count); -1 means no preference. Preferring
+# a fluid-sensitive series for some slots and not others is deliberate upstream:
+# fluid-sensitive sequences show swelling, effusion and acute injury, the others
+# show anatomy and cartilage, and the twelve findings split across both.
+RAPTOR_SLOTS64 = (("Sagittal", 1, 18), ("Sagittal", 0, 14), ("Coronal", 1, 12),
+                  ("Coronal", 0, 8), ("Axial", -1, 12))          # sums to 64
+RAPTOR_SLOTS44 = (("Sagittal", 1, 12), ("Sagittal", 0, 10), ("Coronal", 1, 8),
+                  ("Coronal", 0, 6), ("Axial", -1, 8))           # sums to 44
+
+RAPTOR_LAB = ("ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
+              "Lateral OA", "PF OA", "Effusion", "Synovitis", "Baker's",
+              "Contusion", "Fracture")
+
+# `img` is the cache resolution the volume is built at; the model input is `res`
+# from the checkpoint (384 for all four), so `img` 336 means the windows are
+# upsampled and `img` 384 means they are native. `reverse` reverses the
+# three-slice channel triplet — upstream's prose calls it a horizontal flip and
+# its code does `flip(1)` on (K, 3, H, W), which is not the same thing.
+#
+# Weights are PUBLISHED, not fitted here. Their author's own gold-58 figures:
+# maxspan-v5 0.9198, native384dense-v10 0.9170, maxspan-v5-reverse 0.9167,
+# native384-v8 0.9116, and the four-arm blend 0.9254 against our pooled 0.8980.
+# Every one of those is a self-report on the author's split.
+RAPTOR_V5 = {"name": "maxspan-v5", "file": "raptor_ft_coatnet_v5_full_swa.pt",
+             "img": 336, "slots": RAPTOR_SLOTS64, "span": (0.02, 0.98),
+             "k_eval": 62, "reverse": False, "w": 0.55}
+RAPTOR_ARMS = (
+    RAPTOR_V5,
+    {"name": "native384dense-v10", "file": "raptor_ft_coatnet_v10_full.pt",
+     "img": 384, "slots": RAPTOR_SLOTS64, "span": (0.02, 0.98),
+     "k_eval": 62, "reverse": False, "w": 0.10},
+    {"name": "maxspan-v5-reverse", "file": "raptor_ft_coatnet_v5_full_swa.pt",
+     "img": 336, "slots": RAPTOR_SLOTS64, "span": (0.02, 0.98),
+     "k_eval": 62, "reverse": True, "w": 0.15},
+    {"name": "native384-v8", "file": "raptor_ft_coatnet_v8_full_swa.pt",
+     "img": 384, "slots": RAPTOR_SLOTS44, "span": (0.06, 0.94),
+     "k_eval": 42, "reverse": False, "w": 0.20},
+)
 
 V1 = Geometry(
     mm_per_pixel=0.6, size=192, slices=20,
@@ -1405,10 +1435,13 @@ EXTRAS = [
         datasets=["dreaddevelopment/raptor-knee-maxspan"],
         constants={
             "MEMBERS_EXPECTED": 1,
-            "ARM_FILES": ("raptor_ft_coatnet_v5_full_swa.pt",),
-            "ARM_WEIGHTS": (1.0,),
-            "ARM_FLIP": (False,),
-            **RAPTOR_GEOMETRY,
+            "ARMS": ({**RAPTOR_V5, "w": 1.0},),
+            "CROP_MM": 140.0,
+            "LAB": RAPTOR_LAB,
+            # A few unreadable studies is robustness; most of them is a broken
+            # kernel writing a constant-0.5 submission that scores 0.500 and is
+            # indistinguishable from a bad model.
+            "FALLBACK_LIMIT": 0.02,
         },
         note="THE CONTROL, and it must be submitted before any blend.\n"
              "\n"
@@ -1441,17 +1474,17 @@ EXTRAS = [
                   "dreaddevelopment/raptor-knee-native384dense"],
         constants={
             "MEMBERS_EXPECTED": 4,
-            # The four sub-models and weights published with the 0.937 system.
-            # maxspan-v5 appears twice: once straight and once horizontally
-            # flipped, which is a free member because knees are near-symmetric
-            # and it needs no fourth checkpoint.
-            "ARM_FILES": ("raptor_ft_coatnet_v5_full_swa.pt",
-                          "raptor_ft_coatnet_v8_full_swa.pt",
-                          "raptor_ft_coatnet_v5_full_swa.pt",
-                          "raptor_ft_coatnet_v10_full.pt"),
-            "ARM_WEIGHTS": (0.55, 0.20, 0.15, 0.10),
-            "ARM_FLIP": (False, False, True, False),
-            **RAPTOR_GEOMETRY,
+            # The four sub-models published with the 0.937 system, each with the
+            # geometry it was trained at. maxspan-v5 appears twice — once
+            # straight and once with its slice triplet reversed — so four
+            # members cost three checkpoints.
+            "ARMS": RAPTOR_ARMS,
+            "CROP_MM": 140.0,
+            "LAB": RAPTOR_LAB,
+            # A few unreadable studies is robustness; most of them is a broken
+            # kernel writing a constant-0.5 submission that scores 0.500 and is
+            # indistinguishable from a bad model.
+            "FALLBACK_LIMIT": 0.02,
         },
         note="The CoAtNet arm of the public 0.937 system, at its published\n"
              "weights: maxspan-v5 0.55, native384-v8 0.20, maxspan-v5 flipped\n"

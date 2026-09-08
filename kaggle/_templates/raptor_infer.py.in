@@ -61,7 +61,6 @@ torch.backends.cuda.matmul.allow_tf32 = True
 
 _MEAN = torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)
 _STD = torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
-MAXS = sum(int(s[2]) for s in SLOTS)
 
 
 # ============================================================================
@@ -158,13 +157,19 @@ def eval_windows(vol, mask, k, res):
 
 
 @torch.no_grad()
-def infer_probs(model, xwins, device, flip):
-    x = xwins.unsqueeze(0).to(device)
-    if flip:
-        # A horizontal flip is a free ensemble member: knees are near-symmetric,
-        # so the flipped view is a genuinely different input to the same weights
-        # and costs no extra checkpoint. Published weight 0.15.
-        x = torch.flip(x, dims=[-1])
+def infer_probs(model, xwins, device, reverse):
+    # THE "REVERSE" MEMBER, AND WHAT IT IS NOT. Upstream's prose calls it a
+    # "horizontal flip", and the published summary tables repeat that. The code
+    # does `xw.flip(1)` on a tensor shaped (K, 3, H, W), so dim 1 is the THREE
+    # NEIGHBOURING SLICES, not width: it reverses the slice triplet (c-1, c, c+1
+    # -> c+1, c, c-1) and leaves the image geometry untouched.
+    #
+    # This project first implemented the prose — flip(-1), a true left-right
+    # mirror — which is a different operation and a far larger distribution
+    # shift for a model never trained on mirrored knees. Caught before the first
+    # push by reading the reference implementation instead of its description.
+    x = xwins.flip(1).contiguous() if reverse else xwins
+    x = x.unsqueeze(0).to(device)
     if str(device).startswith("cuda"):
         try:
             # fp16 conv is fully cuDNN-supported on T4; bf16 is not ("no engine").
@@ -218,11 +223,11 @@ def _make_reader():
             a = a.max() - a
         return a
 
-    def mm_crop_resize(a, ps):
+    def mm_crop_resize(a, ps, img):
         h, w = a.shape
         cpx = min(int(round(CROP_MM / max(ps, 1e-3))), min(h, w))
         y0, x0 = (h - cpx) // 2, (w - cpx) // 2
-        return cv2.resize(a[y0:y0 + cpx, x0:x0 + cpx], (IMG, IMG), interpolation=cv2.INTER_AREA)
+        return cv2.resize(a[y0:y0 + cpx, x0:x0 + cpx], (img, img), interpolation=cv2.INTER_AREA)
 
     return order_and_meta, read_px, mm_crop_resize
 
@@ -237,13 +242,25 @@ def _pick_series(rows, plane, fluid, used):
     return cands[0] if cands else None
 
 
-def build_study(sid, series, tsdir, reader):
-    """Fill the fixed slots into one (MAXS, IMG, IMG) uint8 stack."""
+def build_study(sid, series, tsdir, reader, img, slots, span):
+    """Fill the fixed slots into one (maxs, img, img) uint8 stack.
+
+    GEOMETRY IS PER ARM, not shared. The four published sub-models disagree on
+    every one of these: `maxspan-v5` caches at 336 px over a 64-slice layout
+    spanning 0.02-0.98, `native384-v8` at 384 px over a 44-slice layout spanning
+    0.06-0.94. An earlier version of this file applied one geometry to all four
+    — and the one it applied was the *v4 legacy* config that none of them uses.
+    That is the silent train/inference skew `HANDOFF.md` §4d warned about,
+    reached by reading the v4 notebook and assuming the family shared its
+    constants.
+    """
     order_and_meta, read_px, mm_crop_resize = reader
+    span_lo, span_hi = float(span[0]), float(span[1])
+    maxs = sum(int(s[2]) for s in slots)
     rows = series.get(sid, [])
-    vol = np.zeros((MAXS, IMG, IMG), np.uint8)
+    vol = np.zeros((maxs, img, img), np.uint8)
     idx, used = 0, set()
-    for plane, fluid, k in SLOTS:
+    for plane, fluid, k in slots:
         rec = _pick_series(rows, plane, int(fluid), used)
         if rec is None:
             idx += int(k)
@@ -257,7 +274,7 @@ def build_study(sid, series, tsdir, reader):
         # peripheral slices a narrower crop throws away. Must match the corpus
         # these weights were trained on.
         n = len(files)
-        lo, hi = int(n * SPAN_LO), int(n * SPAN_HI) - 1
+        lo, hi = int(n * span_lo), int(n * span_hi) - 1
         hi = max(hi, lo)
         picks = np.linspace(lo, hi, int(k)).round().astype(int) if n > 1 else [0] * int(k)
         arrs, spacings = [], []
@@ -275,17 +292,17 @@ def build_study(sid, series, tsdir, reader):
         else:
             loq, hiq = 0.0, 1.0
         for a, ps in zip(arrs, spacings):
-            if idx >= MAXS:
+            if idx >= maxs:
                 break
             if a is None:
                 idx += 1
                 continue
             aw = np.clip((a - loq) / (hiq - loq + 1e-6), 0, 1)
-            vol[idx] = (mm_crop_resize(aw, ps if ps > 0 else median_ps) * 255).astype(np.uint8)
+            vol[idx] = (mm_crop_resize(aw, ps if ps > 0 else median_ps, img) * 255).astype(np.uint8)
             idx += 1
-        if idx >= MAXS:
+        if idx >= maxs:
             break
-    return vol, (vol.reshape(MAXS, -1).sum(1) > 0).astype(np.uint8)
+    return vol, (vol.reshape(maxs, -1).sum(1) > 0).astype(np.uint8)
 
 
 # ============================================================================
@@ -314,18 +331,27 @@ def main():
     import pandas as pd
     t0 = time.time()
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"device {device} | torch {torch.__version__}", flush=True)
+    print(f"device {device} | torch {torch.__version__} | timm {timm.__version__}", flush=True)
 
     # A kernel that never ran mounts as an EMPTY directory, and a missing weight
     # file would otherwise silently drop an arm and submit a smaller ensemble
     # under a larger claim. MEMBERS_EXPECTED stopped exactly that in E084, so
     # resolve every declared arm BEFORE any inference is spent.
-    paths = {f: find_weight(f) for f in dict.fromkeys(ARM_FILES)}
-    if len(ARM_FILES) != MEMBERS_EXPECTED:
-        raise RuntimeError(f"expected {MEMBERS_EXPECTED} arms, manifest declares {len(ARM_FILES)}")
-    if not (len(ARM_FILES) == len(ARM_WEIGHTS) == len(ARM_FLIP)):
-        raise RuntimeError("ARM_FILES, ARM_WEIGHTS and ARM_FLIP must be the same length")
-    print(f"arms {len(ARM_FILES)} | distinct checkpoints {len(paths)}", flush=True)
+    if len(ARMS) != MEMBERS_EXPECTED:
+        raise RuntimeError(f"expected {MEMBERS_EXPECTED} arms, manifest declares {len(ARMS)}")
+    paths = {a["file"]: find_weight(a["file"]) for a in ARMS}
+    for arm in ARMS:
+        maxs = sum(int(s[2]) for s in arm["slots"])
+        if arm["k_eval"] > maxs - 2:
+            # `_eval_centers` can only place a window at c with c-1 and c+1 in
+            # range, so asking for more windows than the stack holds silently
+            # repeats slices instead of failing.
+            raise RuntimeError(f"{arm['name']}: k_eval {arm['k_eval']} > {maxs - 2} usable centres")
+    print(f"arms {len(ARMS)} | distinct checkpoints {len(paths)}", flush=True)
+    for arm in ARMS:
+        print(f"  {arm['name']:22s} w={arm['w']:.2f} img={arm['img']} "
+              f"slices={sum(int(s[2]) for s in arm['slots'])} span={tuple(arm['span'])} "
+              f"k_eval={arm['k_eval']} reverse={arm['reverse']}", flush=True)
 
     root = find_test_root()
     tsdir = root + "/test_series"
@@ -346,36 +372,75 @@ def main():
         cols = list(pd.read_csv(ssub, nrows=1).columns)
 
     reader = _make_reader()
-    probs = [np.full((len(ids), len(LAB)), 0.5, np.float32) for _ in ARM_FILES]
+    probs = [np.full((len(ids), len(LAB)), 0.5, np.float32) for _ in ARMS]
 
-    # Grouped by checkpoint so each file is loaded ONCE and every arm that uses
-    # it runs while it is resident: peak RAM stays at one model (upstream hit a
-    # system-RAM OOM holding two), and the flip arm costs no second load.
+    # Grouped so nothing is recomputed that two arms can share. Outer key is the
+    # checkpoint, so each file is loaded ONCE and peak RAM stays at one model
+    # (upstream hit a system-RAM OOM holding two). Inner key is the
+    # preprocessing signature, so `maxspan-v5` and `maxspan-v5-reverse` — same
+    # file, same geometry, differing only in the slice reversal — share one
+    # build and one window tensor and cost one extra forward rather than a whole
+    # second pass. Arms whose geometry differs get their own build, because it
+    # must: that is the bug this structure exists to make impossible.
     for fname, path in paths.items():
+        arms_here = [i for i, a in enumerate(ARMS) if a["file"] == fname]
         model, res = load_model(path, device)
-        arms = [i for i, f in enumerate(ARM_FILES) if f == fname]
-        for i, sid in enumerate(ids):
-            try:
-                vol, mask = build_study(sid, series, tsdir, reader)
-                xw = eval_windows(vol, mask, k=K_EVAL, res=res)
-                for a in arms:
-                    probs[a][i] = infer_probs(model, xw, device, bool(ARM_FLIP[a]))
-                del vol, mask, xw
-            except Exception as exc:
-                # Never drop a study: a 0.5 row scores like a coin flip, a missing
-                # row fails the submission outright.
-                print(f"  {fname} study {i} {sid[:16]} FALLBACK "
-                      f"({type(exc).__name__}: {exc})", flush=True)
-            if (i + 1) % 100 == 0 or i + 1 == len(ids):
-                print(f"  {fname} {i + 1}/{len(ids)} | {time.time() - t0:.0f}s", flush=True)
+        groups = {}
+        for i in arms_here:
+            a = ARMS[i]
+            groups.setdefault((a["img"], a["slots"], tuple(a["span"]), a["k_eval"]), []).append(i)
+        for (img, slots, span, k_eval), members in groups.items():
+            names = "+".join(ARMS[i]["name"] for i in members)
+            print(f"[{names}] img {img} span {span} k_eval {k_eval} res {res}", flush=True)
+            bad = 0
+            for j, sid in enumerate(ids):
+                try:
+                    vol, mask = build_study(sid, series, tsdir, reader, img, slots, span)
+                    if not mask.any():
+                        # No slot filled. No exception was raised, so without this
+                        # the study silently contributes a 0.5 row that looks like
+                        # a prediction. Series selection failing for every study is
+                        # how a schema change would present.
+                        raise RuntimeError("empty volume: no series matched any slot")
+                    xw = eval_windows(vol, mask, k=k_eval, res=res)
+                    for i in members:
+                        probs[i][j] = infer_probs(model, xw, device, bool(ARMS[i]["reverse"]))
+                    del vol, mask, xw
+                except Exception as exc:
+                    # Never drop a study: a 0.5 row ranks mid-pack, a missing row
+                    # fails the whole submission. But see the limit below — a few
+                    # of these is robustness, all of them is a broken kernel that
+                    # would otherwise submit 0.500 and look like it worked.
+                    bad += 1
+                    if bad <= 20:
+                        print(f"  [{names}] study {j} {sid[:16]} FALLBACK "
+                              f"({type(exc).__name__}: {exc})", flush=True)
+                if (j + 1) % 100 == 0 or j + 1 == len(ids):
+                    print(f"  [{names}] {j + 1}/{len(ids)} | {time.time() - t0:.0f}s", flush=True)
+            rate = bad / max(1, len(ids))
+            print(f"[{names}] fallbacks {bad}/{len(ids)} ({rate:.1%})", flush=True)
+            if rate > FALLBACK_LIMIT:
+                # THE GUARD THAT MATTERS MOST HERE. Every failure mode this kernel
+                # has — a renamed column in the hidden test's series table, a
+                # missing series directory, a DICOM the reader cannot open — lands
+                # in the same `except` and produces a well-formed submission of
+                # constant 0.5, which scores 0.500 and is indistinguishable from
+                # "the model is bad" on the leaderboard. E084's MEMBERS_EXPECTED
+                # stopped that on the mounting side; this stops it on the data
+                # side. Refuse to write rather than submit a coin flip.
+                raise RuntimeError(
+                    f"{names}: {rate:.1%} of studies fell back, limit is "
+                    f"{FALLBACK_LIMIT:.1%}. Refusing to write a submission that "
+                    f"would score like a coin flip and read like a result.")
         del model
         gc.collect()
         if str(device).startswith("cuda"):
             torch.cuda.empty_cache()
 
-    weights = np.array([float(w) for w in ARM_WEIGHTS], dtype=np.float64)
+    weights = np.array([float(a["w"]) for a in ARMS], dtype=np.float64)
     weights = weights / weights.sum()
-    print(f"[blend] weighted rank-mean {dict(zip(ARM_FILES, weights.round(4)))}", flush=True)
+    print(f"[blend] weighted rank-mean "
+          f"{dict(zip([a['name'] for a in ARMS], weights.round(4)))}", flush=True)
     ranks = np.tensordot(weights, np.stack([rankpct(np.clip(p, 0, 1)) for p in probs]), axes=(0, 0))
     ranks[~np.isfinite(ranks)] = 0.5
 

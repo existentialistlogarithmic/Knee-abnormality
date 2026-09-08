@@ -4925,3 +4925,60 @@ first.
   have been visible in the output — a wrong-geometry run and a wrong-flip run
   both produce a plausible submission. **Reading the second implementation is
   what a control arm looks like for code.**
+
+**ADDENDUM — the same check, run against the three checkpoints actually
+mounted.** Bug 1 came from verifying one artefact and assuming the family. Only
+`v4` had ever been opened, and `v4` is the one arm this kernel does *not* run.
+All three were downloaded and read:
+
+| file | arch | res | tensors | `gold_auc` | head keys |
+|---|---|---:|---:|---:|---|
+| `raptor_ft_coatnet_v5_full_swa.pt` | `coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k` | 384 | 486 | **0.9214** | present |
+| `raptor_ft_coatnet_v8_full_swa.pt` | same | 384 | 486 | **0.9067** | present |
+| `raptor_ft_coatnet_v10_full.pt` | same | 384 | 486 | **0.9174** | present |
+| *(`raptor_ft_coatnet_v4_full.pt`, not mounted)* | *same* | *384* | *486* | *0.9167* | *present* |
+
+  Every one carries `arch`, `res` and a 486-tensor state dict whose head is
+  `clsW (12, 1024)`, `clsb`, `norm`, `att.0 (256, 1024)`, `att.3`. **The loader's
+  `strict=True` will resolve against all three.** No second surprise.
+
+**THE FILES AND THE WRITE-UP DISAGREE ABOUT THE SAME MODELS**, and the size of
+the disagreement is the point:
+
+| arm | the file says | the 4-arm write-up says | apart |
+|---|---:|---:|---:|
+| maxspan-v5 | 0.9214 | 0.9198 | 0.0016 |
+| native384dense-v10 | 0.9174 | 0.9170 | 0.0004 |
+| native384-v8 | **0.9067** | **0.9116** | **0.0049** |
+
+  Both are self-reports of the same artefact, presumably measured at different
+  geometries — the file's during training, the write-up's at inference. Neither
+  is wrong. **But 0.0049 is the floor on how precisely any of these numbers can
+  be read, and it is the same order as the effects the blend is justified by**
+  (the write-up's own four-arm gain over its predecessor is +0.0043). Recorded
+  so that a later session does not quote one of these to three decimals as
+  though it were measured here.
+
+**`gold_auc` IS NOW A MOUNT FINGERPRINT.** Each arm declares `expect_gold` and
+the kernel **refuses to run** if the loaded file disagrees. The `Kernel`
+docstring already demanded this and it was not being done: a foreign asset *"can
+be deleted, made private, or re-run with different outputs at any time, so
+anything mounting one MUST verify what it got rather than assume"*. If upstream
+re-uploads different weights under the same filename, this is what notices —
+the same device that verified E086's arms by matching each mounted checkpoint
+back to its trainer by val AUC.
+
+**AND THE CONTROL'S NOTE WAS QUOTING THE WRONG MODEL.** It attributed *"0.924 on
+the board, 0.9167 on gold"* to the arm it runs. Those are **v4's** numbers;
+`knee-infer-raptorcc0` runs **v5**. Corrected, and the pre-registered band
+widened to 0.92–0.93 to reflect that v5's own file reads 0.9214 against v4's
+0.9167 — so v5 should land at or slightly above v4's 0.924 if it reproduces.
+
+**Two smaller things, both in the project's existing idiom.**
+`infer_manifest.json` is now written with the same shape `infer` uses, carrying
+per-arm geometry, fallbacks, wall clock, the projection to 1,300 studies and
+`prediction_spread` — the degenerate-model check, because a member that
+collapsed to one value per finding still writes a valid submission. And each
+group prints its projected hours from study 100 onward: CoAtNet at 384 px over
+62 windows is far heavier than this project's resnet34, and **a run that will
+not fit the 9 h cap should be visible at study 100, not at hour eight.**

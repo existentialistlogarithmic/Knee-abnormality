@@ -45,8 +45,10 @@ is E039's rule applied to someone else's work.
 """
 import gc
 import glob
+import json
 import os
 import time
+from pathlib import Path
 
 import numpy as np
 import timm
@@ -56,16 +58,27 @@ import torch.nn.functional as F
 
 # THE CONTROL, and it must be submitted before any blend.
 #
-# One CC0 CoAtNet checkpoint, no blending, no TTA. Upstream
-# self-reports this family at 0.924 on the board from a single
-# model and 0.9167 on the 58 gold with gold held out.
+# One CC0 CoAtNet checkpoint (maxspan-v5), no blending, no TTA.
+#
+# THE NUMBERS THAT BOUND IT, and whose they are. 0.924 on the
+# board is upstream's for the SINGLE v4 model, which is a
+# different checkpoint from this one. For v5 there are two self-
+# reports and they disagree: the file itself carries gold_auc
+# 0.9214, while the 4-arm write-up re-measures it at 0.9198 at
+# inference geometry. v4's file says 0.9167 and scored 0.924, so
+# v5 should land at or a little above 0.924 if it reproduces.
 #
 # PRE-REGISTERED READING, before the score arrives:
-#   near 0.92   the arm reproduces and is a trustworthy member
+#   0.92-0.93   the arm reproduces and is a trustworthy member
 #   under 0.90  something in OUR mounting or preprocessing is
 #               wrong, and no later blend can be read at all
-#   over 0.93   the self-report understated it; re-read before
-#               believing, because that is not what upstream says
+#   over 0.935  better than any single-model self-report in this
+#               family; re-read before believing it
+#
+# The two self-reports for v5 differ by 0.0016 and v8's differ by
+# 0.0049. That spread is the floor on how precisely ANY of these
+# numbers can be read, and it is the same order as the effects
+# the blend is being justified by.
 #
 # E039: run the thing that costs nothing if it succeeds. This
 # costs one submission and answers whether the member is real.
@@ -75,7 +88,7 @@ import torch.nn.functional as F
 # header. Weights CC0-1.0, licence read 2026-09-08 (E088).
 #
 MEMBERS_EXPECTED = 1
-ARMS             = ({'name': 'maxspan-v5', 'file': 'raptor_ft_coatnet_v5_full_swa.pt', 'img': 336, 'slots': (('Sagittal', 1, 18), ('Sagittal', 0, 14), ('Coronal', 1, 12), ('Coronal', 0, 8), ('Axial', -1, 12)), 'span': (0.02, 0.98), 'k_eval': 62, 'reverse': False, 'w': 1.0},)
+ARMS             = ({'name': 'maxspan-v5', 'file': 'raptor_ft_coatnet_v5_full_swa.pt', 'img': 336, 'slots': (('Sagittal', 1, 18), ('Sagittal', 0, 14), ('Coronal', 1, 12), ('Coronal', 0, 8), ('Axial', -1, 12)), 'span': (0.02, 0.98), 'k_eval': 62, 'reverse': False, 'w': 1.0, 'expect_gold': 0.9214},)
 CROP_MM          = 140.0
 LAB              = ('ACL', 'MCL', 'Medial Meniscus', 'Lateral Meniscus', 'Medial OA', 'Lateral OA', 'PF OA', 'Effusion', 'Synovitis', "Baker's", 'Contusion', 'Fracture')
 FALLBACK_LIMIT   = 0.02
@@ -98,7 +111,7 @@ def build_backbone(arch, pretrained=False):
     # inside "coatnet"/"maxvit" must NOT route them down the ViT path.
     hybrid = arch.startswith(("maxvit", "maxxvit", "coatnet", "coat_", "convnext"))
     is_vit = (not hybrid) and any(k in arch for k in ("vit", "deit", "dinov2", "eva", "beit"))
-    kw = dict(pretrained=pretrained, num_classes=0, in_chans=3)
+    kw = {"pretrained": pretrained, "num_classes": 0, "in_chans": 3}
     kw.update(global_pool="token", dynamic_img_size=True) if is_vit else kw.update(global_pool="avg")
     return timm.create_model(arch, **kw)
 
@@ -144,11 +157,11 @@ def load_model(path, device):
     model.load_state_dict(ck["model"], strict=True)
     model.eval().to(device)
     gold = ck.get("gold_auc")
-    print(f"  {os.path.basename(path)}: {arch} res {res} "
-          f"author's gold {gold if gold is None else round(float(gold), 4)}", flush=True)
+    gold = None if gold is None else round(float(gold), 4)
+    print(f"  {os.path.basename(path)}: {arch} res {res} author's gold {gold}", flush=True)
     del ck
     gc.collect()
-    return model, res
+    return model, res, arch, gold
 
 
 # ============================================================================
@@ -315,7 +328,7 @@ def build_study(sid, series, tsdir, reader, img, slots, span):
             loq, hiq = np.percentile(np.concatenate([a.ravel() for a in valid]), [2.0, 98.0])
         else:
             loq, hiq = 0.0, 1.0
-        for a, ps in zip(arrs, spacings):
+        for a, ps in zip(arrs, spacings, strict=True):
             if idx >= maxs:
                 break
             if a is None:
@@ -364,6 +377,7 @@ def main():
     if len(ARMS) != MEMBERS_EXPECTED:
         raise RuntimeError(f"expected {MEMBERS_EXPECTED} arms, manifest declares {len(ARMS)}")
     paths = {a["file"]: find_weight(a["file"]) for a in ARMS}
+    expect = {a["file"]: a["expect_gold"] for a in ARMS}
     for arm in ARMS:
         maxs = sum(int(s[2]) for s in arm["slots"])
         if arm["k_eval"] > maxs - 2:
@@ -397,6 +411,7 @@ def main():
 
     reader = _make_reader()
     probs = [np.full((len(ids), len(LAB)), 0.5, np.float32) for _ in ARMS]
+    ran = [None] * len(ARMS)
 
     # Grouped so nothing is recomputed that two arms can share. Outer key is the
     # checkpoint, so each file is loaded ONCE and peak RAM stays at one model
@@ -408,7 +423,18 @@ def main():
     # must: that is the bug this structure exists to make impossible.
     for fname, path in paths.items():
         arms_here = [i for i, a in enumerate(ARMS) if a["file"] == fname]
-        model, res = load_model(path, device)
+        model, res, arch, gold = load_model(path, device)
+        # VERIFY WHAT WE GOT, don't assume. Another account owns these files and
+        # can re-upload different weights under the same name at any time; the
+        # `gold_auc` each one carries is a fingerprint of the exact artefact this
+        # manifest was written against. A mismatch means the arm is not the model
+        # the notes describe, and every number downstream would be about
+        # something else.
+        if gold != expect[fname]:
+            raise RuntimeError(
+                f"{fname}: checkpoint reports gold_auc {gold}, manifest expects "
+                f"{expect[fname]}. Upstream changed the file, or the wrong one is "
+                f"mounted. Re-read it before trusting anything this run produces.")
         groups = {}
         for i in arms_here:
             a = ARMS[i]
@@ -417,6 +443,7 @@ def main():
             names = "+".join(ARMS[i]["name"] for i in members)
             print(f"[{names}] img {img} span {span} k_eval {k_eval} res {res}", flush=True)
             bad = 0
+            group_t0 = time.time()
             for j, sid in enumerate(ids):
                 try:
                     vol, mask = build_study(sid, series, tsdir, reader, img, slots, span)
@@ -440,9 +467,26 @@ def main():
                         print(f"  [{names}] study {j} {sid[:16]} FALLBACK "
                               f"({type(exc).__name__}: {exc})", flush=True)
                 if (j + 1) % 100 == 0 or j + 1 == len(ids):
-                    print(f"  [{names}] {j + 1}/{len(ids)} | {time.time() - t0:.0f}s", flush=True)
+                    # Projected against 1,300 because the visible test is a stub:
+                    # the hidden set is ~1,300 studies (FINDINGS 2.12) and the cap
+                    # is 9 h. A run that will not fit should be visible at study
+                    # 100, not at hour eight.
+                    rate = (time.time() - group_t0) / (j + 1)
+                    print(f"  [{names}] {j + 1}/{len(ids)} | {time.time() - t0:.0f}s "
+                          f"| {rate:.2f}s/study, this group projects "
+                          f"{rate * 1300 / 3600:.2f} h on 1,300", flush=True)
+            group_seconds = time.time() - group_t0
+            for i in members:
+                ran[i] = {"name": ARMS[i]["name"], "file": fname, "arch": arch,
+                          "author_gold_auc": gold, "res": res, "img": img,
+                          "slices": sum(int(x[2]) for x in slots),
+                          "span": list(span), "k_eval": k_eval,
+                          "reverse": bool(ARMS[i]["reverse"]), "w": ARMS[i]["w"],
+                          "group_seconds": round(group_seconds, 1),
+                          "fallbacks": bad}
             rate = bad / max(1, len(ids))
-            print(f"[{names}] fallbacks {bad}/{len(ids)} ({rate:.1%})", flush=True)
+            print(f"[{names}] fallbacks {bad}/{len(ids)} ({rate:.1%}) | "
+                  f"{group_seconds:.0f}s", flush=True)
             if rate > FALLBACK_LIMIT:
                 # THE GUARD THAT MATTERS MOST HERE. Every failure mode this kernel
                 # has — a renamed column in the hidden test's series table, a
@@ -463,8 +507,8 @@ def main():
 
     weights = np.array([float(a["w"]) for a in ARMS], dtype=np.float64)
     weights = weights / weights.sum()
-    print(f"[blend] weighted rank-mean "
-          f"{dict(zip([a['name'] for a in ARMS], weights.round(4)))}", flush=True)
+    named = dict(zip([a["name"] for a in ARMS], weights.round(4), strict=True))
+    print(f"[blend] weighted rank-mean {named}", flush=True)
     ranks = np.tensordot(weights, np.stack([rankpct(np.clip(p, 0, 1)) for p in probs]), axes=(0, 0))
     ranks[~np.isfinite(ranks)] = 0.5
 
@@ -475,8 +519,27 @@ def main():
     assert sub["StudyInstanceUID"].tolist() == ids, "row identity drift"
     assert np.isfinite(sub[list(LAB)].to_numpy()).all()
     sub.to_csv("/kaggle/working/submission.csv", index=False)
+
+    # Same shape as `infer`'s manifest so the two lineages can be compared
+    # without reading logs. `prediction_spread` is the degenerate-model check:
+    # a member that collapsed to one value per finding still writes a valid
+    # submission, and the spread is where that shows.
+    elapsed = time.time() - t0
+    spread = {f: round(float(sub[f].max() - sub[f].min()), 4) for f in LAB}
+    Path("/kaggle/working/infer_manifest.json").write_text(json.dumps({
+        "n_studies": len(ids),
+        "wall_clock_seconds": round(elapsed, 1),
+        "seconds_per_study": round(elapsed / max(1, len(ids)), 3),
+        "projected_hours_1300_studies": round(elapsed / max(1, len(ids)) * 1300 / 3600, 3),
+        "n_arms": len(ARMS),
+        "n_checkpoints": len(paths),
+        "total_fallbacks": sum(r["fallbacks"] for r in ran if r),
+        "fallback_limit": FALLBACK_LIMIT,
+        "arms": ran,
+        "prediction_spread": spread}, indent=2))
+    print(f"prediction spread: {spread}", flush=True)
     print(f"wrote /kaggle/working/submission.csv  rows={len(sub)}", flush=True)
-    print(f"DONE {time.time() - t0:.0f}s", flush=True)
+    print(f"DONE {elapsed:.0f}s", flush=True)
 
 
 if __name__ == "__main__":

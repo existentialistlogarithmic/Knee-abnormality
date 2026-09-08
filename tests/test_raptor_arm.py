@@ -244,3 +244,40 @@ def test_the_slot_planes_match_the_competition_series_table(slug):
             assert plane in ("Axial", "Coronal", "Sagittal"), plane
             assert fluid in (0, 1, -1), fluid
             assert count > 0
+
+
+@pytest.mark.parametrize("slug", RAPTOR_SLUGS)
+def test_every_arm_carries_the_fingerprint_of_the_file_it_expects(slug):
+    """Another account owns these weights and can re-upload under the same name.
+
+    The `Kernel` docstring already requires it: a foreign asset "can be deleted,
+    made private, or re-run with different outputs at any time, so anything
+    mounting one MUST verify what it got rather than assume". `gold_auc` is
+    carried inside each checkpoint, so it fingerprints the exact artefact this
+    manifest was written against — the same trick that verified E086's arms by
+    matching each mounted checkpoint back to its trainer by val AUC.
+    """
+    for arm in _arms(slug):
+        assert isinstance(arm["expect_gold"], float)
+        assert 0.5 < arm["expect_gold"] < 1.0, arm["name"]
+
+
+def test_the_two_reverse_members_fingerprint_the_same_file():
+    """maxspan-v5 and maxspan-v5-reverse are one checkpoint read two ways, so a
+    differing expectation would mean one of them names the wrong file."""
+    by_file = {}
+    for arm in _arms("knee-infer-raptorcc0x4"):
+        by_file.setdefault(arm["file"], set()).add(arm["expect_gold"])
+    for fname, golds in by_file.items():
+        assert len(golds) == 1, f"{fname} has conflicting fingerprints {golds}"
+
+
+def test_the_fingerprints_are_the_values_read_from_the_files():
+    """Read on 2026-09-08 with torch.load. Pinned so a silent edit to the
+    manifest cannot quietly disable the mount check by matching whatever
+    arrives."""
+    expected = {"raptor_ft_coatnet_v5_full_swa.pt": 0.9214,
+                "raptor_ft_coatnet_v8_full_swa.pt": 0.9067,
+                "raptor_ft_coatnet_v10_full.pt": 0.9174}
+    for arm in _arms("knee-infer-raptorcc0x4"):
+        assert arm["expect_gold"] == expected[arm["file"]], arm["name"]

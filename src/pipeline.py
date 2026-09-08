@@ -371,20 +371,27 @@ RAPTOR_LAB = ("ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
 # maxspan-v5 0.9198, native384dense-v10 0.9170, maxspan-v5-reverse 0.9167,
 # native384-v8 0.9116, and the four-arm blend 0.9254 against our pooled 0.8980.
 # Every one of those is a self-report on the author's split.
+# `expect_gold` is the `gold_auc` each file carries, read on 2026-09-08. It is a
+# MOUNT FINGERPRINT, not a claim: the Kernel docstring already says a foreign
+# asset "can be deleted, made private, or re-run with different outputs at any
+# time, so anything mounting one MUST verify what it got rather than assume".
+# If upstream re-uploads different weights under the same filename, this is what
+# notices — the same trick that verified E086's arms by matching each mounted
+# checkpoint back to its trainer by val AUC.
 RAPTOR_V5 = {"name": "maxspan-v5", "file": "raptor_ft_coatnet_v5_full_swa.pt",
              "img": 336, "slots": RAPTOR_SLOTS64, "span": (0.02, 0.98),
-             "k_eval": 62, "reverse": False, "w": 0.55}
+             "k_eval": 62, "reverse": False, "w": 0.55, "expect_gold": 0.9214}
 RAPTOR_ARMS = (
     RAPTOR_V5,
     {"name": "native384dense-v10", "file": "raptor_ft_coatnet_v10_full.pt",
      "img": 384, "slots": RAPTOR_SLOTS64, "span": (0.02, 0.98),
-     "k_eval": 62, "reverse": False, "w": 0.10},
+     "k_eval": 62, "reverse": False, "w": 0.10, "expect_gold": 0.9174},
     {"name": "maxspan-v5-reverse", "file": "raptor_ft_coatnet_v5_full_swa.pt",
      "img": 336, "slots": RAPTOR_SLOTS64, "span": (0.02, 0.98),
-     "k_eval": 62, "reverse": True, "w": 0.15},
+     "k_eval": 62, "reverse": True, "w": 0.15, "expect_gold": 0.9214},
     {"name": "native384-v8", "file": "raptor_ft_coatnet_v8_full_swa.pt",
      "img": 384, "slots": RAPTOR_SLOTS44, "span": (0.06, 0.94),
-     "k_eval": 42, "reverse": False, "w": 0.20},
+     "k_eval": 42, "reverse": False, "w": 0.20, "expect_gold": 0.9067},
 )
 
 V1 = Geometry(
@@ -1445,16 +1452,27 @@ EXTRAS = [
         },
         note="THE CONTROL, and it must be submitted before any blend.\n"
              "\n"
-             "One CC0 CoAtNet checkpoint, no blending, no TTA. Upstream\n"
-             "self-reports this family at 0.924 on the board from a single\n"
-             "model and 0.9167 on the 58 gold with gold held out.\n"
+             "One CC0 CoAtNet checkpoint (maxspan-v5), no blending, no TTA.\n"
+             "\n"
+             "THE NUMBERS THAT BOUND IT, and whose they are. 0.924 on the\n"
+             "board is upstream's for the SINGLE v4 model, which is a\n"
+             "different checkpoint from this one. For v5 there are two self-\n"
+             "reports and they disagree: the file itself carries gold_auc\n"
+             "0.9214, while the 4-arm write-up re-measures it at 0.9198 at\n"
+             "inference geometry. v4's file says 0.9167 and scored 0.924, so\n"
+             "v5 should land at or a little above 0.924 if it reproduces.\n"
              "\n"
              "PRE-REGISTERED READING, before the score arrives:\n"
-             "  near 0.92   the arm reproduces and is a trustworthy member\n"
+             "  0.92-0.93   the arm reproduces and is a trustworthy member\n"
              "  under 0.90  something in OUR mounting or preprocessing is\n"
              "              wrong, and no later blend can be read at all\n"
-             "  over 0.93   the self-report understated it; re-read before\n"
-             "              believing, because that is not what upstream says\n"
+             "  over 0.935  better than any single-model self-report in this\n"
+             "              family; re-read before believing it\n"
+             "\n"
+             "The two self-reports for v5 differ by 0.0016 and v8's differ by\n"
+             "0.0049. That spread is the floor on how precisely ANY of these\n"
+             "numbers can be read, and it is the same order as the effects\n"
+             "the blend is being justified by.\n"
              "\n"
              "E039: run the thing that costs nothing if it succeeds. This\n"
              "costs one submission and answers whether the member is real.\n"

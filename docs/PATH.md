@@ -95,6 +95,32 @@ It is blocked because upstream persists no outputs, so the arm must be *run*,
 which means forking someone else's notebook under this account. **That is the
 account owner's decision** — `HANDOFF.md` §4d has the steps and the control arm.
 
+**E088's census changes the shape of this, and it is the most actionable thing
+in this file.** All 626 public notebooks were pulled and every asset's licence
+read. Of 94 distinct assets, **48 are CC0 or Apache**, and the three most-mounted
+assets in the entire competition are CC0. More usefully, the 0.937 system's own
+public write-up names **CoAtNet as its strongest single arm at base weight
+0.60**, and that arm is **entirely CC0**:
+
+| sub-model | weight | file | dataset (all CC0) |
+|---|---:|---|---|
+| maxspan-v5 | 0.55 | `raptor_ft_coatnet_v5_full_swa.pt` | `raptor-knee-maxspan` |
+| native384-v8 | 0.20 | `raptor_ft_coatnet_v8_full_swa.pt` | `raptor-knee-native384` |
+| maxspan-v5-reverse | 0.15 | *none* — horizontal flip of v5 at inference | — |
+| native384dense-v10 | 0.10 | `raptor_ft_coatnet_v10_full.pt` | `raptor-knee-native384dense` |
+
+**The 0.937 notebook's only `no-grant` dependency gates the DINOv3 arm, not this
+one.** So the strongest arm needs no restricted asset and no fork of one — which
+is a materially smaller decision than the one this section was written around.
+It is still one arm of four and is not 0.937 by itself, and every figure in it is
+its authors' self-report. **Worth measuring; not worth believing.**
+
+**Two CC0 label sets were missed by the weekly survey** and are mounted by 182
+and 89 public notebooks respectively: `pilkwang/rsna-knee-llm-labels` and
+`lixin73/rsna-knee-llm-report-labels-sol56`. §2.3's survey searched by author
+name rather than by what the field mounts. **Screen both with E080's exact-cell
+test first** — and note the label lever is the only one that has ever paid here.
+
 ### 1. The full-fit lineage — **PAID, and it is the standing score**
 Each fold model trains on 80% of the corpus and never sees ~12 of the 58 expert
 studies. A full-fit model sees all 4,407 and all 58.

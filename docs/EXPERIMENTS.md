@@ -4692,3 +4692,101 @@ CC0) carries soft labels for **4,349 studies — every study except exactly the
   is either the leaderboard's own, an author's self-report, or an agreement
   statistic. **The two E086 arms are still unsubmitted and remain the only
   pending measurement this project actually owns.**
+
+**ADDENDUM 2026-09-08 — THE CENSUS, COMPLETED OVER ALL 626 PUBLIC NOTEBOOKS,
+AND THE ANATOMY OF THE 0.937 SYSTEM.**
+
+Every public notebook for the competition was pulled (626 of 626, source and
+metadata) and every dataset any of them mounts had its licence read. `eda/
+survey_public_notebooks.py` is that survey; the corpus itself is not vendored
+into this repo.
+
+**94 distinct assets. `usable` 48, `no-grant` 34, `sharealike` 5, unknown 7.**
+The most-mounted assets in the entire field, by how many notebooks mount them:
+
+| mounts | votes | tier | licence | asset |
+|---:|---:|---|---|---|
+| 186 | 2,447 | **usable** | CC0 | `pilkwang/rsna-knee-weights` |
+| 182 | 2,239 | **usable** | CC0 | `pilkwang/rsna-knee-llm-labels` |
+| 142 | 1,315 | **usable** | CC0 | `stevenleehans/rsna-knee-llm-report-labels` |
+| 141 | 1,689 | sharealike | CC-BY-NC-SA | `marwanmath/resnet-50-radimagenet-marwan` |
+| 132 | 1,417 | **no-grant** | Unknown | `tonylica/rsna2026-models` |
+| 127 | 1,309 | **usable** | CC0 | `mattiaangeli/knee-mri-fold-weights` |
+| 89 | 1,007 | **usable** | CC0 | `lixin73/rsna-knee-llm-report-labels-sol56` |
+| 84 | 1,242 | **usable** | CC0 | `dreaddevelopment/raptor-knee-maxspan` |
+| 75 | 1,288 | **no-grant** | Other, empty description | `tonylica/…dinov3-0917-repro-assets` |
+| 71 | 931 | **usable** | CC0 | `dreaddevelopment/raptor-knee-widedense` |
+
+- **The three most-mounted assets in the competition are all CC0**, and one of
+  them is the label set this project already trains on. The field is built
+  mostly on permissive assets with a small restricted core.
+- **`pilkwang/rsna-knee-weights` is the single most-mounted asset anywhere in
+  the field and it is CC0** — 23 checkpoints, 1,787 MB, already inventoried by
+  E043 and never used here.
+- **two CC0 label sets have never been surveyed**: `pilkwang/rsna-knee-llm-labels`
+  (182 mounts) and `lixin73/rsna-knee-llm-report-labels-sol56` (89). `PATH.md`
+  §2.3 says to survey label sets weekly and these were missed, presumably
+  because the surveys searched by author name rather than by what the field
+  actually mounts. **Screen them with E080's exact-cell test before anything
+  else.**
+- backbone families named in source, of 626: DINOv2 52.2%, resnet 40.1%,
+  RadImageNet 28.9%, DINOv3 26.8%, ConvNeXt 24.4%, EfficientNet 21.7%, ViT
+  17.7%, **CoAtNet 17.4%**, MaxViT 17.1%, Swin 3.0%.
+- 508 of 626 (81.2%) read DICOM at run time; the rest mount a preprocessed
+  corpus. **A quirk to not chase**: 101 notebooks list an empty string in
+  `dataset_sources`, which the survey reports as `MALFORMED`. It is a Kaggle
+  metadata artefact, not an asset.
+
+**THE 0.937 SYSTEM, FROM ITS AUTHORS' OWN WRITE-UP.** A public explainer
+notebook (`nathanjacob/4-arm-ensemble-explained-rsna-knee-0-937`, crediting
+Dvorkin, Pilkwang Kim, Dread Development and Tony Li) describes the 0.936 →
+0.939 lineage as **four arms, 39 models**:
+
+| arm | models | note |
+|---|---|---|
+| DINOv2 | 20 cross-fold | slot-based attention, 3 slices as RGB, 336px |
+| DINOv3 | 5 | volumetric, 16-slice pooling |
+| RadImageNet ResNet50 | 10 heads | medical-domain pretraining |
+| **CoAtNet** | **4 sub-models** | **"strongest single arm"**, base weight **0.60** |
+
+  The CoAtNet arm's four sub-models and their published blend weights:
+  **maxspan-v5 0.55, native384-v8 0.20, maxspan-v5-reverse 0.15,
+  native384dense-v10 0.10.** The "reverse" member is a **horizontal flip of
+  maxspan-v5 at inference** — free diversity, no fourth checkpoint. Fusion is
+  correlation-aware per diagnosis: where a finding's CoAtNet and transformer
+  predictions correlate above r ≈ 0.992 the CoAtNet weight is cut, below r ≈
+  0.60 it is raised.
+
+**AND THE STRONGEST ARM IS ENTIRELY CC0.** The sub-model names map onto
+`dreaddevelopment`'s datasets, and the mapping was verified against the corpus
+rather than inferred from the names — 92 notebooks reference these files
+directly, `coatnet_v5_full_swa` 119 times, `v4_full` 77, `v8_full_swa` 17,
+`v10_full` 17:
+
+| sub-model | file | dataset | licence |
+|---|---|---|---|
+| maxspan-v5 | `raptor_ft_coatnet_v5_full_swa.pt` | `raptor-knee-maxspan` | **CC0** |
+| native384-v8 | `raptor_ft_coatnet_v8_full_swa.pt` | `raptor-knee-native384` | **CC0** |
+| native384dense-v10 | `raptor_ft_coatnet_v10_full.pt` | `raptor-knee-native384dense` | **CC0** |
+| maxspan-v5-reverse | none | flip of v5 at inference | — |
+
+  **The 0.937 notebook's only `no-grant` dependency is
+  `tonylica/…dinov3-0917-repro-assets`, and it gates the DINOv3 arm, not the
+  CoAtNet one.** So the arm its authors call strongest is reachable under E043's
+  rule as E043 actually writes it, with no restricted asset and no fork of one.
+
+- **and the authors' own headline agrees with this project's decomposition.**
+  Their stated biggest single gain is **soft labels from LLM-parsed reports,
+  +0.013 AUC**, expanding training from ~3,155 to **4,349** studies — *"Better
+  labels > bigger models."* That 4,349 is exactly the row count of
+  `dreaddevelopment/rsna-knee-labels`, which this addendum's parent entry
+  verified as all 4,407 studies minus precisely the 58 gold. **Two independent
+  projects, the same conclusion: labels and data, not architecture.**
+
+**WHAT IS STILL NOT TRUE.** None of the above is a measurement this project
+owns. Arm strengths, the +0.013 and the 0.937 are all self-reported by their
+authors on their own splits, and E048's comparability rule has failed twice as a
+predictor of what pays. **A CC0 CoAtNet arm is worth measuring and is not worth
+believing**, and it is one arm of four — it is not 0.937 on its own. The two
+E086 arms remain unsubmitted and remain the only pending measurement this
+project actually owns.

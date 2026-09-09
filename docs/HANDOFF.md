@@ -393,14 +393,25 @@ calibrated outputs, reverse member not a no-op (E090). Re-run it if upstream
 ever changes a file — the kernel will refuse to start on a fingerprint
 mismatch, but finding that out here costs a second rather than a GPU session.
 
-**Runtime is the remaining risk, and it is sized.** Forward is ~1.0-1.1 s per
-window on CPU; `81` pushes 62 windows per study and `82` pushes **228 across
-three preprocessing passes, 3.7x the control**. Against a 9 h cap on ~1,300
-studies that is comfortable for `81` and genuinely tight for `82`. Each group
-now prints its projected hours from study 100, so a run that will not fit is
-visible early. If `82` does not fit, drop the 0.10 member (`native384dense-v10`)
-first — never change a `k_eval` or a span to save time, because those are the
-geometry the weights were trained at and E090 is what happens when they drift.
+**Runtime is measured on the GPU now, and it is not a problem** (E091). `81`
+runs at **2.01 s/study, 0.81 h projected** on 1,300 — **cheaper than this
+project's own five-member ensemble at 0.86 h**. `82` makes three decode passes
+and 228 window-forwards, so **~2.4 h**, comfortably inside the 9 h cap **at the
+published weights with no member dropped**.
+
+Two things got it there and both are in the kernel already: decode runs on a
+thread pool, and a **cudnn warmup** runs before the timer. The warmup matters
+far more than it sounds — `cudnn.benchmark` autotunes on first sight of a shape,
+every study reuses the same one, and on a **3-study** visible stub that one-off
+16 s landed inside the per-study average and overstated the forward by **6.4x**.
+The predictions are bit-identical across the whole speedup, which is why it is a
+timing fix rather than a numerical one.
+
+**The standing warning that replaces it: the visible test set is 3 studies.**
+Anything divided by it is warmup plus noise until proven otherwise. E091 made
+that mistake twice in one entry. If a projection ever needs cutting for real,
+drop a member — never a `k_eval` or a span, which are the geometry the weights
+were trained at, and E090 is what happens when they drift.
 
 **After E088 and E089, the log is out of measured levers on its own work.** §4d's
 public-notebook route is the only remaining item with a large measured gap and

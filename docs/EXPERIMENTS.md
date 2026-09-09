@@ -5053,7 +5053,7 @@ group prints its projected hours from study 100 onward: CoAtNet at 384 px over
 62 windows is far heavier than this project's resnet34, and **a run that will
 not fit the 9 h cap should be visible at study 100, not at hour eight.**
 
-### E091 — the CC0 CoAtNet control runs clean on real DICOM, and costs 3 hours an arm
+### E091 — the CC0 CoAtNet control runs clean on real DICOM (and the 3 h an arm in this title is CORRECTED below to 0.81 h)
 - **date**: 2026-09-09. `knee-infer-raptorcc0`, ~0.26 GPU-h on the visible stub.
   **Board score pending a submission click.** This entry records the run, not the
   result.
@@ -5119,3 +5119,50 @@ the inference cost per member**.
   manifest's *shape*, and its shape was right. Only running it on real data made
   the numbers wrong enough to notice, which is E090's lesson pointed at the
   instrument rather than the model.
+
+**CORRECTION — THIS ENTRY'S HEADLINE WAS WRONG. IT IS 0.81 h AN ARM, NOT 3.**
+The 2.99 h above was almost entirely an artefact of measuring on a 3-study stub,
+and the entry priced the whole route on it. Two changes, both standard practice,
+and one of them this project had already made once in the other lineage:
+
+| version | s/study | projected | forward | decode |
+|---|---:|---:|---:|---:|
+| v1, serial | 8.27 | 2.99 h | *unmeasured* | *unmeasured* |
+| v2, threaded decode | 7.12 | 2.67 h | 5.98 | 1.14 |
+| **v3, + cudnn warmup** | **2.01** | **0.81 h** | **0.93** | 1.08 |
+
+1. **Threading the decode bought 14%**, not the 8× it bought in `infer.py.in`.
+   The split is why: decode is **1.1 s of 7.1**, and Kaggle allots **4 CPUs**, so
+   there was far less to overlap than the other lineage had. **Measuring the
+   split first would have predicted that**; it was added in the same change that
+   acted on it, which is the wrong order.
+2. **The warmup bought 3.3×, and it was never really a speedup — it was a
+   measurement error.** `cudnn.benchmark` autotunes on first sight of a shape,
+   and every study reuses the identical `(62, 3, 384, 384)`. On three studies
+   that one-off tuning is a third of the sample; on 1,300 it is 1/1300. It cost
+   **16.2 s once** and was inflating the per-study forward from 0.93 s to 5.98 s
+   — a **6.4× overstatement** that propagated into every projection above.
+
+**THE PREDICTIONS ARE BIT-IDENTICAL ACROSS ALL OF IT.** `prediction_spread`
+reads the same twelve values before and after, so this is a timing fix and not a
+numerical one. That check is the reason to trust the speedup rather than suspect
+it.
+
+**WHAT IT CHANGES, AND ALL THREE ARE REVERSALS:**
+
+- **`82` fits.** Three decode passes at 1.08 s plus 228 window-forwards at
+  15 ms is **~6.7 s/study, about 2.4 h** on 1,300 against a 9 h cap. The
+  four-arm blend is submittable **at its published weights with no member
+  dropped**, where this entry said it could not be submitted at all.
+- **The efficiency-track claim above is withdrawn.** At 0.81 h the CC0 arm is
+  **cheaper than this project's own five-member ensemble at 0.86 h**, not 2.1 h
+  more expensive. It said "main-leaderboard only"; that was wrong.
+- **Decode is now the majority cost** (1.08 s of 2.01), so the next lever, if one
+  is ever wanted, is decode and not the GPU.
+
+**THE LESSON, AND IT IS THE ONE THIS LOG KEEPS RE-LEARNING.** A number measured
+on 3 studies was multiplied by 1,300 and used to close a route. E091's own first
+finding was the manifest making exactly that mistake with `setup_seconds` — and
+the corrected manifest then made a *second* version of it, because the per-study
+rate still had a fixed cost hiding inside it. **The visible test set is 3
+studies: anything divided by it is warmup plus noise until proven otherwise.**

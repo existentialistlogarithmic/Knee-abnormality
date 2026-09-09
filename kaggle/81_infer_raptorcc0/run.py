@@ -457,7 +457,6 @@ def main():
             names = "+".join(ARMS[i]["name"] for i in members)
             print(f"[{names}] img {img} span {span} k_eval {k_eval} res {res}", flush=True)
             bad = 0
-            group_t0 = time.time()
             forward_seconds = 0.0
 
             # DECODE ON THREADS SO IT OVERLAPS THE GPU. E091 measured 8.27 s per
@@ -484,6 +483,19 @@ def main():
                     return j, sid, vol, mask, None
                 except Exception as exc:                                  # noqa: BLE001
                     return j, sid, None, None, f"{type(exc).__name__}: {exc}"
+
+            # WARM THE GPU BEFORE TIMING ANYTHING. `cudnn.benchmark` autotunes a
+            # convolution algorithm the first time it sees a shape, and every
+            # study here has the identical (k_eval, 3, res, res). On the 3-study
+            # visible stub that one-off tuning lands inside the per-study average
+            # and inflates it; on 1,300 studies it is invisible. Paying it here
+            # makes the projection honest in both directions — and it is not free
+            # accounting, the real run genuinely starts sooner.
+            warm_t0 = time.time()
+            infer_probs(model, torch.zeros(k_eval, 3, res, res), device, False)
+            print(f"  [{names}] warmed cudnn in {time.time() - warm_t0:.1f}s "
+                  f"(paid once, excluded from the per-study rate)", flush=True)
+            group_t0 = time.time()
 
             workers = max(2, min(8, (os.cpu_count() or 4)))
             print(f"  [{names}] decoding on {workers} threads, {DECODE_AHEAD} studies ahead",

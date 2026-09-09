@@ -5052,3 +5052,70 @@ collapsed to one value per finding still writes a valid submission. And each
 group prints its projected hours from study 100 onward: CoAtNet at 384 px over
 62 windows is far heavier than this project's resnet34, and **a run that will
 not fit the 9 h cap should be visible at study 100, not at hour eight.**
+
+### E091 — the CC0 CoAtNet control runs clean on real DICOM, and costs 3 hours an arm
+- **date**: 2026-09-09. `knee-infer-raptorcc0`, ~0.26 GPU-h on the visible stub.
+  **Board score pending a submission click.** This entry records the run, not the
+  result.
+
+**IT RAN, AND EVERY GUARD REPORTED WHAT IT SHOULD.**
+
+```
+arms 1 | distinct checkpoints 1
+  maxspan-v5   w=1.00 img=336 slices=64 span=(0.02, 0.98) k_eval=62 reverse=False
+  raptor_ft_coatnet_v5_full_swa.pt: coatnet_rmlp_2_rw_384... res 384 author's gold 0.9214
+[maxspan-v5] fallbacks 0/3 (0.0%)
+wrote /kaggle/working/submission.csv  rows=3
+```
+
+- **the fingerprint matched**, so the file mounted is the artefact this manifest
+  was written against;
+- **the geometry is v5's own** — `img 336`, `span (0.02, 0.98)`, `k_eval 62`.
+  E090's bug would have shown here as v4's `0.06–0.94` and `42`. **Fixed in the
+  thing that actually runs, not only in the tests;**
+- **zero fallbacks on real competition DICOM.** The differential test proved the
+  path matched upstream on synthetic series; this proves it survives the real
+  ones. Between them the DICOM path is now checked from both ends.
+
+**THE RUNTIME IS THE FINDING, AND IT DECIDES THE NEXT STEP.** 8.27 s per study
+for one arm, which the in-loop projection puts at **2.99 h on 1,300 studies**.
+Against this project's own resnet34 ensemble at 0.86 h, the CC0 arm is **3.5×
+the inference cost per member**.
+
+| kernel | passes | window-forwards | projected |
+|---|---:|---:|---|
+| `81` control, v5 alone | 1 | 62 | **2.99 h** |
+| `82` as published, four arms | 3 | 228 | **~10–11 h — OVER the 9 h cap** |
+| v5 + v5-reverse + v8, dropping the 0.10 member | 2 | 166 | ~7.3–8.0 h, tight |
+| v5 + v5-reverse only | 1 | 124 | ~6 h |
+
+  **`82` cannot be submitted as written.** The projection line added in E090
+  exists for exactly this and reported it at study 100 of a 3-study stub rather
+  than at hour nine of a real one. Dropping the 0.10 member (`native384dense-v10`)
+  is the sanctioned cut — never a `k_eval` or a span, which are the geometry the
+  weights were trained at.
+
+  **And it prices the efficiency track out.** `FINDINGS.md` §2.13 charges 0.0502
+  AUC per extra hour, so 2.1 h more than the incumbent is ~0.105 AUC-equivalent.
+  This arm is a main-leaderboard play only.
+
+**TWO BUGS IN OUR OWN MANIFEST, FOUND BY THE RUN RATHER THAN THE TESTS.**
+
+1. **`projected_hours_1300_studies` read 112.49 h.** It divided total wall clock
+   by three studies — but 910 s of the 935 s was **setup**: imports, CUDA init,
+   the first model load. Setup is a fixed cost and does not scale with studies.
+   Now tracked separately, and the projection scales only the scored seconds.
+   The in-loop line was right all along at 2.99 h; the manifest disagreed with it
+   by 37×, and a future session would have had no way to know which to believe.
+2. **`prediction_spread` read 1.0 for all twelve findings, and could never have
+   read anything else.** It was measured on the **rank-blended output**, and
+   `rankpct` maps any column onto 0..1 while `argsort` breaks ties arbitrarily —
+   so a member that returned an identical value for every study still reads 1.0.
+   **The degenerate-model check could not detect a degenerate model.** Now
+   measured on the raw per-arm probabilities, and a genuinely flat member raises
+   instead of submitting.
+
+- **the pattern, again**: both were invisible offline. The tests asserted the
+  manifest's *shape*, and its shape was right. Only running it on real data made
+  the numbers wrong enough to notice, which is E090's lesson pointed at the
+  instrument rather than the model.

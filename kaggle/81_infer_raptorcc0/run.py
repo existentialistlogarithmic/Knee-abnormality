@@ -418,6 +418,12 @@ def main():
     reader = _make_reader()
     probs = [np.full((len(ids), len(LAB)), 0.5, np.float32) for _ in ARMS]
     ran = [None] * len(ARMS)
+    # Setup — imports, CUDA init, the first model load — is a FIXED cost, not a
+    # per-study one. On the 3-study visible stub it was 910 s of a 935 s run, so
+    # dividing wall clock by studies projected 112 h instead of 3. Scale only the
+    # per-study work and report setup beside it.
+    setup_seconds = time.time() - t0
+    scored_seconds = 0.0
 
     # Grouped so nothing is recomputed that two arms can share. Outer key is the
     # checkpoint, so each file is loaded ONCE and peak RAM stays at one model
@@ -482,6 +488,7 @@ def main():
                           f"| {rate:.2f}s/study, this group projects "
                           f"{rate * 1300 / 3600:.2f} h on 1,300", flush=True)
             group_seconds = time.time() - group_t0
+            scored_seconds += group_seconds
             for i in members:
                 ran[i] = {"name": ARMS[i]["name"], "file": fname, "arch": arch,
                           "author_gold_auc": gold, "res": res, "img": img,
@@ -531,12 +538,27 @@ def main():
     # a member that collapsed to one value per finding still writes a valid
     # submission, and the spread is where that shows.
     elapsed = time.time() - t0
-    spread = {f: round(float(sub[f].max() - sub[f].min()), 4) for f in LAB}
+    # Measured on the RAW probabilities, per arm, not on the rank-blended output.
+    # `rankpct` maps any non-constant column onto 0..1, and argsort breaks ties
+    # arbitrarily, so post-rank spread reads 1.0 even for a member that returned
+    # the same value for every study — the exact failure it was meant to catch.
+    spread = {ARMS[i]["name"]: {f: round(float(probs[i][:, k].max() - probs[i][:, k].min()), 4)
+                               for k, f in enumerate(LAB)}
+              for i in range(len(ARMS))}
+    flat = [name for name, per in spread.items()
+            if max(per.values()) < 1e-6 and len(ids) > 1]
+    if flat:
+        raise RuntimeError(
+            f"{flat} returned a constant prediction for every study. That still "
+            f"writes a valid submission, so it is refused here instead.")
     Path("/kaggle/working/infer_manifest.json").write_text(json.dumps({
         "n_studies": len(ids),
         "wall_clock_seconds": round(elapsed, 1),
-        "seconds_per_study": round(elapsed / max(1, len(ids)), 3),
-        "projected_hours_1300_studies": round(elapsed / max(1, len(ids)) * 1300 / 3600, 3),
+        "setup_seconds": round(setup_seconds, 1),
+        "scored_seconds": round(scored_seconds, 1),
+        "seconds_per_study": round(scored_seconds / max(1, len(ids)), 3),
+        "projected_hours_1300_studies":
+            round(setup_seconds / 3600 + scored_seconds / max(1, len(ids)) * 1300 / 3600, 3),
         "n_arms": len(ARMS),
         "n_checkpoints": len(paths),
         "total_fallbacks": sum(r["fallbacks"] for r in ran if r),

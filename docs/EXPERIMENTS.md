@@ -5320,3 +5320,71 @@ range 0.181   sd 0.054   Spearman(gold, proxy) across findings = 0.573
 - **what it does not license**: acting on any proxy number before that
   calibration. E082 is three weeks old and cost a board point to the exact
   mistake of trusting an offline instrument that separated cleanly.
+
+### E094 — the label lever has no offline instrument, and that is the finding
+- **date**: 2026-09-10. CPU only. Started as the first step of the severity-
+  threshold relabelling that E093's diagnosis pointed at. It did not get that far,
+  and the reason is worth more than the relabelling would have been.
+
+**THE TEST.** If the hidden truth is image-derived with a severity cut and "on
+the fence" graded negative, then among gold studies whose report *hedges* a
+finding ("mild", "minimal", "trace"), the expert should say **negative** while
+the report-derived label says positive. Effusion is the best case to look at:
+60.3% positive on gold, and a term that appears in 52.9% of all 4,407 reports.
+
+**THE INSTRUMENT WAS VALIDATED FIRST**, because E062's lesson is to say what an
+instrument cannot see before running it. A multilingual regex matched effusion
+terms in **2,330 of 4,407 reports (52.9%)** and mild-qualifiers in **1,979
+(44.9%)** — plausible rates, not a broken pattern. *(Gap recorded: the corpus is
+substantially Turkish — 1,168 reports — and the qualifier lexicon has no Turkish
+terms. It is incomplete, not inert.)*
+
+**THE RESULT, ON THE 58 GOLD:**
+
+| what the report says | n | expert positive | incumbent label |
+|---|---:|---:|---:|
+| **mild qualifier** | 20 | **0.550** | 0.917 |
+| unqualified mention | 18 | 0.556 | 0.684 |
+| **no mention at all** | 20 | **0.700** | 0.871 |
+
+  **The hypothesis predicts the first row should be low. It is not** — hedged and
+  unqualified mentions carry essentially the same expert rate (0.550 vs 0.556).
+  And the highest expert rate belongs to studies whose report **never mentions
+  effusion**.
+
+- **but this settles nothing, and that is the point.** Twenty studies per bucket
+  is a standard error of **±0.11**. The spread across the three rows is 0.15. The
+  test cannot distinguish a real effect from noise, and would need an effect of
+  ~0.3 to see one.
+
+**THE STRUCTURAL FINDING: NO INSTRUMENT THIS PROJECT OWNS CAN EVALUATE A LABEL
+CHANGE.** Not "none is convenient" — none exists:
+
+| instrument | why it cannot |
+|---|---|
+| **gold-58** | 58 studies, and any conditional test splits it to ~20 per cell. SE ±0.11 against effects of ~0.03 |
+| **the E093 proxy (n=4,349)** | scores predictions **against the report labels**. A model trained on *changed* labels moves away from them and scores **worse by construction**, however much better it is against the hidden truth. **Circular, and actively misleading in the wrong direction** |
+| **the board** | works, resolves ±0.003 — but costs **~7.5 GPU-h to retrain five members plus one submission** per label variant |
+
+  So the lever E093 identified as the only one that can reach 0.945 is also the
+  only one that **must be tested blind**. At 30 GPU-h a week that is **~4 label
+  experiments per week**, each a coin flip with no prior beyond argument.
+
+- **this is not an argument against the label route.** It is the price of it,
+  stated before the quota is spent rather than after. E093's arithmetic still
+  holds: Synovitis at 0.7575 and PF OA at 0.8288 carry the whole +0.017, and no
+  other channel has a non-zero coefficient.
+- **it is an argument against the version of the plan that iterates.** "Re-parse,
+  retrain, measure, repeat" cannot be done here. Whatever label change gets
+  built has to be right the first time, or nearly so, because the feedback loop
+  is a week long and three decimal places wide.
+
+**A HYPOTHESIS WORTH ITS OWN TEST, recorded so it is not lost.** The largest
+number in the table is that **"no mention" carries the highest expert positive
+rate**. If that survives a real sample, the report-to-truth mismatch is
+**omission, not severity** — radiologists simply do not write down what they do
+not consider clinically relevant, and the image still shows it. That is a
+different problem from grading, and it is not fixable by re-parsing text at all:
+no amount of reading a report recovers a finding the report never mentions.
+E059 reached the same conclusion for Synovitis by a different route and this
+project treated it as a special case. It may be the general case.

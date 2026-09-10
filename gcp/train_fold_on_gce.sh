@@ -17,7 +17,7 @@
 #   fold           0-4
 # Optional:
 #   lineage        default v1distil
-#   branch         default claude/rsna-knee-abnormality-jahn5n
+#   branch         default main
 set -euo pipefail
 
 meta() {
@@ -27,7 +27,7 @@ meta() {
 
 FOLD=$(meta fold);            FOLD=${FOLD:-0}
 LINEAGE=$(meta lineage);      LINEAGE=${LINEAGE:-v1distil}
-BRANCH=$(meta branch);        BRANCH=${BRANCH:-claude/rsna-knee-abnormality-jahn5n}
+BRANCH=$(meta branch);        BRANCH=${BRANCH:-main}
 TOKEN=$(meta kaggle-token)
 [ -n "$TOKEN" ] || { echo "FATAL: no kaggle-token in instance metadata"; exit 1; }
 

@@ -5229,3 +5229,94 @@ board move in this project since 2026-08-29 that clears its own noise. Rank
   price it at 0.9254 gold against v5-alone's 0.9198. Against a 0.003 board floor
   that gap is worth testing; against the same floor, another reseed of anything
   is not.
+
+### E093 — the report-label proxy is 25x finer than gold-58, and the weak findings are not the ones anyone guessed
+- **date**: 2026-09-10. CPU only, no quota, no submission. Prompted by a
+  literature review whose first recommendation was to stop trusting n=58 and
+  calibrate a large noisy-label proxy against the board deltas already owned.
+  **The instrument existed already**: `OOF_SCOPE = "all"` was built into
+  `gold_eval` and two kernels had already run with it. Nothing needed training.
+
+**THE RIG REPRODUCES ITS OWN RECORD**, which is what makes the rest readable:
+pooling `oof_all_fold0..4` for `v1public` gives **gold-58 macro 0.8980**, exactly
+the figure on record for that lineage since E044.
+
+**FINDING 1 — THE WEAK FINDINGS ARE THE GRADED ONES, NOT THE ACUTE ONES.**
+Per-finding gold AUC of the standing 0.928 CoAtNet arm, read straight out of its
+checkpoint:
+
+| weakest | | strongest | |
+|---|---:|---|---:|
+| **Synovitis** | **0.7575** | Baker's | 0.9873 |
+| **PF OA** | **0.8288** | Medial OA | 0.9860 |
+| **Lateral OA** | **0.8685** | Effusion | 0.9789 |
+| **Lateral Meniscus** | **0.8807** | MCL | 0.9705 |
+| Fracture | 0.9125 | ACL | 0.9669 |
+| Contusion | 0.9150 | Medial Meniscus | 0.9483 |
+
+  The review predicted *"Fracture and bone contusion are almost certainly where
+  9-language parsing is worst and prevalence lowest"*. **They are mid-pack.** The
+  four weakest are **Synovitis, PF OA, Lateral OA, Lateral Meniscus** — every one
+  of them a finding that only exists after a **severity threshold** is applied.
+  The strongest are the acute, focal, present-or-absent ones.
+
+  **That pattern is the review's own reframe, confirmed from the other side.** If
+  the hidden truth is image-derived with an explicit severity cut and "on the
+  fence" graded negative, then a report parse and the truth agree on "is there an
+  ACL tear" and diverge on "is this OA moderate enough to count". The findings
+  where they must diverge are exactly the findings that are weak. E059 closed
+  Synovitis as *unwritten in the reports*; under this reading it is not unwritten,
+  it is **written on a different scale**.
+
+**THE ARITHMETIC OF THE TARGET.** Macro-AUC is the mean of twelve independent
+per-finding AUCs, so **+0.017 macro is +0.204 summed**. Synovitis to 0.90 alone
+is +0.14; PF OA to 0.93 is +0.10. **Two findings can carry the whole target**,
+and both are in the graded class. Nothing needs to improve on ACL or Baker's.
+
+**FINDING 2 — THE PROXY IS EXTRAORDINARILY PRECISE.** Scoring the same OOF
+predictions against the 4,349 report-labelled studies, and comparing a lineage
+with its own pure reseed:
+
+| instrument | v1pub | v1pubB (reseed) | spread |
+|---|---:|---:|---:|
+| gold-58 | 0.8980 | 0.8827 | **±0.0153** |
+| board (E092) | 0.923 | — | **±0.003** |
+| **proxy, n=4,349** | **0.8404** | **0.8410** | **±0.0006** |
+
+  **Five times finer than the board and twenty-five times finer than gold-58.**
+  Every architecture question this project abandoned as unresolvable was
+  abandoned against a ±0.03 instrument. This one would resolve them.
+
+**FINDING 3 — AND ITS VALIDITY IS NOT ESTABLISHED, WITH EVIDENCE AGAINST.** The
+review's justification is that AUC is order-preserving under *class-conditional*
+noise. If that held here, the gap between gold AUC and proxy AUC would be
+roughly constant across findings. It is not:
+
+```
+gap (gold - proxy):  ACL +0.137  Medial OA +0.115  MCL +0.104  Effusion +0.103
+                     ... Lateral Meniscus -0.013  Synovitis -0.044
+range 0.181   sd 0.054   Spearman(gold, proxy) across findings = 0.573
+```
+
+  **The gap spans 0.18 and changes sign.** Two findings score *better* against
+  report labels than against experts. That is instance-dependent noise, which is
+  the regime the review's own counter-citation (Bernhardt 2022) says breaks model
+  ranking — and the proxy does not even preserve the ordering of *findings*,
+  Spearman 0.573.
+
+- **so the proxy is a precise instrument of unknown validity.** Precision was the
+  cheap half and it passed spectacularly. Validity is the expensive half and
+  needs board-scored configurations to test against, of which exactly **one**
+  currently has full-scope OOF (`v1public`, board 0.923).
+- **the calibration is now clearly worth its GPU, which it was not before.** One
+  inference pass over 4,407 studies is ~2.9 h at this project's resnet34 rate.
+  Three more lineages — fused (board 0.846), lexicon (0.757) and **distilled
+  (0.910)** — is ~9 GPU-h. **The distilled one is the whole test**: it is the
+  only configuration where an offline instrument got the *sign* wrong. A proxy
+  that reproduces −0.013 there is trustworthy; one that repeats E076's +0.022 is
+  the same trap with a bigger n.
+
+- **cost so far**: zero. Two existing kernel outputs and a merge.
+- **what it does not license**: acting on any proxy number before that
+  calibration. E082 is three weeks old and cost a board point to the exact
+  mistake of trusting an offline instrument that separated cleanly.

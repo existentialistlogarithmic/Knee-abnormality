@@ -46,7 +46,14 @@ package is installed. Check `which kaggle` instead.
 
 ## 3. Where the work stands
 
-**0.926 on the leaderboard**, up from 0.924, 0.923, 0.846 and 0.725. **Rank
+**0.928 on the leaderboard** (2026-09-09), set by `knee-infer-raptorcc0` — the
+public CC0 CoAtNet arm, **one borrowed model, no ensembling, no TTA**. Up from
+0.926, 0.924, 0.923, 0.846 and 0.725.
+
+**AND THE FULL-FIT LEVER IS GONE (E092).** A pure reseed of the five-member
+full-weight ensemble scored 0.923/0.921 against 0.926, so **the board's
+like-for-like reseed spread is ~0.003** — the same size as the +0.003 E083
+credited to full fit. Read no board difference under 0.003 as real. **Rank
 1,104 of 3,263, measured 2026-09-07 (E085).** Field top **0.954**. Final
 submission 2026-10-22. The field grew 75% in five days, so E070's "#866 of
 1,866" went stale almost immediately — **a rank is a measurement with a date on

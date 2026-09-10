@@ -5166,3 +5166,66 @@ finding was the manifest making exactly that mistake with `setup_seconds` — an
 the corrected manifest then made a *second* version of it, because the per-study
 rate still had a fixed cost hiding inside it. **The visible test set is 3
 studies: anything divided by it is warmup plus noise until proven otherwise.**
+
+### E092 — the reseed control lands, and it eats the full-fit lever whole
+- **date**: 2026-09-10. Answers E086's three pre-registered readings. No GPU:
+  both arms were trained on 2026-09-07 and had been waiting on a click.
+
+**THE BOARD.** `knee-infer-v1pubfe` and `knee-infer-v1pubfe-early` were submitted
+34 seconds apart and scored **0.923** and **0.921**. Which is which is not
+recorded by the API and the conclusions below do not depend on it, because
+**both orderings give the same answer.**
+
+| system | seeds | export epoch | board |
+|---|---|---:|---:|
+| `knee-infer-v1pubfull5` (standing) | 3–7 | 20 | **0.926** |
+| the two E086 arms | 11–15 | 20 and 16 | **0.923 and 0.921** |
+
+**READING 2, THE ONE E086 SAID NOT TO SKIP.** `v1pubfe` is seeds 11–15 at epoch
+20 — **byte-identical in configuration to the 0.926 system apart from the RNG
+seed**. It came back at 0.923 or 0.921. **So a pure reseed of a full-weight
+five-member ensemble moves the board by −0.003 to −0.005.**
+
+**E083 CREDITED FULL FIT WITH +0.003. THAT IS THE SAME SIZE.** The lever this
+project has called "the only positive board reading" and "the only lever with a
+positive board coefficient" is **not distinguishable from a seed draw.** E086
+wrote, before any of this scored: *"Whatever it returns bounds how much of any
+full-fit result is draw rather than lever, including the +0.003 that E083
+credited to full fit."* It returned, and it bounds it at zero.
+
+- this is the **tenth** confident claim this log has overturned, and like the
+  other nine it was caught by a measurement rather than by reasoning;
+- it does **not** touch the labels (+0.089, +0.077) or ensembling (+0.032), which
+  are an order of magnitude larger than this noise floor;
+- it does mean **`PATH.md` §2.1 and §1's decomposition are wrong** where they
+  bank +0.003 for full fit, and §3's "0.94 has one candidate mechanism, more data
+  per model" now has **none**.
+
+**READING 1, the export epoch.** The two arms differ by **0.002**, which is
+*smaller than the reseed spread they sit inside*. E086's third branch —
+*"within 0.001: the curve is flat here as E055 found it flat over 18–21"* — is
+the closest match once the interval is read honestly. **The export epoch does not
+matter**, and E086's step-count argument buys nothing. The GPU that would have
+gone into re-exporting every member at 16 is saved.
+
+**AND THE BOARD FLOOR IS NOW MEASURED, WHICH IT NEVER WAS.** E060 established a
+**±0.03** noise floor on *gold-58*, offline. Until now nothing measured the
+board's own floor, and three-decimal board differences were read as real
+throughout this log. They are not: **the board's like-for-like reseed spread is
+about 0.003.** Every board comparison in this project smaller than that is
+noise, which retroactively covers E064's +0.001 (five folds plus one full-fit
+member) and E087's 0.926-equals-0.926.
+
+**WHAT SURVIVES, AND IT IS THE GOOD NEWS.** The standing score is **0.928**, set
+2026-09-09 by `knee-infer-raptorcc0` — the CC0 CoAtNet arm, **one borrowed model,
+no ensembling, no TTA**. That is **+0.005 over the five-member full-fit
+ensemble**, which is larger than the seed floor just measured and is the first
+board move in this project since 2026-08-29 that clears its own noise. Rank
+**1213 of 3456** on a field that has grown by 124 teams in two days.
+
+- **nothing was lost by these two submissions.** The public leaderboard takes the
+  best submission, not the latest.
+- **the next measurement is `82`**, the four-arm CoAtNet blend, whose authors
+  price it at 0.9254 gold against v5-alone's 0.9198. Against a 0.003 board floor
+  that gap is worth testing; against the same floor, another reseed of anything
+  is not.

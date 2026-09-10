@@ -1,6 +1,7 @@
 # What is left, what it is worth, and what 0.95 actually requires
 
-Standing: **0.926 on the leaderboard** (2026-09-07, E083 — five full-fit
+Standing: **0.928 on the leaderboard** (2026-09-09, the CC0 CoAtNet arm alone,
+E091/E092), previously 0.926 (2026-09-07, E083 — five full-fit
 members), up from 0.924, 0.923, 0.846 and 0.725.
 Leaderboard top **0.954**. **3,332 teams.** Final submission **2026-10-22**.
 
@@ -31,9 +32,16 @@ model (0.725) to now (0.926):
 | this project's own fused labels | **+0.089** |
 | public CC0 report labels | **+0.077** |
 | ensembling, one fold → five | **+0.032** |
-| **full fit, at full weight (E083)** | **+0.003** |
+| ~~full fit, at full weight (E083)~~ | **0.000 — inside the board's own seed floor (E092)** |
 | **a distilled teacher (E083)** | **−0.013** |
 | **architecture, every attempt** | **0.000** |
+
+**CORRECTED 2026-09-10 (E092): full fit's +0.003 does not survive.** A pure
+reseed of the same five-member full-weight ensemble — seeds 11-15 against 3-7,
+nothing else changed — scored 0.923/0.921 against 0.926, so **the board's
+like-for-like reseed spread is about 0.003 and the full-fit "lever" is the same
+size as a draw.** Every board difference in this log under 0.003 is noise,
+E064's +0.001 included.
 
 **Labels and data are +0.166 of the +0.201.** Architecture has contributed zero
 every time it has been measured, across 288px, DINOv2 twice, focal top-k,

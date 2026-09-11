@@ -11,6 +11,16 @@ two kinds of placeholder:
 
     @@CONFIG@@          the constants this kernel runs with, from the manifest
     @@INCLUDE name@@    the body of kaggle/_templates/_shared/name.py
+    @@IF NAME@@ ... @@ENDIF NAME@@
+                        a region kept only when the kernel's constant NAME is
+                        present and truthy, and dropped whole otherwise
+
+`@@IF@@` exists because one template now runs two architectures. Giving every
+kernel both would put ~700 lines of a second model's preprocessing into three
+kernels that never touch it — the same dead weight `@@INCLUDE name:wanted@@`
+selects against, and `test_generated_kernels_only_carry_helpers_they_use` is the
+test that says so. Gating at generation time keeps the CoAtNet-only kernels
+byte-identical to what they were before the second architecture existed.
 
 `--check` is the part that matters. It is what stops the manifest from becoming
 documentation of a tree that has since been edited by hand — the failure mode
@@ -82,8 +92,45 @@ def shared_body(name: str, wanted: list[str] | None = None) -> str:
     return "\n\n\n".join(keep)
 
 
+def strip_regions(template: str, kernel: Kernel) -> str:
+    """Drop every `@@IF NAME@@ ... @@ENDIF NAME@@` whose constant is off.
+
+    Unbalanced markers raise rather than silently keeping or dropping code: a
+    region that swallowed the rest of a template would still generate a file
+    that parses.
+    """
+    out, skipping, depth = [], None, 0
+    for number, line in enumerate(template.splitlines(), start=1):
+        stripped = line.strip()
+        if stripped.startswith("@@IF ") and stripped.endswith("@@"):
+            name = stripped[len("@@IF "):-2].strip()
+            if skipping is None and not kernel.constants.get(name):
+                skipping = name
+            elif skipping is not None:
+                depth += 1
+            continue
+        if stripped.startswith("@@ENDIF ") and stripped.endswith("@@"):
+            name = stripped[len("@@ENDIF "):-2].strip()
+            if skipping is None:
+                continue
+            if depth:
+                depth -= 1
+                continue
+            if name != skipping:
+                raise SystemExit(
+                    f"{kernel.template}.py.in line {number}: @@ENDIF {name}@@ "
+                    f"closes @@IF {skipping}@@")
+            skipping = None
+            continue
+        if skipping is None:
+            out.append(line)
+    if skipping is not None:
+        raise SystemExit(f"{kernel.template}.py.in: @@IF {skipping}@@ is never closed")
+    return "\n".join(out)
+
+
 def render(kernel: Kernel) -> str:
-    template = (TEMPLATES / f"{kernel.template}.py.in").read_text()
+    template = strip_regions((TEMPLATES / f"{kernel.template}.py.in").read_text(), kernel)
     out = []
     for line in template.splitlines():
         if line.strip() == "@@CONFIG@@":

@@ -5719,3 +5719,108 @@ Against the CoAtNet arm's 0.9214 that is a **0.0638 gap**.
   closure spent a GPU-hour or a submission.**
 - **not legal advice.** It is a reading of the licence text against the acts this
   route performs, recorded so the decision is made on the right clause.
+
+
+### E101 — the instrument paid for itself in one afternoon: eight unions priced for nothing, one of them positive
+- **date**: 2026-09-11. E099's kernel ran: **58 studies, 0 fallbacks, 764 s wall
+  clock** of which 450 s was setup. No submission, no quota beyond the run.
+
+**RULE 1 PASSES, AND MORE PRECISELY THAN THE RULE ASKED.**
+
+| arm | measured here | the file says | the write-up says | delta vs file |
+|---|---:|---:|---:|---:|
+| maxspan-v5 | **0.9198** | 0.9214 | **0.9198** | −0.0016 |
+| native384dense-v10 | 0.9170 | 0.9174 | — | −0.0004 |
+| maxspan-v5-reverse | 0.9167 | 0.9214 | — | −0.0047 |
+| native384-v8 | 0.9116 | 0.9067 | — | +0.0049 |
+| **four-arm blend** | **0.9223** | — | — | — |
+
+  **maxspan-v5 lands on 0.9198 — upstream's own inference-geometry re-measurement
+  — to four decimal places.** E090 recorded two disagreeing self-reports for that
+  file and could not adjudicate; this adjudicates. It also means the whole
+  reproduction is right end to end: series selection, the 140 mm physical crop,
+  the window layout, the slice-triplet `reverse`, the attention pooling. A skew
+  anywhere in that chain would not land on someone else's number by accident.
+  Rule 3 does not fire — nothing reads above its self-report, so gold was
+  genuinely held out of upstream's training.
+
+**RULE 4 SPLITS, AND THE SPLIT IS THE USEFUL PART.** Blend 0.9223 against best
+single arm 0.9198 — **+0.0025, paired CI [−0.0063, +0.0062]**. The point estimate
+moves the right way and the interval does not clear zero.
+
+- against **E097's board reading of +0.004** for the same four arms, the point
+  estimate has the **same sign and the same order of magnitude**. That is the
+  first calibration this project has ever had between gold-58 and the board.
+- but the paired interval is ±0.006, so **gold-58 cannot separate a board-sized
+  blend gain**. It never could. **E098's caution therefore neither retires nor
+  fires**: the four "not separated" readings (E033, E039, E046, E048) stay
+  exactly what they said, and "not separated" was never evidence of no gain.
+- **the paired CI is the number worth keeping**: ±0.006 on a difference, against
+  ±0.0153 on an absolute (E031). Pairing cancels study difficulty and buys 2.5×.
+
+**AND THE ARMS ARE BARELY DECORRELATED FROM EACH OTHER**, which is why four of
+them buy so little: mean rank correlation **0.905–0.986** across the six pairs,
+with `maxspan-v5` and its own reverse at **0.986**. The "free diversity" member
+is nearly a copy.
+
+**EIGHT UNIONS PRICED, SEVEN CLOSED, ONE POSITIVE.** With the real CoAtNet column
+on disk, every candidate partner could be swept for nothing:
+
+| partner | gold | gap | w=0.10 | w=0.20 | w=0.30 | w=0.50 | shape |
+|---|---:|---:|---:|---:|---:|---:|---|
+| `pilkwang` oof (20-model DINOv2) | 0.8400 | 0.082 | 0.9211 | 0.9171 | 0.9130 | 0.8971 | **monotonic decline** |
+| `pilkwang` merge_gain "ours" | 0.8435 | 0.079 | 0.9217 | 0.9197 | 0.9142 | 0.8994 | **monotonic decline** |
+| `pilkwang` merge_gain "imported" | 0.7924 | 0.130 | 0.9223 | 0.9195 | 0.9117 | 0.8856 | **monotonic decline** |
+| **this project, `v1public` 5-fold** | **0.8980** | **0.024** | 0.9243 | 0.9267 | **0.9277** | 0.9255 | **interior optimum** |
+
+  (the CoAtNet column alone is 0.9225 under this re-ranking.) **E098's six
+  negatives were measured foreign-against-foreign; these are measured against the
+  real thing, and they close the same way.** E100's RadImageNet arm sits at
+  0.8576 with a 0.064 gap, in the same band, and needs no run of its own.
+
+**THE ONE THAT PAYS, AND WHY IT IS NOT NOISE.** `v1public` at w=0.3: **+0.0053,
+paired CI [−0.0016, +0.0118]** — not separated, but the mechanism is legible:
+
+| | |
+|---|---|
+| gap | 0.9223 vs 0.8980 = **0.0243**, against 0.079–0.130 for every foreign system |
+| kind | resnet34 2.5D, 192 px, this project's report labels **against** CoAtNet, 336/384 px, upstream's |
+| correlation | **0.793**, where CoAtNet's own four arms sit at 0.905–0.986 |
+| findings | **8 of 12 improve** |
+
+  and the gains land exactly where CoAtNet is weakest: **Synovitis +0.016** (this
+  project's floor since E059, 0.809 → 0.824), **Baker's +0.022**, **Effusion
+  +0.012**, **Lateral OA +0.010**. All four losses are findings where CoAtNet
+  already reads 0.92–0.98 and the second member is far behind — MCL (0.982 vs
+  0.882) −0.007, Medial Meniscus −0.007, Fracture −0.004. **v1public also wins
+  outright on three findings**: Baker's 0.984, Medial OA 0.980, PF OA 0.858. That
+  is decorrelation doing work, not an average of noise.
+  **E048's rule, third test, first clean pass**: comparable *and* different in
+  kind.
+
+**A WRONG-SHAPED KERNEL WAS BUILT AND DELETED BEFORE IT COULD SPEND ANYTHING.**
+The obvious way to ship this is a `rank_blend` of kernels 82 and 63. That cannot
+work, and **this project's own template says so in a comment written days ago**:
+a mounted kernel supplies its LAST SAVED output, frozen at the 3-study visible
+run. So the second architecture is spliced into the CoAtNet template instead,
+from the same `_shared/volume.py` and `_shared/model.py` every v1 kernel has
+always used — not reimplemented, because a second copy of the preprocessing is
+the exact skew E088 caught in kernel 81's first draft. A new `@@IF NAME@@`
+generator directive keeps the CoAtNet-only kernels byte-identical.
+
+- **pre-registered for `knee-infer-raptorv1`**, before it runs: **>0.935** the
+  sweep transferred and then some; **0.933–0.935** a real gain above the ±0.003
+  floor; **0.930–0.932** inside the floor, which is the E083 failure again;
+  **<0.929** below the CoAtNet arm alone, so the second member dilutes and
+  E048's rule is wrong at a 0.024 gap.
+- **the weight is 0.5 and nothing is fitted, for the fifth time.** The peak at
+  w=0.3 beats 0.5 by +0.0022, which is **below the board's own reseed floor**
+  (E092, ±0.003). A fitted weight would buy a difference the board cannot
+  measure.
+- **the offline member is not the member that ships.** `v1public` 5-fold is
+  out-of-fold and honest at 0.8980; the kernel mounts the **full-fit** five, which
+  saw all 58 gold and cannot be scored on them. Same architecture, same labels,
+  different fit — and full fit is the stronger of the two on the board (0.926 vs
+  0.923), so **the offline number is a floor for this pair, not a forecast.**
+- **cost of the whole entry**: one 764-second run and arithmetic. Every previous
+  blend question in this log cost a board submission.

@@ -1456,6 +1456,8 @@ EXTRAS = [
             # The hidden set. Writes submission.csv and scores nothing offline.
             "EVAL_SPLIT": "test",
             "GOLD_EXPECTED": 58,
+            # The second architecture is off: CoAtNet arms only.
+            "V1_MEMBERS": None,
         },
         note="THE CONTROL, and it must be submitted before any blend.\n"
              "\n"
@@ -1517,6 +1519,8 @@ EXTRAS = [
             # The hidden set. Writes submission.csv and scores nothing offline.
             "EVAL_SPLIT": "test",
             "GOLD_EXPECTED": 58,
+            # The second architecture is off: CoAtNet arms only.
+            "V1_MEMBERS": None,
         },
         note="The CoAtNet arm of the public 0.937 system, at its published\n"
              "weights: maxspan-v5 0.55, native384-v8 0.20, maxspan-v5 flipped\n"
@@ -1593,6 +1597,7 @@ EXTRAS = [
             # submitted by accident against a set it does not contain.
             "EVAL_SPLIT": "gold",
             "GOLD_EXPECTED": 58,
+            "V1_MEMBERS": None,
         },
         note="NOT A SUBMISSION. Scores the four CC0 CoAtNet arms on this\n"
              "project's own 58 expert studies and dumps their raw per-study\n"
@@ -1613,6 +1618,167 @@ EXTRAS = [
              "project never checked.\n"
              "\n"
              "ATTRIBUTION: as `knee-infer-raptorcc0`.",
+    ),
+    # THE FIRST UNION THIS PROJECT EVER PRICED OFFLINE BEFORE SUBMITTING IT.
+    #
+    # E099 built the gold instrument; E101 swept eight candidate partners for the
+    # CoAtNet arms on the 58 expert studies and exactly one has an interior
+    # optimum rather than a monotonic decline away from w=0 -- this project's own
+    # resnet34 2.5D at 192 px.
+    #
+    #   w      0.00    0.10    0.20    0.30    0.50
+    #   macro  0.9225  0.9243  0.9267  0.9277  0.9255
+    #
+    # Every foreign system E098 could reach declines from the first step:
+    # pilkwang's three at w=0.1 already read 0.9211, 0.9217, 0.9223.
+    #
+    # WHY THIS PAIR AND NOT THOSE. E048's rule wants members comparable in
+    # strength and different in kind, and this is the only pair that is both:
+    #   gap        0.9223 vs 0.8980 = 0.0243, against 0.079-0.130 for the foreign
+    #              systems.
+    #   kind       resnet34 2.5D at 192 px on this project's report labels
+    #              against CoAtNet at 336/384 px on upstream's. Cross-architecture
+    #              rank correlation 0.793, where CoAtNet's own four arms sit at
+    #              0.905-0.986.
+    #   mechanism  8 of 12 findings improve, and the gain lands where CoAtNet is
+    #              WEAKEST -- Synovitis +0.016 (this project's floor since E059),
+    #              Baker's +0.022, Effusion +0.012 -- while all four losses are
+    #              findings where CoAtNet already reads 0.92-0.98 and the second
+    #              member is far behind. Decorrelation doing work, not an average
+    #              of noise.
+    #
+    # WHY IT IS ONE KERNEL AND NOT A BLEND OF TWO. `rank_blend`'s own guard says
+    # it: a mounted kernel supplies its LAST SAVED output, frozen at the 3-study
+    # visible run, so a CSV-chained blend submits three rows and spends a slot.
+    # Of 626 public notebooks, 152 mount another for its CHECKPOINTS and 3 read a
+    # submission.csv. The v1 path here is SPLICED FROM THE SAME `_shared`
+    # fragments every v1 kernel has always used, not reimplemented -- a second
+    # copy of the preprocessing is the exact skew E088 caught in kernel 81's
+    # first draft.
+    #
+    # WHAT IT IS NOT EVIDENCE OF. +0.0053 on gold-58 with a paired CI of
+    # [-0.0016, +0.0118] is NOT separated, and the board floor is +/-0.003 (E092),
+    # so this is marginal by construction. E042 found the same shape at the same
+    # w=0.3 against a different partner and never got to submit it.
+    Kernel(
+        slug="knee-gold-raptorv1",
+        directory="85_gold_raptorv1",
+        template="raptor_infer",
+        gpu=True,
+        internet=False,
+        datasets=["dreaddevelopment/raptor-knee-maxspan",
+                  "dreaddevelopment/raptor-knee-native384",
+                  "dreaddevelopment/raptor-knee-native384dense"],
+        depends=["knee-train-v1pubfull", "knee-train-v1pubfull-s4",
+                 "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
+                 "knee-train-v1pubfull-s7"],
+        constants={
+            "MEMBERS_EXPECTED": 4,
+            "ARMS": RAPTOR_ARMS,
+            "CROP_MM": 140.0,
+            "LAB": RAPTOR_LAB,
+            "FALLBACK_LIMIT": 0.02,
+            "DECODE_AHEAD": 32,
+            "EVAL_SPLIT": "gold",
+            "GOLD_EXPECTED": 58,
+            # THE SECOND ARCHITECTURE, ON. Five full-fit resnet34 members at
+            # this project's own v1 geometry, run in the same kernel because a
+            # CSV-chained blend cannot work here (see `rank_blend`'s own guard:
+            # a mounted kernel supplies its last SAVED output, frozen at the
+            # 3-study visible run).
+            "V1_MEMBERS": 5,
+            "V1_BATCH_STUDIES": V1.infer_batch,
+            "V1_SLICE_SUBSAMPLE": None,
+            "V1_INPUT_NORM": False,
+            "CHECKPOINT_GLOB": "checkpoint_fold*.pt",
+            "SKIP_DIRECTORIES": Raw('{"train_series", "test_series"}'),
+            **V1.constants(),
+            "PLANES": ("Sagittal", "Coronal", "Axial"),
+        },
+        note="THE PLUMBING CHECK, and it must run before the submission.\n"
+             "\n"
+             "Same kernel as `knee-infer-raptorv1`, pointed at the 58 expert\n"
+             "studies. It writes no submission and costs no submission.\n"
+             "\n"
+             "WHAT IT CAN AND CANNOT SHOW. The v1 members here are FULL-FIT:\n"
+             "every one trained on all 58 gold studies, so their gold number\n"
+             "is contaminated upward and is NOT a score. What it checks is\n"
+             "that the second architecture is wired correctly at all - a\n"
+             "skewed v1 path reads near 0.5, a working one reads high. That\n"
+             "is the failure mode worth a free run, because silent\n"
+             "train/inference skew is what E088 caught in kernel 81's first\n"
+             "draft and it runs, writes a submission, and is wrong.\n"
+             "\n"
+             "The four CoAtNet arms should reproduce E099 exactly:\n"
+             "0.9198 / 0.9170 / 0.9167 / 0.9116, blend 0.9223. If they move,\n"
+             "splicing the second architecture in changed the first one.\n"
+             "\n"
+             "ATTRIBUTION: as `knee-infer-raptorcc0`.",
+    ),
+    Kernel(
+        slug="knee-infer-raptorv1",
+        directory="86_infer_raptorv1",
+        template="raptor_infer",
+        gpu=True,
+        internet=False,
+        datasets=["dreaddevelopment/raptor-knee-maxspan",
+                  "dreaddevelopment/raptor-knee-native384",
+                  "dreaddevelopment/raptor-knee-native384dense"],
+        depends=["knee-train-v1pubfull", "knee-train-v1pubfull-s4",
+                 "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
+                 "knee-train-v1pubfull-s7"],
+        constants={
+            "MEMBERS_EXPECTED": 4,
+            "ARMS": RAPTOR_ARMS,
+            "CROP_MM": 140.0,
+            "LAB": RAPTOR_LAB,
+            "FALLBACK_LIMIT": 0.02,
+            "DECODE_AHEAD": 32,
+            "EVAL_SPLIT": "test",
+            "GOLD_EXPECTED": 58,
+            # THE SECOND ARCHITECTURE, ON. Five full-fit resnet34 members at
+            # this project's own v1 geometry, run in the same kernel because a
+            # CSV-chained blend cannot work here (see `rank_blend`'s own guard:
+            # a mounted kernel supplies its last SAVED output, frozen at the
+            # 3-study visible run).
+            "V1_MEMBERS": 5,
+            "V1_BATCH_STUDIES": V1.infer_batch,
+            "V1_SLICE_SUBSAMPLE": None,
+            "V1_INPUT_NORM": False,
+            "CHECKPOINT_GLOB": "checkpoint_fold*.pt",
+            "SKIP_DIRECTORIES": Raw('{"train_series", "test_series"}'),
+            **V1.constants(),
+            "PLANES": ("Sagittal", "Coronal", "Axial"),
+        },
+        note="THE SUBMISSION. Four CC0 CoAtNet arms (board 0.932) and five\n"
+             "full-fit resnet34 members (board 0.926), rank-blended 50/50\n"
+             "inside one kernel.\n"
+             "\n"
+             "DO NOT SUBMIT BEFORE `knee-gold-raptorv1` HAS RUN. Two\n"
+             "architectures in one kernel is two ways for a preprocessing\n"
+             "skew to hide, and the gold run is what makes this readable.\n"
+             "\n"
+             "PRE-REGISTERED, per E101:\n"
+             "  > 0.935   the offline sweep transferred and then some\n"
+             "  0.933-0.935  a real gain above the +/-0.003 board floor\n"
+             "  0.930-0.932  inside the floor; gold-58 saw a gain the board\n"
+             "               cannot, which is the E083 failure again\n"
+             "  < 0.929   below the CoAtNet arm alone, so the second member\n"
+             "            DILUTES, and E048's rule is wrong at a 0.024 gap\n"
+             "\n"
+             "The weight is 0.5 and nothing is fitted, for the fifth time.\n"
+             "The sweep's peak at w=0.3 beats 0.5 by +0.0022, which is below\n"
+             "the board's own reseed floor: a fitted weight would buy a\n"
+             "difference the board cannot measure.\n"
+             "\n"
+             "Cost: 82's four arms (2.43 h on 1,300) plus 63's five members\n"
+             "(~1.0 h), so ~3.5 h against a 9 h cap.\n"
+             "\n"
+             "ATTRIBUTION: the CoAtNet arms are Dread Development's, run\n"
+             "from the CC0 datasets `raptor-knee-maxspan`,\n"
+             "`raptor-knee-native384` and `raptor-knee-native384dense`, with\n"
+             "blend weights from the public write-up\n"
+             "`4-arm-ensemble-explained-rsna-knee-0-937`.",
     ),
     Kernel(
         slug="knee-blend-raptor",

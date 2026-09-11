@@ -85,6 +85,8 @@ FALLBACK_LIMIT   = 0.02
 DECODE_AHEAD     = 32
 EVAL_SPLIT       = "gold"
 GOLD_EXPECTED    = 58
+V1_MEMBERS       = None
+
 
 torch.backends.cudnn.benchmark = True
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -315,7 +317,7 @@ def _pick_series(rows, plane, fluid, used):
     return cands[0] if cands else None
 
 
-def build_study(sid, series, tsdir, reader, img, slots, span):
+def build_raptor_study(sid, series, tsdir, reader, img, slots, span):
     """Fill the fixed slots into one (maxs, img, img) uint8 stack.
 
     GEOMETRY IS PER ARM, not shared. The four published sub-models disagree on
@@ -543,7 +545,7 @@ def main():
             def build_one(item, _img=img, _slots=slots, _span=span):
                 j, sid = item
                 try:
-                    vol, mask = build_study(sid, series, tsdir, reader, _img, _slots, _span)
+                    vol, mask = build_raptor_study(sid, series, tsdir, reader, _img, _slots, _span)
                     if not mask.any():
                         # No slot filled, and no exception raised. Without this the
                         # study contributes a 0.5 row that looks like a prediction;
@@ -649,6 +651,9 @@ def main():
         gc.collect()
         if str(device).startswith("cuda"):
             torch.cuda.empty_cache()
+
+    # ---- THE SECOND ARCHITECTURE'S PASS ------------------------------------
+    v1_probs = None
 
     weights = np.array([float(a["w"]) for a in ARMS], dtype=np.float64)
     weights = weights / weights.sum()

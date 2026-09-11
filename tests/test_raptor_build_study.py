@@ -112,7 +112,7 @@ def kernel_ns():
 
 def test_the_dicom_path_still_matches_what_upstream_produced(study, kernel_ns):
     root, sid, series = study
-    volume, mask = kernel_ns["build_study"](
+    volume, mask = kernel_ns["build_raptor_study"](
         sid, series, str(root), kernel_ns["_make_reader"](),
         V4_IMG, V4_SLOTS, V4_SPAN)
     assert volume.shape == EXPECTED_SHAPE
@@ -131,7 +131,7 @@ def test_a_missing_plane_leaves_its_slot_empty_rather_than_shifting_the_rest(stu
     by position."""
     root, sid, series = study
     without_axial = {sid: [r for r in series[sid] if r["Anatomical_Plane"] != "Axial"]}
-    volume, mask = kernel_ns["build_study"](
+    volume, mask = kernel_ns["build_raptor_study"](
         sid, without_axial, str(root), kernel_ns["_make_reader"](),
         V4_IMG, V4_SLOTS, V4_SPAN)
     assert volume.shape == EXPECTED_SHAPE
@@ -142,7 +142,7 @@ def test_a_missing_plane_leaves_its_slot_empty_rather_than_shifting_the_rest(stu
 def test_a_study_with_no_series_at_all_yields_an_empty_mask(kernel_ns, tmp_path):
     """The kernel treats this as a failure rather than a study with no findings —
     it is how a schema change would present on every study at once."""
-    volume, mask = kernel_ns["build_study"](
+    volume, mask = kernel_ns["build_raptor_study"](
         "absent", {}, str(tmp_path), kernel_ns["_make_reader"](),
         V4_IMG, V4_SLOTS, V4_SPAN)
     assert volume.shape == EXPECTED_SHAPE

@@ -52,12 +52,40 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
+@@IF V1_MEMBERS@@
+import pandas as pd
+import pydicom
+@@ENDIF V1_MEMBERS@@
 import timm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 @@CONFIG@@
+
+@@IF V1_MEMBERS@@
+# ---------------------------------------------------------------------------
+# THE SECOND ARCHITECTURE, and why it lives in this file rather than beside it.
+#
+# E101 measured the only union out of eight candidates with an interior optimum:
+# this project's own resnet34 2.5D at 192 px against the CoAtNet arms. Blending
+# them needs BOTH models' predictions on the hidden set in ONE kernel run --
+# `rank_blend`'s own comment records why the obvious alternative cannot work, and
+# the check that enforces it: a mounted kernel supplies its LAST SAVED output,
+# frozen at the 3-study visible run, so a CSV-chained blend submits three rows.
+#
+# So the v1 path is spliced in from the same `_shared` fragments every v1 kernel
+# has always used -- not reimplemented. A second copy of the preprocessing is
+# exactly the silent train/inference skew that E088 caught in this file's first
+# draft, and copying it here to save an include would have reintroduced it.
+#
+# Everything below is INERT unless a kernel declares V1_MEMBERS. Kernels 81, 82
+# and 83 set it to None and run the CoAtNet arms alone.
+# ---------------------------------------------------------------------------
+@@INCLUDE discovery:find_all_markers@@
+@@INCLUDE volume@@
+@@INCLUDE model@@
+@@ENDIF V1_MEMBERS@@
 
 torch.backends.cudnn.benchmark = True
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -288,7 +316,7 @@ def _pick_series(rows, plane, fluid, used):
     return cands[0] if cands else None
 
 
-def build_study(sid, series, tsdir, reader, img, slots, span):
+def build_raptor_study(sid, series, tsdir, reader, img, slots, span):
     """Fill the fixed slots into one (maxs, img, img) uint8 stack.
 
     GEOMETRY IS PER ARM, not shared. The four published sub-models disagree on
@@ -516,7 +544,7 @@ def main():
             def build_one(item, _img=img, _slots=slots, _span=span):
                 j, sid = item
                 try:
-                    vol, mask = build_study(sid, series, tsdir, reader, _img, _slots, _span)
+                    vol, mask = build_raptor_study(sid, series, tsdir, reader, _img, _slots, _span)
                     if not mask.any():
                         # No slot filled, and no exception raised. Without this the
                         # study contributes a 0.5 row that looks like a prediction;
@@ -623,12 +651,148 @@ def main():
         if str(device).startswith("cuda"):
             torch.cuda.empty_cache()
 
+    # ---- THE SECOND ARCHITECTURE'S PASS ------------------------------------
+    v1_probs = None
+@@IF V1_MEMBERS@@
+    if V1_MEMBERS:
+        import torch as _torch
+        ckpts = sorted(path for d in find_all_markers(CHECKPOINT_GLOB)
+                       for path in sorted(d.glob(CHECKPOINT_GLOB)))
+        if len(ckpts) != V1_MEMBERS:
+            # Same guard, same reason as MEMBERS_EXPECTED above: a trainer that
+            # never ran mounts as an EMPTY directory, so the glob finds fewer
+            # checkpoints, the ensemble runs, and it submits an experiment nobody
+            # declared. E061 verified this by reading a log after the fact, which
+            # is not a guard.
+            raise RuntimeError(
+                f"V1_MEMBERS declares {V1_MEMBERS} checkpoints, mounted "
+                f"{len(ckpts)}: {[c.parent.parent.name for c in ckpts]}")
+        v1_models = []
+        for cp in ckpts:
+            st = _torch.load(cp, map_location=device, weights_only=False)
+            # Averaging is only meaningful between models fed the same way, and
+            # these two properties are invisible in the weights.
+            for key, want in (("slice_subsample", V1_SLICE_SUBSAMPLE),
+                              ("input_norm", V1_INPUT_NORM)):
+                if key in st and st[key] != want:
+                    raise RuntimeError(
+                        f"{cp.name} was trained with {key}={st[key]!r} but this "
+                        f"kernel declares {want!r}; averaging them is invalid")
+            m = build_model(st.get("backbone", "resnet18"), 3, len(LAB),
+                            V1_INPUT_NORM, bool(st.get("per_finding_pool", False)),
+                            int(st.get("focal_k", 0) or 0)).to(device)
+            w = {k: v for k, v in st["model"].items() if k not in ("mean", "std")}
+            m.load_state_dict(w, strict=False)
+            m.eval()
+            v1_models.append(m)
+            print(f"  [v1] {cp.parent.parent.name}/{cp.name}: "
+                  f"{st.get('backbone')}, epoch {st.get('best_epoch', st.get('epoch'))}",
+                  flush=True)
+
+        vser = tser.copy()
+        if "n_slices" not in vser.columns:
+            vser["n_slices"] = 1
+        by_study = dict(list(vser.groupby("StudyInstanceUID")))
+        split_dir = "train" if EVAL_SPLIT == "gold" else "test"
+        raw = np.full((len(v1_models), len(ids), len(LAB)), np.nan, np.float32)
+        v1_bad = 0
+        v1_t0 = time.time()
+
+        def build_v1(item):
+            j, sid = item
+            try:
+                rows = by_study.get(sid)
+                if rows is None or rows.empty:
+                    return j, None, "no series rows"
+                stack, _rec = build_study(Path(root), split_dir, sid, rows)
+                if V1_SLICE_SUBSAMPLE and stack.shape[1] > V1_SLICE_SUBSAMPLE:
+                    idx = np.linspace(0, stack.shape[1] - 1,
+                                      V1_SLICE_SUBSAMPLE).round().astype(int)
+                    stack = stack[:, idx]
+                return j, stack, None
+            except Exception as exc:                                  # noqa: BLE001
+                return j, None, f"{type(exc).__name__}: {exc}"
+
+        pending = []
+
+        def flush(batch):
+            if not batch:
+                return
+            idxs = [b[0] for b in batch]
+            x = _torch.from_numpy(
+                np.stack([b[1] for b in batch]).astype(np.float32) / 255.0).to(device)
+            with _torch.no_grad():
+                for mi, m in enumerate(v1_models):
+                    out = _torch.sigmoid(m(x)).cpu().numpy()
+                    for slot, j in enumerate(idxs):
+                        raw[mi, j] = out[slot]
+            if str(device).startswith("cuda"):
+                _torch.cuda.synchronize()
+
+        workers = max(2, min(8, (os.cpu_count() or 4)))
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for done, (j, stack, err) in enumerate(
+                    pool.map(build_v1, enumerate(ids)), start=1):
+                if err is not None or stack is None:
+                    v1_bad += 1
+                    if v1_bad <= 20:
+                        print(f"  [v1] study {j} FALLBACK ({err})", flush=True)
+                else:
+                    pending.append((j, stack))
+                    if len(pending) >= V1_BATCH_STUDIES:
+                        flush(pending)
+                        pending = []
+                if done % 100 == 0 or done == len(ids):
+                    r = (time.time() - v1_t0) / done
+                    print(f"  [v1] {done}/{len(ids)} | {r:.2f}s/study, projects "
+                          f"{r * 1300 / 3600:.2f} h on 1,300", flush=True)
+            flush(pending)
+        v1_seconds = time.time() - v1_t0
+        scored_seconds += v1_seconds
+        rate = v1_bad / max(1, len(ids))
+        print(f"[v1] {len(v1_models)} members | fallbacks {v1_bad}/{len(ids)} "
+              f"({rate:.1%}) | {v1_seconds:.0f}s", flush=True)
+        if rate > FALLBACK_LIMIT:
+            raise RuntimeError(
+                f"v1 arm: {rate:.1%} of studies fell back, limit {FALLBACK_LIMIT:.1%}")
+        # Rank-average the members, then rank the result, so the arm contributes
+        # ONE ordering per finding regardless of how many checkpoints built it.
+        # Equal weights: these differ only by seed, and E064 priced weighting
+        # same-kind members at +0.001.
+        member_ranks = np.stack([rankpct(np.nan_to_num(raw[mi], nan=0.5))
+                                 for mi in range(len(v1_models))])
+        v1_probs = member_ranks.mean(axis=0)
+        del v1_models
+        gc.collect()
+        if str(device).startswith("cuda"):
+            torch.cuda.empty_cache()
+@@ENDIF V1_MEMBERS@@
+
     weights = np.array([float(a["w"]) for a in ARMS], dtype=np.float64)
     weights = weights / weights.sum()
     named = dict(zip([a["name"] for a in ARMS], weights.round(4), strict=True))
     print(f"[blend] weighted rank-mean {named}", flush=True)
     ranks = np.tensordot(weights, np.stack([rankpct(np.clip(p, 0, 1)) for p in probs]), axes=(0, 0))
     ranks[~np.isfinite(ranks)] = 0.5
+@@IF V1_MEMBERS@@
+    if v1_probs is not None:
+        # FIFTY-FIFTY, AND NOTHING FITTED, for the fifth time (E048, E069, E081,
+        # E084, `knee-blend-raptor`). E101 swept this pair on the 58 gold and the
+        # peak sits at w=0.3 -- but 0.5 is on the same plateau and the +0.0022
+        # between them is BELOW the board's own +/-0.003 reseed floor (E092), so a
+        # fitted weight would buy a difference the board cannot measure.
+        #
+        # Both sides are re-ranked first. The left is a WEIGHTED MEAN of rank
+        # columns and the right a plain mean of them; neither is uniform on
+        # (0,1), and averaging them raw would hand the flatter one the ordering.
+        coat_r, v1_r = rankpct(ranks), rankpct(v1_probs)
+        ranks = 0.5 * coat_r + 0.5 * v1_r
+        agree = float(np.mean([np.corrcoef(coat_r[:, k], v1_r[:, k])[0, 1]
+                               for k in range(len(LAB))])) if len(ids) > 2 else float("nan")
+        print(f"[blend] + v1 arm at 0.5/0.5 | mean cross-architecture rank "
+              f"correlation {agree:.3f} (E101 measured 0.793 on gold; CoAtNet's "
+              f"own four arms sit at 0.905-0.986)", flush=True)
+@@ENDIF V1_MEMBERS@@
 
     scores = None
     if EVAL_SPLIT == "gold":
@@ -662,6 +826,19 @@ def main():
                            "per_finding": {f: round(bper[k], 4) for k, f in enumerate(LAB)}}
         print(f"[gold] BLEND macro {bm:.4f} | best single {best:.4f} | "
               f"gain {bm - best:+.4f}", flush=True)
+@@IF V1_MEMBERS@@
+        if v1_probs is not None:
+            vm, vper = macro_auc(truth, v1_probs)
+            scores["arms"]["v1"] = {
+                "macro": round(vm, 4), "author_gold_auc": None,
+                "delta_vs_author": None,
+                "per_finding": {f: round(vper[k], 4) for k, f in enumerate(LAB)}}
+            print(f"[gold] {'v1 (' + str(V1_MEMBERS) + ' members)':22s} macro {vm:.4f}",
+                  flush=True)
+            print("[gold] NOTE: a FULL-FIT v1 member trained on all 58 gold "
+                  "studies, so this number is contaminated upward and is a "
+                  "plumbing check, not a score.", flush=True)
+@@ENDIF V1_MEMBERS@@
         rows = []
         for i, a in enumerate(ARMS):
             d = pd.DataFrame(probs[i].astype(np.float32), columns=list(LAB))

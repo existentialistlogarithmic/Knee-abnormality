@@ -1453,6 +1453,9 @@ EXTRAS = [
             # decoded volume is ~7 MB, so 32 is ~230 MB of slack; an unbounded
             # map over 1,300 studies would hold them all.
             "DECODE_AHEAD": 32,
+            # The hidden set. Writes submission.csv and scores nothing offline.
+            "EVAL_SPLIT": "test",
+            "GOLD_EXPECTED": 58,
         },
         note="THE CONTROL, and it must be submitted before any blend.\n"
              "\n"
@@ -1511,6 +1514,9 @@ EXTRAS = [
             # decoded volume is ~7 MB, so 32 is ~230 MB of slack; an unbounded
             # map over 1,300 studies would hold them all.
             "DECODE_AHEAD": 32,
+            # The hidden set. Writes submission.csv and scores nothing offline.
+            "EVAL_SPLIT": "test",
+            "GOLD_EXPECTED": 58,
         },
         note="The CoAtNet arm of the public 0.937 system, at its published\n"
              "weights: maxspan-v5 0.55, native384-v8 0.20, maxspan-v5 flipped\n"
@@ -1533,6 +1539,80 @@ EXTRAS = [
              "\n"
              "ATTRIBUTION: as `knee-infer-raptorcc0`, plus the blend weights\n"
              "from the public write-up `4-arm-ensemble-explained-rsna-knee-0-937`.",
+    ),
+    # THE INSTRUMENT THIS PROJECT HAS NEVER HAD.
+    #
+    # Every CoAtNet number in the log is an author's self-report. E090 verified
+    # the checkpoints carry `gold_auc` 0.9214 / 0.9174 / 0.9067 and recorded, in
+    # the same entry, that *"there is no offline gold evaluation available for
+    # this arm"*. E097 then spent a board submission to learn the four-arm blend
+    # beats one arm by +0.004, and E098 closed six foreign blends on gold-58
+    # while noting that gold-58 has never once seen a blend gain — a caution it
+    # had no way to test.
+    #
+    # This kernel tests it. Same template, same preprocessing, same forward
+    # pass, pointed at the 58 expert-labelled TRAINING studies instead of the
+    # hidden set. It writes no submission and costs no submission: the gold
+    # labels are in the competition's own `train.csv` (exactly 58 of 4,407 rows
+    # have all twelve findings filled), so no extra dataset is mounted and the
+    # only inputs are the three CC0 `dreaddevelopment` weight sets.
+    #
+    # THE ARMS HELD GOLD OUT OF TRAINING. Upstream's write-up states it and the
+    # per-file `gold_auc` values only mean anything under it. If that is wrong
+    # the measurement here is contaminated upward, and the tell is a macro far
+    # ABOVE 0.9214 rather than near it.
+    #
+    # WHAT IT DECIDES, pre-registered in E099 before it runs:
+    #   1. measured v5 within +/-0.01 of 0.9214 -> the self-reports transfer and
+    #      E048's gap table stands as written.
+    #   2. measured v5 below 0.90 -> they do not transfer, and every `expect_gold`
+    #      in this file is a mount fingerprint only, never a score.
+    #   3. blend beats best single arm on gold-58 -> gold-58 can see a blend gain
+    #      and E098's caution retires. It does not -> gold-58 is blind to a gain
+    #      the board measured at +0.004, and the four "not separated" blend
+    #      readings (E033, E039, E046, E048) are void.
+    # No outcome here is uninformative, which is the whole reason to run it.
+    Kernel(
+        slug="knee-gold-raptorcc0x4",
+        directory="83_gold_raptorcc0x4",
+        template="raptor_infer",
+        gpu=True,
+        internet=False,
+        datasets=["dreaddevelopment/raptor-knee-maxspan",
+                  "dreaddevelopment/raptor-knee-native384",
+                  "dreaddevelopment/raptor-knee-native384dense"],
+        constants={
+            "MEMBERS_EXPECTED": 4,
+            "ARMS": RAPTOR_ARMS,
+            "CROP_MM": 140.0,
+            "LAB": RAPTOR_LAB,
+            "FALLBACK_LIMIT": 0.02,
+            "DECODE_AHEAD": 32,
+            # The 58 expert studies. Writes gold_probs.csv, gold_truth.csv and
+            # gold_scores.json; writes NO submission.csv, so it cannot be
+            # submitted by accident against a set it does not contain.
+            "EVAL_SPLIT": "gold",
+            "GOLD_EXPECTED": 58,
+        },
+        note="NOT A SUBMISSION. Scores the four CC0 CoAtNet arms on this\n"
+             "project's own 58 expert studies and dumps their raw per-study\n"
+             "probabilities, so blend weights can be searched offline instead\n"
+             "of on the board at 2.4 GPU-h and one submission per question.\n"
+             "\n"
+             "It writes no submission.csv on purpose: these 58 studies are\n"
+             "TRAINING data. A notebook with no submission.csv cannot be\n"
+             "submitted, which is the safe failure.\n"
+             "\n"
+             "COST: 58 studies against 82's 1,300, same four arms, so about\n"
+             "a tenth of 82's scored time plus the same fixed setup. Run it,\n"
+             "do not submit it, and download gold_probs.csv.\n"
+             "\n"
+             "WHAT TO READ FIRST in the log: the `[gold]` lines. If\n"
+             "maxspan-v5 does not land near 0.9214 the self-reports do not\n"
+             "transfer and E097's +0.004 was bought on a premise this\n"
+             "project never checked.\n"
+             "\n"
+             "ATTRIBUTION: as `knee-infer-raptorcc0`.",
     ),
     Kernel(
         slug="knee-blend-raptor",

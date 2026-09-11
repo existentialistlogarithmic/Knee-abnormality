@@ -85,8 +85,18 @@ its middle tier reads *"non-commercial matches this competition's own CC-BY-NC
 4.0 winner licence, so NC is not the obstacle it first looked like; ShareAlike on
 derivatives is the part to read before shipping."* Its avoid-tier is
 **`not-declared`**. A "read this before shipping" had hardened into an
-"excluded", on the largest measured gap in the project. **The ShareAlike question
-is unanswered, not settled** — and answering it is free.
+"excluded", on the largest measured gap in the project.
+
+**ANSWERED BY E100 (2026-09-11), and E043 had the wrong clause.** ShareAlike is
+**not** the obstacle: CC BY-NC-SA 4.0 §3(b) is conditional on Sharing *Adapted
+Material*, and running inference from a mounted checkpoint neither adapts the
+weights nor redistributes them. The clause that does bite is **§2(a)(1),
+NonCommercial** — E043 waved it past with *"NC matches this competition's own
+winner licence"*, which is a non sequitur: what the winner grants says nothing
+about whether entering for a prize is a non-commercial use. **And it is moot
+anyway**: that arm's own published OOF scores 0.8576 on gold-58 against the
+CoAtNet arm's 0.9214, a 0.0638 gap, which is the band where E098 measured six
+blends out of six negative.
 
 What *is* cleanly excluded, and on the merits rather than the label:
 `tonylica/rsna-knee-bend-dinov3-0917-repro-assets`, which gates the 0.937
@@ -316,7 +326,9 @@ should be asked for the coefficient and the interval it was measured with.**
 - **0.936–0.939 is commodity, and it is where the licence question actually
   bites.** It is 28% of the field. Reaching it means using public assets, and
   §2.0 now records that E043 excludes fewer of them than this file claimed for a
-  week. **The unanswered question is ShareAlike, and answering it costs a read.**
+  week. **E100 read it: ShareAlike does not bite, NonCommercial might, and the
+  arm is 0.0638 behind the CoAtNet column — the band E098 measured six negative
+  blends in. Closed on arithmetic before the licence decision was needed.**
 - **0.940+ needs something nobody has published.** There is no measured
   mechanism in this log, and §1's decomposition says why: labels and data
   contributed +0.166 of the +0.201 and are spent, ensembling is closed by E064,

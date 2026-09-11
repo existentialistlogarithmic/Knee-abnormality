@@ -57,7 +57,34 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-@@CONFIG@@
+# NOT A SUBMISSION. Scores the four CC0 CoAtNet arms on this
+# project's own 58 expert studies and dumps their raw per-study
+# probabilities, so blend weights can be searched offline instead
+# of on the board at 2.4 GPU-h and one submission per question.
+#
+# It writes no submission.csv on purpose: these 58 studies are
+# TRAINING data. A notebook with no submission.csv cannot be
+# submitted, which is the safe failure.
+#
+# COST: 58 studies against 82's 1,300, same four arms, so about
+# a tenth of 82's scored time plus the same fixed setup. Run it,
+# do not submit it, and download gold_probs.csv.
+#
+# WHAT TO READ FIRST in the log: the `[gold]` lines. If
+# maxspan-v5 does not land near 0.9214 the self-reports do not
+# transfer and E097's +0.004 was bought on a premise this
+# project never checked.
+#
+# ATTRIBUTION: as `knee-infer-raptorcc0`.
+#
+MEMBERS_EXPECTED = 4
+ARMS             = ({'name': 'maxspan-v5', 'file': 'raptor_ft_coatnet_v5_full_swa.pt', 'img': 336, 'slots': (('Sagittal', 1, 18), ('Sagittal', 0, 14), ('Coronal', 1, 12), ('Coronal', 0, 8), ('Axial', -1, 12)), 'span': (0.02, 0.98), 'k_eval': 62, 'reverse': False, 'w': 0.55, 'expect_gold': 0.9214}, {'name': 'native384dense-v10', 'file': 'raptor_ft_coatnet_v10_full.pt', 'img': 384, 'slots': (('Sagittal', 1, 18), ('Sagittal', 0, 14), ('Coronal', 1, 12), ('Coronal', 0, 8), ('Axial', -1, 12)), 'span': (0.02, 0.98), 'k_eval': 62, 'reverse': False, 'w': 0.1, 'expect_gold': 0.9174}, {'name': 'maxspan-v5-reverse', 'file': 'raptor_ft_coatnet_v5_full_swa.pt', 'img': 336, 'slots': (('Sagittal', 1, 18), ('Sagittal', 0, 14), ('Coronal', 1, 12), ('Coronal', 0, 8), ('Axial', -1, 12)), 'span': (0.02, 0.98), 'k_eval': 62, 'reverse': True, 'w': 0.15, 'expect_gold': 0.9214}, {'name': 'native384-v8', 'file': 'raptor_ft_coatnet_v8_full_swa.pt', 'img': 384, 'slots': (('Sagittal', 1, 12), ('Sagittal', 0, 10), ('Coronal', 1, 8), ('Coronal', 0, 6), ('Axial', -1, 8)), 'span': (0.06, 0.94), 'k_eval': 42, 'reverse': False, 'w': 0.2, 'expect_gold': 0.9067})
+CROP_MM          = 140.0
+LAB              = ('ACL', 'MCL', 'Medial Meniscus', 'Lateral Meniscus', 'Medial OA', 'Lateral OA', 'PF OA', 'Effusion', 'Synovitis', "Baker's", 'Contusion', 'Fracture')
+FALLBACK_LIMIT   = 0.02
+DECODE_AHEAD     = 32
+EVAL_SPLIT       = "gold"
+GOLD_EXPECTED    = 58
 
 torch.backends.cudnn.benchmark = True
 torch.backends.cuda.matmul.allow_tf32 = True

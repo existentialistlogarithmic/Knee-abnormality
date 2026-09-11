@@ -36,7 +36,11 @@ from src.pipeline import all_kernels  # noqa: E402
 
 LICENCES = json.loads((REPO_ROOT / "eda" / "public_asset_licences.json").read_text())
 USABLE_PREFIXES = ("CC0", "Apache")
-RAPTOR_SLUGS = ("knee-infer-raptorcc0", "knee-infer-raptorcc0x4")
+# The gold kernel is the same template and the same arms pointed at the 58
+# expert studies, so every guard here applies to it unchanged. Leaving it out
+# would be the one place the licence and geometry checks stop.
+RAPTOR_SLUGS = ("knee-infer-raptorcc0", "knee-infer-raptorcc0x4",
+                "knee-gold-raptorcc0x4")
 
 
 def _kernel(slug):

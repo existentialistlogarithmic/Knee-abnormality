@@ -5591,3 +5591,131 @@ dead; these blends are.
   blend on gold-58 evidence alone.**
 - **cost**: under a megabyte and a merge. This is the second entry in two days
   where a rival's published file priced a route for nothing (E096 was the first).
+
+
+### E099 — PRE-REGISTERED, NOT YET RUN: the CoAtNet arms have never been measured by this project
+- **date**: 2026-09-11, written **before** the run. CPU cost so far: zero. The run
+  itself is ~58 studies of inference, **no submission consumed**, no training.
+- **status**: `knee-gold-raptorcc0x4` is pushed and unrun. Every number below is
+  a rule, not a result.
+
+**THE GAP THIS CLOSES.** E090 verified the three CC0 checkpoints and recorded, in
+the same entry, that *"there is no offline gold evaluation available for this
+arm"*. So:
+
+| number | whose measurement |
+|---|---|
+| maxspan-v5 **0.9214** | the checkpoint's own `gold_auc` tensor — **upstream's** |
+| native384dense-v10 0.9174 | upstream's |
+| native384-v8 0.9067 | upstream's |
+| E097's four-arm blend **+0.004** | **the board's** — this project's only owned reading |
+| E098's six negative blends | this project's, but on the **other** four systems |
+
+  **E098's comparison table put a self-report (0.9214) and four of this project's
+  own gold measurements in one column** and read a threshold off the difference.
+  That is recorded here as a wart in E098 rather than left in place: the gap rule
+  now separating a positive case from six negative ones rests partly on a number
+  nobody here has checked.
+
+**WHY IT MATTERS MORE THAN IT SOUNDS.** Every blend question this project has
+asked has cost a board submission — E097 spent one to learn +0.004 at 2.43 GPU-h
+— because there is no offline instrument that holds these arms. A gold dump of
+raw per-arm probabilities turns *"what weights?"*, *"does a fifth member help?"*,
+*"does any foreign system decorrelate?"* into arithmetic on a 232-row CSV.
+
+**THE ACCEPTANCE RULES, FIXED NOW.**
+
+1. **measured maxspan-v5 within ±0.01 of 0.9214** → the self-reports transfer;
+   E048's gap table stands as written and E098's threshold keeps its meaning.
+2. **below 0.90** → they do not transfer. Every `expect_gold` in `pipeline.py`
+   becomes a **mount fingerprint only, never a score**, E098's gap table is
+   rebuilt from measured numbers, and E097's +0.004 turns out to have been bought
+   on a premise this project never checked.
+3. **far above 0.9214** → gold was *not* held out of upstream's training, the
+   measurement is contaminated upward, and the arms cannot be scored here at all.
+4. **the four-arm blend beats the best single arm on gold-58** → gold-58 **can**
+   see a blend gain, and E098's closing caution retires.
+5. **it does not** → gold-58 is blind to a gain the board measured at +0.004, and
+   **the four "not separated" blend readings in this log (E033, E039, E046, E048)
+   are void** — a five-entry retraction that reopens every route closed on them.
+
+  Rules 4 and 5 are the reason to run it. **There is no outcome that teaches
+  nothing**, which is the bar `PATH.md` §1 sets and which E094 failed.
+
+**WHAT IT DOES NOT DO.** It writes no `submission.csv` — deliberately; 58
+training studies formatted as a submission is a well-formed file scored against a
+set it does not contain, and a notebook with no submission cannot be submitted,
+which is the safe failure. It mounts no asset the board kernels do not. And it
+cannot price the **hidden** set: gold-58's ±0.0153 (E031) is 5× the board's
+±0.003 (E092), so a blend gain of +0.004 sits inside its resolution either way.
+**Rule 4 passing is evidence the instrument works; rule 4 failing is not evidence
+the blend does not.** Rule 5 is stated as a retraction of *closures*, not as
+proof of any gain.
+
+
+### E100 — the ShareAlike read, and E043 had the wrong clause
+- **date**: 2026-09-11. A read, no code, no quota. Closes the question `PATH.md`
+  §2.0, `STATUS.md` and E088 all left open as *"free and unanswered"*.
+
+**THE ASSET.** `marwanmath/resnet-50-radimagenet-marwan` (CC BY-NC-SA 4.0, 141
+mounts, the 4th most-mounted asset in the field) plus the trained heads that sit
+on it — `mattiaangeli/…radimagenet-foldsv1-heads`, `antoinegg1/…e9-radimagenet-
+heads-v15`, `antoinegg1/…e11-diverse-heads-v20`, all CC BY-NC-SA 4.0. Together
+they are the RadImageNet arm of the 0.937 system. **They are trained heads, so
+the route is inference-only** — no GPU training, which is why it stayed open.
+
+**WHAT THE LICENCE ACTUALLY SAYS, clause by clause.**
+
+- **§3(b) — the ShareAlike condition — is conditional on an act this route never
+  performs.** It opens *"if You Share Adapted Material You produce"*. §1(a)
+  defines Adapted Material as material in which the licensed work is *"translated,
+  altered, arranged, transformed, or otherwise modified"*. Loading weights and
+  running a forward pass modifies nothing; the output CSV contains none of the
+  licensed tensors. And §1(k) defines Share as providing material *"to the
+  public"* — mounting a Kaggle dataset references the uploader's own copy and
+  redistributes nothing. **So ShareAlike does not bite. The question this
+  project has carried for two weeks has a clean answer, and the answer is "not
+  the obstacle".**
+- **§2(a)(1) — NonCommercial — is the clause that does bite, and E043 dismissed
+  it.** E043's reasoning, verbatim: *"non-commercial matches this competition's
+  own CC-BY-NC 4.0 winner licence, so NC is not the obstacle."* **That is a non
+  sequitur.** What licence the *winner grants* says nothing about whether
+  *entering* is a non-commercial use. §1(i) defines NonCommercial as *"not
+  primarily intended for or directed towards commercial advantage or monetary
+  compensation"*, and entering a prize competition is directed towards monetary
+  compensation on its face.
+- **and the winner licence is a third, separate collision.** If the entry placed,
+  the rules require licensing the winning submission under CC-BY-NC **4.0**,
+  which is not *"the same License Elements"* §3(b)(1) demands of any adapted
+  component. That one is a competition-rules question, not a CC question.
+
+**SO E043 WAS RIGHT BY ACCIDENT AND E088 WAS RIGHT TO REOPEN IT.** E043 put the
+asset in a "read before shipping" tier for the wrong reason, the docs then
+hardened that into an "excluded", E088 caught the drift — and the read now says
+the tier was correct and the stated reason was not. **Three standing documents
+cited a clause that does not apply while the clause that does went unread.**
+
+**AND IT DOES NOT MATTER, WHICH IS THE CHEAPER CLOSURE.** E042 measured this
+exact lineage's published out-of-fold predictions (`v52_e11_oof.csv`, the
+`v52`-RadImageNet-heads / `e11` line) on this project's 58 gold: **0.8576**.
+Against the CoAtNet arm's 0.9214 that is a **0.0638 gap**.
+
+| gap between members | blends | result |
+|---|---:|---|
+| ≤ 0.015 (E097, four CoAtNet arms) | 1 | **+0.004 on the board** |
+| 0.05–0.13 (E098, six foreign pairs) | 6 | **−0.001 to −0.022** |
+| **0.0638 (this arm)** | — | **predicted negative, by E048's rule with both signs measured** |
+
+- **so the route closes on arithmetic, and the licence question becomes moot
+  before it becomes the account owner's decision to make.** That ordering is
+  deliberate: a legal judgment is the owner's call, a gap measurement is not, and
+  the cheap one came first.
+- **this is a prediction, not a measurement**, and E098's own caution applies —
+  gold-58 has never seen a blend gain. **E099 is what would let it be measured**:
+  with per-arm gold probabilities on disk, this arm's published OOF can be
+  blended against the real CoAtNet column for nothing, instead of predicted.
+- **cost**: one licence text and one number already in the log. **The last open
+  route named in `PATH.md` §2.0 is now closed or deferred to E099, and neither
+  closure spent a GPU-hour or a submission.**
+- **not legal advice.** It is a reading of the licence text against the acts this
+  route performs, recorded so the decision is made on the right clause.

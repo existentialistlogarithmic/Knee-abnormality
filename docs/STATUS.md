@@ -47,7 +47,12 @@ about this project changing. 492 teams now sit at exactly 0.936 and 163 at
 0.937, forks of two public notebooks — **655 teams are 0.010+ ahead by clicking
 Copy & Edit**. **E043's rule excludes less of that than this file used to claim
 — see E088**: E043 treats CC-BY-NC-SA as needing a ShareAlike read, not as
-excluded, and reserves "avoid" for undeclared licences.
+excluded, and reserves "avoid" for undeclared licences. **E100 has now done
+that read: ShareAlike does not bite (§3(b) needs Adapted Material Shared, and
+inference from a mounted checkpoint neither adapts nor redistributes),
+NonCommercial is the clause E043 dismissed for a bad reason — and the arm is
+0.0638 behind the CoAtNet column regardless, which is E098's six-for-six
+negative band.**
 
 **Three board results closed levers rather than opening them.**
 
@@ -192,7 +197,7 @@ pattern matters more than any individual entry.
 | "Synovitis clears the report-text ceiling under a distilled teacher" (E076) | **withdrawn** — it rested on the leaked evaluation above. Synovitis stands where E059 left it, unwritten in the reports rather than badly read | nothing further; withdrawn with the lineage |
 | "a union that separates offline is a lever" (E048's comparability rule) | **not a predictor** — it has now failed twice at forecasting what pays: E081 offline (+0.0062, CI touching zero) and E087 on the board (0.926, exactly the better member). It survives as a filter on what is *worth an afternoon*, not on what pays | two afternoons and 1.2 GPU-h |
 | "all five full-fit runs are complete and both arms are verified" (a session handoff, 16:30 UTC) | **contradicted** — `s15` was 20 minutes into a 97-minute run and neither arm had started. `lastRunTime` in Kaggle's kernel listing is when a run **starts**, not when it ends | nothing; caught before a click, and the arms have since run for real |
-| "E043's licence rule excludes every asset the 0.936 notebooks use, CC-BY-NC-SA included" | **corrected (E088)** — E043 says the opposite: NC matches the competition's own CC-BY-NC 4.0 winner licence, and its avoid-tier is `not-declared`. A "read ShareAlike before shipping" hardened into an "excluded" and sat on the largest measured gap in the project for a week | not yet counted; the ShareAlike question is still unanswered, and answering it is free |
+| "E043's licence rule excludes every asset the 0.936 notebooks use, CC-BY-NC-SA included" | **corrected (E088)** — E043 says the opposite: NC matches the competition's own CC-BY-NC 4.0 winner licence, and its avoid-tier is `not-declared`. A "read ShareAlike before shipping" hardened into an "excluded" and sat on the largest measured gap in the project for a week | **counted (E100)** — the read is done and E043 was right by accident: ShareAlike does not apply to inference-only use, NonCommercial is the live clause and E043 dismissed it with a non sequitur. Moot either way; the arm is 0.0638 behind CoAtNet |
 | "we now beat what we were borrowing" (E046) | **stale (E088)** — true on 2026-08-29 against a public system at 0.917. The public systems now score 0.936-0.939 against our 0.926. A closure resting on a moving external number needs a date and a re-read, exactly like a rank | a month of treating the borrowing route as closed while it reopened |
 | "the raptor family cannot be screened for free" | **contradicted (E088)** — the tool said it, and the tool was reading the wrong metadata spellings. The checkpoint states `arch`, `res`, a per-finding AUC table and `gold_auc` = 0.9167, which is **ahead of our pooled 0.8980 and inside E048's band**. A screen that silently under-reports converts "we have not looked" into "we looked and there was nothing" | the one CC0 asset that reports ahead of us, left unexamined; fixed with two regression tests |
 | "full fit at full weight is worth +0.003, the only positive board lever" (E083) | **contradicted (E092)** — a pure reseed of the same ensemble, seeds 11-15 against 3-7 with nothing else changed, scored 0.923 and 0.921 against 0.926. The board's own like-for-like reseed spread is ~0.003, so the lever is the size of a draw. E086 pre-registered this arm precisely to bound it, and it bounds it at zero | ~9.5 GPU-h across the full-fit lineage, and a lever the plan was built on |

@@ -235,3 +235,34 @@ def test_a_missing_plane_is_zero_padded_rather_than_dropped(ns, study):
     assert stack.shape == (3, 20, 192, 192)
     assert record["missing_planes"] == ["Axial"]
     assert stack[2].max() == 0, "the missing plane is not the zeroed channel"
+
+
+@pytest.mark.parametrize("slug", V1_SLUGS)
+def test_the_v1_members_are_checked_for_being_distinct_files(slug):
+    """THE GAP THE FIRST PLUMBING RUN EXPOSED (E102). The five full-fit members
+    differ only by seed, so they mount in five directories holding a file of the
+    SAME NAME, and the first print showed `parent.parent` — the account name, for
+    all five. The log could not distinguish five checkpoints from one found five
+    times, and one model averaged with itself is a silent 5x smaller ensemble
+    that scores worse and raises nothing. MEMBERS_EXPECTED counts; this checks
+    identity."""
+    src = _source(slug)
+    i = src.index("if len(set(_fp)) != len(_fp):")
+    assert "raise RuntimeError" in src[i:i + 200]
+    assert "v1_checkpoints = (_ck, _fp)" in src
+
+
+def test_the_member_fingerprint_separates_two_seeds_and_matches_a_reload(ns):
+    """The fingerprint is a sum over the first 4,096 weights. It has to differ
+    between independently initialised models and be identical for the same one
+    read twice, or it is either a false alarm or no alarm at all."""
+    def fingerprint(model):
+        w = {k: v for k, v in model.state_dict().items() if k not in ("mean", "std")}
+        return float(next(iter(w.values())).detach().reshape(-1)[:4096].float().sum())
+
+    torch.manual_seed(0)
+    a = ns["build_model"]("resnet34", 3, 12, False, True, 0)
+    torch.manual_seed(1)
+    b = ns["build_model"]("resnet34", 3, 12, False, True, 0)
+    assert fingerprint(a) != fingerprint(b), "two different models fingerprint alike"
+    assert fingerprint(a) == fingerprint(a), "the same model fingerprints differently"

@@ -5824,3 +5824,56 @@ generator directive keeps the CoAtNet-only kernels byte-identical.
   0.923), so **the offline number is a floor for this pair, not a forecast.**
 - **cost of the whole entry**: one 764-second run and arithmetic. Every previous
   blend question in this log cost a board submission.
+
+
+### E102 — the plumbing check passed and found a hole the check itself could not see
+- **date**: 2026-09-11. `knee-gold-raptorv1`, 58 studies, **0 fallbacks on both
+  architectures**, 1,192 s wall clock of which 693 s was setup. No submission.
+
+**THE FIRST ARCHITECTURE IS UNTOUCHED BY THE SPLICE.** The four CoAtNet arms
+reproduce E099 to the digit — **0.9198 / 0.9170 / 0.9167 / 0.9116**, blend
+0.9223. That was the pre-registered tell: if they had moved, splicing a second
+model into the template had changed the first one.
+
+**THE SECOND ARCHITECTURE IS WIRED, AND ITS NUMBER IS THE PROOF OF THAT AND OF
+NOTHING ELSE.** The v1 arm reads **0.9969** on the 58 gold. That is not a score —
+these are the **full-fit** members, every one trained on all 58 — it is
+recognition. A skewed path reads near 0.5; a memorising one reads near 1.0, and
+this reads 0.9969. The kernel prints the caveat itself rather than leaving it to
+a reader.
+
+- cross-architecture rank correlation **0.749** here against E101's 0.793 on the
+  honest out-of-fold column. Lower, and in the direction that makes sense: a
+  memorising member's ordering is closer to truth, so it diverges further from
+  CoAtNet's.
+- **runtime: 1.95 h projected on 1,300 studies**, against a 9 h cap. The v1 arm
+  costs **0.14 h** — 0.38 s/study, seven times cheaper than the ~1.0 h E050's
+  figure implied.
+
+**AND THE HOLE.** All five v1 members printed the *same line*:
+
+```
+[v1] achelijndiamantidis/checkpoint_foldall.pt: resnet34, epoch 20
+```
+
+  The print showed `parent.parent`, which is the **account name** for all five.
+  **Nothing in that log could distinguish five distinct checkpoints from one
+  checkpoint found five times** — and one model averaged with itself is a
+  silently 5× smaller ensemble that scores worse and raises nothing.
+  `MEMBERS_EXPECTED` counts; a count cannot catch this. `V1_MEMBERS` counted
+  five and would have counted five either way.
+
+- **fixed by identity, not by counting.** Each checkpoint is now fingerprinted
+  from a sum over its own first 4,096 weights, and the run refuses if any two
+  match. Two independently seeded models cannot collide on that and the same file
+  read twice cannot differ — both asserted in `tests/test_raptor_v1_arm.py`
+  rather than argued.
+- **and hoisted to before any inference is spent**, beside the `MEMBERS_EXPECTED`
+  check that already runs there. A bad mount should cost two minutes, not the
+  seventeen the CoAtNet pass takes first.
+- **the class of bug, stated for the log**: this is E084's `MEMBERS_EXPECTED` and
+  E061's read-the-log-afterwards failure in a third costume. A guard that counts
+  artefacts cannot see that they are the same artefact. **Where members are
+  supposed to differ, check that they differ.**
+- **what it did not cost**: the hole was found by a free run that had already
+  passed on its own terms. The submission it guards has not been spent.

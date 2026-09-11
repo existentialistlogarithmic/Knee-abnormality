@@ -799,6 +799,46 @@ def main():
             # repeats slices instead of failing.
             raise RuntimeError(f"{arm['name']}: k_eval {arm['k_eval']} > {maxs - 2} usable centres")
     print(f"arms {len(ARMS)} | distinct checkpoints {len(paths)}", flush=True)
+
+    # RESOLVE AND FINGERPRINT THE SECOND ARCHITECTURE BEFORE ANY INFERENCE IS
+    # SPENT, for the same reason MEMBERS_EXPECTED is checked above: a bad mount
+    # should cost two minutes, not the seventeen the CoAtNet pass takes first.
+    #
+    # E102 is why the fingerprint is here at all. The five full-fit members
+    # differ only by seed, so they mount in five directories holding a file of
+    # the SAME NAME, and the first plumbing run's log printed `parent.parent` --
+    # the account name -- for all five. Nothing in that log could distinguish
+    # five distinct checkpoints from one found five times, and one model averaged
+    # with itself is a silent 5x smaller ensemble that scores worse and raises
+    # nothing. A count cannot catch it; only identity can.
+    v1_checkpoints = None
+    if V1_MEMBERS:
+        _ck = sorted(path for d in find_all_markers(CHECKPOINT_GLOB)
+                     for path in sorted(d.glob(CHECKPOINT_GLOB)))
+        if len(_ck) != V1_MEMBERS:
+            # A trainer that never ran mounts as an EMPTY directory, so the glob
+            # finds fewer checkpoints, the ensemble runs, and it submits an
+            # experiment nobody declared. E061 verified this by reading a log
+            # after the fact, which is not a guard.
+            raise RuntimeError(
+                f"V1_MEMBERS declares {V1_MEMBERS} checkpoints, mounted "
+                f"{len(_ck)}: {[str(c) for c in _ck]}")
+        _fp = []
+        for _c in _ck:
+            _st = torch.load(_c, map_location="cpu", weights_only=False)
+            _w = {k: v for k, v in _st["model"].items() if k not in ("mean", "std")}
+            _fp.append(float(next(iter(_w.values())).detach().reshape(-1)[:4096].float().sum()))
+            del _st, _w
+        if len(set(_fp)) != len(_fp):
+            raise RuntimeError(
+                f"the {V1_MEMBERS} v1 checkpoints are not all distinct: "
+                f"fingerprints {_fp} from {[str(c) for c in _ck]}. Averaging one "
+                f"model with itself is a smaller ensemble than the manifest "
+                f"declares, and it scores worse without raising anything.")
+        print(f"v1 members {len(_ck)} | distinct weight fingerprints "
+              f"{len(set(_fp))} | {[round(f, 4) for f in _fp]}", flush=True)
+        v1_checkpoints = (_ck, _fp)
+        gc.collect()
     for arm in ARMS:
         print(f"  {arm['name']:22s} w={arm['w']:.2f} img={arm['img']} "
               f"slices={sum(int(s[2]) for s in arm['slots'])} span={tuple(arm['span'])} "
@@ -1031,17 +1071,7 @@ def main():
     v1_probs = None
     if V1_MEMBERS:
         import torch as _torch
-        ckpts = sorted(path for d in find_all_markers(CHECKPOINT_GLOB)
-                       for path in sorted(d.glob(CHECKPOINT_GLOB)))
-        if len(ckpts) != V1_MEMBERS:
-            # Same guard, same reason as MEMBERS_EXPECTED above: a trainer that
-            # never ran mounts as an EMPTY directory, so the glob finds fewer
-            # checkpoints, the ensemble runs, and it submits an experiment nobody
-            # declared. E061 verified this by reading a log after the fact, which
-            # is not a guard.
-            raise RuntimeError(
-                f"V1_MEMBERS declares {V1_MEMBERS} checkpoints, mounted "
-                f"{len(ckpts)}: {[c.parent.parent.name for c in ckpts]}")
+        ckpts, v1_prints = v1_checkpoints
         v1_models = []
         for cp in ckpts:
             st = _torch.load(cp, map_location=device, weights_only=False)
@@ -1060,9 +1090,17 @@ def main():
             m.load_state_dict(w, strict=False)
             m.eval()
             v1_models.append(m)
-            print(f"  [v1] {cp.parent.parent.name}/{cp.name}: "
-                  f"{st.get('backbone')}, epoch {st.get('best_epoch', st.get('epoch'))}",
-                  flush=True)
+            # FINGERPRINT EACH MEMBER FROM ITS OWN WEIGHTS. The five full-fit
+            # members differ only by seed, so they land in five directories
+            # holding a file of the SAME NAME -- and the first version of this
+            # print showed `parent.parent`, which is the account name for all
+            # five. The log could not distinguish five distinct checkpoints from
+            # one found five times, and one model averaged with itself five times
+            # is a silent 5x downgrade that scores worse and raises nothing.
+            # `MEMBERS_EXPECTED` counts; this checks identity.
+            print(f"  [v1] {'/'.join(cp.parts[-3:])}: {st.get('backbone')}, "
+                  f"epoch {st.get('best_epoch', st.get('epoch'))}, "
+                  f"seed {st.get('seed', '?')}", flush=True)
 
         vser = tser.copy()
         if "n_slices" not in vser.columns:

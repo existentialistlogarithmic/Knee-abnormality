@@ -424,6 +424,7 @@ def main():
             # repeats slices instead of failing.
             raise RuntimeError(f"{arm['name']}: k_eval {arm['k_eval']} > {maxs - 2} usable centres")
     print(f"arms {len(ARMS)} | distinct checkpoints {len(paths)}", flush=True)
+
     for arm in ARMS:
         print(f"  {arm['name']:22s} w={arm['w']:.2f} img={arm['img']} "
               f"slices={sum(int(s[2]) for s in arm['slots'])} span={tuple(arm['span'])} "

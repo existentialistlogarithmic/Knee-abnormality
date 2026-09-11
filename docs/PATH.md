@@ -1,7 +1,7 @@
 # What is left, what it is worth, and what 0.95 actually requires
 
-Standing: **0.928 on the leaderboard** (2026-09-09, the CC0 CoAtNet arm alone,
-E091/E092), previously 0.926 (2026-09-07, E083 — five full-fit
+Standing: **0.932 on the leaderboard** (2026-09-11, the CC0 CoAtNet arm at four
+published weights, E097), previously 0.928 and 0.926 (2026-09-07, E083 — five full-fit
 members), up from 0.924, 0.923, 0.846 and 0.725.
 Leaderboard top **0.954**. **3,332 teams.** Final submission **2026-10-22**.
 

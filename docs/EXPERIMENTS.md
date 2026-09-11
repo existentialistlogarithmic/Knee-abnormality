@@ -5484,3 +5484,54 @@ that actually scored 0.928:
   findings and ahead on three by margins (0.003–0.013) that gold-58's ±0.015
   cannot resolve. The project's own model is not a useful member of anything any
   more. That is worth saying plainly rather than discovering it a third time.
+
+### E097 — the four-arm CoAtNet blend pays +0.004, and a foreign self-report transfers for the first time
+- **date**: 2026-09-11. `knee-infer-raptorcc0x4`, ~2.4 GPU-h of inference, no
+  training, one submission.
+
+**THE RESULT.**
+
+| system | board |
+|---|---:|
+| five full-fit resnet34 members (this project's own) | 0.926 |
+| CC0 CoAtNet, **one** borrowed model | 0.928 |
+| **CC0 CoAtNet, four arms at published weights** | **0.932** |
+
+  **+0.004 over the single model, and +0.006 over this project's own ensemble.**
+  Against the board's measured ±0.003 reseed floor (E092) that clears, which
+  makes it **the first change since 2026-08-29 to beat its own noise** other than
+  adopting the borrowed model itself. Rank **1212 of 3542**.
+
+**THE PRE-REGISTERED READING WAS RIGHT, AND THAT IS THE NEWS.** Before the
+submission the band was written as *"0.930–0.934 — the four-arm gain transfers"*.
+It landed at 0.932, mid-band.
+
+  It was derived from **upstream's own gold-58 figures**: they measure the
+  four-arm blend at **0.9254 against v5-alone's 0.9198**, a gap of **+0.0056**.
+  The board delivered **+0.004**. **A foreign author's self-reported offline
+  delta predicted a board move, to within 0.002.** Nothing in this log had ever
+  done that — E083 is the counterexample, where this project's *own* offline rig
+  said +0.0221 and the board said −0.013.
+
+  **Why this one transferred and that one did not** is worth stating: upstream's
+  gold-58 was measured with the gold studies **held out of training**, and the
+  comparison was between two configurations of the *same* pipeline, changing only
+  the member set. E082's failure was a leak — fold-crossing — not a scale problem.
+  **A clean offline delta from a comparable pair transfers; a leaked one does
+  not, at any n.**
+
+**AND THE SUBMISSION LATENCY IS MEASURED, FOR THE FIRST TIME IN 16 SUBMISSIONS.**
+Submitted **15:37:10 UTC**, resolved **17:52:34 UTC** — **2 h 15 min**, against
+the kernel's own projection of **2.43 h of scoring**. So the queue adds
+essentially nothing and **the in-kernel projection is the number to plan
+against.** `FINDINGS.md` §2.17's gap on scoring time is closed.
+
+- **the rank barely moved, and that is the field, not the system.** 3,456 teams
+  two days ago, **3,542** now. 0.936 is rank 1082 and 0.945 is rank 66, so the
+  fork plateau is ~130 places ahead.
+- **what it cost**: 2.4 GPU-h and one submission, for a route E091 had wrongly
+  declared unsubmittable on a runtime figure that was 3.7× too pessimistic.
+- **what is left of the CoAtNet family**: the four published arms are now all in.
+  `dreaddevelopment` publishes 14 CC0 checkpoints and 10 remain unused, but they
+  are the same CoAtNet family and E087 priced same-family additions as linear.
+  The published recipe stops at four for a reason.

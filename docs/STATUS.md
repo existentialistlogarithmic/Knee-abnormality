@@ -27,7 +27,9 @@ Last updated 2026-09-07 (E087, and E086 still open).
 | 5-fold PUBLIC + one FULL-FIT member | 0.924 | E064 |
 | 5-fold PUBLIC, DISTILLED teacher | 0.910 | **the offline rig had the sign wrong** (E083) |
 | 5 folds + 5 full-fit (10 members) | 0.926 | equals pure full fit exactly (E087) |
-| **five FULL-FIT members, nothing else** | **0.926** | **the standing result** (E083) |
+| five FULL-FIT members, nothing else | 0.926 | E083 |
+| CC0 CoAtNet, one borrowed model | 0.928 | E091/E092 |
+| **CC0 CoAtNet, four arms at published weights** | **0.932** | **the standing result** (E097) |
 
 **The whole +0.201 decomposes on ground truth:** own fused labels **+0.089**,
 public CC0 labels **+0.077**, ensembling one fold → five **+0.032**, full fit at

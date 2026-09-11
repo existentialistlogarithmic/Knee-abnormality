@@ -46,9 +46,12 @@ package is installed. Check `which kaggle` instead.
 
 ## 3. Where the work stands
 
-**0.928 on the leaderboard** (2026-09-09), set by `knee-infer-raptorcc0` — the
-public CC0 CoAtNet arm, **one borrowed model, no ensembling, no TTA**. Up from
-0.926, 0.924, 0.923, 0.846 and 0.725.
+**0.932 on the leaderboard** (2026-09-11), set by `knee-infer-raptorcc0x4` — the
+public CC0 CoAtNet arm at its four published weights. Up from 0.928 (the same
+arm as a single model), 0.926, 0.924, 0.923, 0.846 and 0.725.
+
+**Submission latency is measured (E097): 2 h 15 min from click to score**, against
+a 2.43 h in-kernel projection. The queue adds essentially nothing.
 
 **AND THE FULL-FIT LEVER IS GONE (E092).** A pure reseed of the five-member
 full-weight ensemble scored 0.923/0.921 against 0.926, so **the board's

@@ -27,7 +27,9 @@ Last updated 2026-09-07 (E087, and E086 still open).
 | 5-fold PUBLIC + one FULL-FIT member | 0.924 | E064 |
 | 5-fold PUBLIC, DISTILLED teacher | 0.910 | **the offline rig had the sign wrong** (E083) |
 | 5 folds + 5 full-fit (10 members) | 0.926 | equals pure full fit exactly (E087) |
-| **five FULL-FIT members, nothing else** | **0.926** | **the standing result** (E083) |
+| five FULL-FIT members, nothing else | 0.926 | E083 |
+| CC0 CoAtNet, one borrowed model | 0.928 | E091/E092 |
+| **CC0 CoAtNet, four arms at published weights** | **0.932** | **the standing result** (E097) |
 
 **The whole +0.201 decomposes on ground truth:** own fused labels **+0.089**,
 public CC0 labels **+0.077**, ensembling one fold → five **+0.032**, full fit at
@@ -193,6 +195,7 @@ pattern matters more than any individual entry.
 | "E043's licence rule excludes every asset the 0.936 notebooks use, CC-BY-NC-SA included" | **corrected (E088)** — E043 says the opposite: NC matches the competition's own CC-BY-NC 4.0 winner licence, and its avoid-tier is `not-declared`. A "read ShareAlike before shipping" hardened into an "excluded" and sat on the largest measured gap in the project for a week | not yet counted; the ShareAlike question is still unanswered, and answering it is free |
 | "we now beat what we were borrowing" (E046) | **stale (E088)** — true on 2026-08-29 against a public system at 0.917. The public systems now score 0.936-0.939 against our 0.926. A closure resting on a moving external number needs a date and a re-read, exactly like a rank | a month of treating the borrowing route as closed while it reopened |
 | "the raptor family cannot be screened for free" | **contradicted (E088)** — the tool said it, and the tool was reading the wrong metadata spellings. The checkpoint states `arch`, `res`, a per-finding AUC table and `gold_auc` = 0.9167, which is **ahead of our pooled 0.8980 and inside E048's band**. A screen that silently under-reports converts "we have not looked" into "we looked and there was nothing" | the one CC0 asset that reports ahead of us, left unexamined; fixed with two regression tests |
+| "full fit at full weight is worth +0.003, the only positive board lever" (E083) | **contradicted (E092)** — a pure reseed of the same ensemble, seeds 11-15 against 3-7 with nothing else changed, scored 0.923 and 0.921 against 0.926. The board's own like-for-like reseed spread is ~0.003, so the lever is the size of a draw. E086 pre-registered this arm precisely to bound it, and it bounds it at zero | ~9.5 GPU-h across the full-fit lineage, and a lever the plan was built on |
 
 The common shape: **a small number of observations read as a trend.** The
 countermeasure now in place is that every comparison is one-variable by

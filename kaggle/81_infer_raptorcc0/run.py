@@ -48,6 +48,7 @@ import glob
 import json
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
@@ -92,6 +93,7 @@ ARMS             = ({'name': 'maxspan-v5', 'file': 'raptor_ft_coatnet_v5_full_sw
 CROP_MM          = 140.0
 LAB              = ('ACL', 'MCL', 'Medial Meniscus', 'Lateral Meniscus', 'Medial OA', 'Lateral OA', 'PF OA', 'Effusion', 'Synovitis', "Baker's", 'Contusion', 'Fracture')
 FALLBACK_LIMIT   = 0.02
+DECODE_AHEAD     = 32
 
 torch.backends.cudnn.benchmark = True
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -229,7 +231,13 @@ def rankpct(x):
 def _make_reader():
     import cv2
     import pydicom
-    from pydicom.pixel_data_handlers.util import apply_modality_lut
+    try:
+        # pydicom 3.x moved this and 4.0 removes the old path. Upstream imports
+        # the old one only; on an image with pydicom 4.x that raises inside the
+        # reader, which is to say on the first study, an hour into the session.
+        from pydicom.pixels import apply_modality_lut
+    except ImportError:
+        from pydicom.pixel_data_handlers.util import apply_modality_lut
 
     def order_and_meta(sdir):
         recs, spacings = [], []
@@ -412,6 +420,12 @@ def main():
     reader = _make_reader()
     probs = [np.full((len(ids), len(LAB)), 0.5, np.float32) for _ in ARMS]
     ran = [None] * len(ARMS)
+    # Setup — imports, CUDA init, the first model load — is a FIXED cost, not a
+    # per-study one. On the 3-study visible stub it was 910 s of a 935 s run, so
+    # dividing wall clock by studies projected 112 h instead of 3. Scale only the
+    # per-study work and report setup beside it.
+    setup_seconds = time.time() - t0
+    scored_seconds = 0.0
 
     # Grouped so nothing is recomputed that two arms can share. Outer key is the
     # checkpoint, so each file is loaded ONCE and peak RAM stays at one model
@@ -443,39 +457,99 @@ def main():
             names = "+".join(ARMS[i]["name"] for i in members)
             print(f"[{names}] img {img} span {span} k_eval {k_eval} res {res}", flush=True)
             bad = 0
-            group_t0 = time.time()
-            for j, sid in enumerate(ids):
+            forward_seconds = 0.0
+
+            # DECODE ON THREADS SO IT OVERLAPS THE GPU. E091 measured 8.27 s per
+            # study single-threaded, which projects to 2.99 h for ONE arm and put
+            # the four-arm blend over the 9 h cap. This project already hit the
+            # same wall once and solved it the same way: `infer.py.in` records
+            # 19.7 s/study single-threaded, 7.1 h projected, fixed by building
+            # volumes on a pool while the GPU works.
+            #
+            # Threads decode to a uint8 volume (~7 MB) and the MAIN thread turns
+            # it into windows. Returning the float32 window tensor instead would
+            # be ~110 MB a study, and a pool running ahead of the GPU would then
+            # hold gigabytes of them.
+            def build_one(item, _img=img, _slots=slots, _span=span):
+                j, sid = item
                 try:
-                    vol, mask = build_study(sid, series, tsdir, reader, img, slots, span)
+                    vol, mask = build_study(sid, series, tsdir, reader, _img, _slots, _span)
                     if not mask.any():
-                        # No slot filled. No exception was raised, so without this
-                        # the study silently contributes a 0.5 row that looks like
-                        # a prediction. Series selection failing for every study is
-                        # how a schema change would present.
-                        raise RuntimeError("empty volume: no series matched any slot")
-                    xw = eval_windows(vol, mask, k=k_eval, res=res)
-                    for i in members:
-                        probs[i][j] = infer_probs(model, xw, device, bool(ARMS[i]["reverse"]))
-                    del vol, mask, xw
-                except Exception as exc:
-                    # Never drop a study: a 0.5 row ranks mid-pack, a missing row
-                    # fails the whole submission. But see the limit below — a few
-                    # of these is robustness, all of them is a broken kernel that
-                    # would otherwise submit 0.500 and look like it worked.
-                    bad += 1
-                    if bad <= 20:
-                        print(f"  [{names}] study {j} {sid[:16]} FALLBACK "
-                              f"({type(exc).__name__}: {exc})", flush=True)
-                if (j + 1) % 100 == 0 or j + 1 == len(ids):
-                    # Projected against 1,300 because the visible test is a stub:
-                    # the hidden set is ~1,300 studies (FINDINGS 2.12) and the cap
-                    # is 9 h. A run that will not fit should be visible at study
-                    # 100, not at hour eight.
-                    rate = (time.time() - group_t0) / (j + 1)
-                    print(f"  [{names}] {j + 1}/{len(ids)} | {time.time() - t0:.0f}s "
-                          f"| {rate:.2f}s/study, this group projects "
-                          f"{rate * 1300 / 3600:.2f} h on 1,300", flush=True)
+                        # No slot filled, and no exception raised. Without this the
+                        # study contributes a 0.5 row that looks like a prediction;
+                        # series selection failing everywhere is how a schema
+                        # change would present.
+                        return j, sid, None, None, "empty volume: no series matched any slot"
+                    return j, sid, vol, mask, None
+                except Exception as exc:                                  # noqa: BLE001
+                    return j, sid, None, None, f"{type(exc).__name__}: {exc}"
+
+            # WARM THE GPU BEFORE TIMING ANYTHING. `cudnn.benchmark` autotunes a
+            # convolution algorithm the first time it sees a shape, and every
+            # study here has the identical (k_eval, 3, res, res). On the 3-study
+            # visible stub that one-off tuning lands inside the per-study average
+            # and inflates it; on 1,300 studies it is invisible. Paying it here
+            # makes the projection honest in both directions — and it is not free
+            # accounting, the real run genuinely starts sooner.
+            warm_t0 = time.time()
+            infer_probs(model, torch.zeros(k_eval, 3, res, res), device, False)
+            print(f"  [{names}] warmed cudnn in {time.time() - warm_t0:.1f}s "
+                  f"(paid once, excluded from the per-study rate)", flush=True)
+            group_t0 = time.time()
+
+            workers = max(2, min(8, (os.cpu_count() or 4)))
+            print(f"  [{names}] decoding on {workers} threads, {DECODE_AHEAD} studies ahead",
+                  flush=True)
+            indexed = list(enumerate(ids))
+            done = 0
+            with ThreadPoolExecutor(max_workers=workers) as pool:
+                # Chunked rather than one `map` over every study: `Executor.map`
+                # submits all of them at once and holds every result until it is
+                # consumed, so on 1,300 studies the decoded volumes would pile up
+                # faster than the GPU drains them. A bounded window keeps decode
+                # ahead of compute without letting it run away.
+                for start in range(0, len(indexed), DECODE_AHEAD):
+                    for j, sid, vol, mask, error in pool.map(
+                            build_one, indexed[start:start + DECODE_AHEAD]):
+                        done += 1
+                        if error is not None:
+                            # Never drop a study: a 0.5 row ranks mid-pack, a
+                            # missing row fails the submission outright. But see
+                            # the limit below — a few is robustness, all of them
+                            # is a broken kernel that would submit 0.500 and look
+                            # like it worked.
+                            bad += 1
+                            if bad <= 20:
+                                print(f"  [{names}] study {j} {sid[:16]} FALLBACK "
+                                      f"({error})", flush=True)
+                        else:
+                            xw = eval_windows(vol, mask, k=k_eval, res=res)
+                            forward_t0 = time.time()
+                            for i in members:
+                                probs[i][j] = infer_probs(model, xw, device,
+                                                          bool(ARMS[i]["reverse"]))
+                            if str(device).startswith("cuda"):
+                                # Otherwise this times queueing, not work.
+                                torch.cuda.synchronize()
+                            forward_seconds += time.time() - forward_t0
+                            del vol, mask, xw
+                        if done % 100 == 0 or done == len(ids):
+                            # The hidden set is ~1,300 studies (FINDINGS 2.12)
+                            # against a 9 h cap. A run that will not fit should be
+                            # visible at study 100, not at hour eight.
+                            rate = (time.time() - group_t0) / done
+                            print(f"  [{names}] {done}/{len(ids)} | "
+                                  f"{time.time() - t0:.0f}s | {rate:.2f}s/study, "
+                                  f"this group projects {rate * 1300 / 3600:.2f} h "
+                                  f"on 1,300", flush=True)
             group_seconds = time.time() - group_t0
+            scored = max(1, len(ids) - bad)
+            print(f"  [{names}] forward {forward_seconds:.1f}s "
+                  f"({forward_seconds / scored:.2f}s/study), everything else "
+                  f"(decode, threaded and overlapped) "
+                  f"{max(group_seconds - forward_seconds, 0) / scored:.2f}s/study",
+                  flush=True)
+            scored_seconds += group_seconds
             for i in members:
                 ran[i] = {"name": ARMS[i]["name"], "file": fname, "arch": arch,
                           "author_gold_auc": gold, "res": res, "img": img,
@@ -483,6 +557,7 @@ def main():
                           "span": list(span), "k_eval": k_eval,
                           "reverse": bool(ARMS[i]["reverse"]), "w": ARMS[i]["w"],
                           "group_seconds": round(group_seconds, 1),
+                          "forward_seconds": round(forward_seconds, 1),
                           "fallbacks": bad}
             rate = bad / max(1, len(ids))
             print(f"[{names}] fallbacks {bad}/{len(ids)} ({rate:.1%}) | "
@@ -525,12 +600,27 @@ def main():
     # a member that collapsed to one value per finding still writes a valid
     # submission, and the spread is where that shows.
     elapsed = time.time() - t0
-    spread = {f: round(float(sub[f].max() - sub[f].min()), 4) for f in LAB}
+    # Measured on the RAW probabilities, per arm, not on the rank-blended output.
+    # `rankpct` maps any non-constant column onto 0..1, and argsort breaks ties
+    # arbitrarily, so post-rank spread reads 1.0 even for a member that returned
+    # the same value for every study — the exact failure it was meant to catch.
+    spread = {ARMS[i]["name"]: {f: round(float(probs[i][:, k].max() - probs[i][:, k].min()), 4)
+                               for k, f in enumerate(LAB)}
+              for i in range(len(ARMS))}
+    flat = [name for name, per in spread.items()
+            if max(per.values()) < 1e-6 and len(ids) > 1]
+    if flat:
+        raise RuntimeError(
+            f"{flat} returned a constant prediction for every study. That still "
+            f"writes a valid submission, so it is refused here instead.")
     Path("/kaggle/working/infer_manifest.json").write_text(json.dumps({
         "n_studies": len(ids),
         "wall_clock_seconds": round(elapsed, 1),
-        "seconds_per_study": round(elapsed / max(1, len(ids)), 3),
-        "projected_hours_1300_studies": round(elapsed / max(1, len(ids)) * 1300 / 3600, 3),
+        "setup_seconds": round(setup_seconds, 1),
+        "scored_seconds": round(scored_seconds, 1),
+        "seconds_per_study": round(scored_seconds / max(1, len(ids)), 3),
+        "projected_hours_1300_studies":
+            round(setup_seconds / 3600 + scored_seconds / max(1, len(ids)) * 1300 / 3600, 3),
         "n_arms": len(ARMS),
         "n_checkpoints": len(paths),
         "total_fallbacks": sum(r["fallbacks"] for r in ran if r),

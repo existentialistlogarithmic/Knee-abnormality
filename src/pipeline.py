@@ -1449,6 +1449,10 @@ EXTRAS = [
             # kernel writing a constant-0.5 submission that scores 0.500 and is
             # indistinguishable from a bad model.
             "FALLBACK_LIMIT": 0.02,
+            # How many studies the decode pool may run ahead of the GPU. Each
+            # decoded volume is ~7 MB, so 32 is ~230 MB of slack; an unbounded
+            # map over 1,300 studies would hold them all.
+            "DECODE_AHEAD": 32,
         },
         note="THE CONTROL, and it must be submitted before any blend.\n"
              "\n"
@@ -1503,6 +1507,10 @@ EXTRAS = [
             # kernel writing a constant-0.5 submission that scores 0.500 and is
             # indistinguishable from a bad model.
             "FALLBACK_LIMIT": 0.02,
+            # How many studies the decode pool may run ahead of the GPU. Each
+            # decoded volume is ~7 MB, so 32 is ~230 MB of slack; an unbounded
+            # map over 1,300 studies would hold them all.
+            "DECODE_AHEAD": 32,
         },
         note="The CoAtNet arm of the public 0.937 system, at its published\n"
              "weights: maxspan-v5 0.55, native384-v8 0.20, maxspan-v5 flipped\n"

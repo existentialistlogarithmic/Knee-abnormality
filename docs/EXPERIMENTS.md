@@ -5535,3 +5535,59 @@ against.** `FINDINGS.md` §2.17's gap on scoring time is closed.
   `dreaddevelopment` publishes 14 CC0 checkpoints and 10 remain unused, but they
   are the same CoAtNet family and E087 priced same-family additions as linear.
   The published recipe stops at four for a reason.
+
+### E098 — six foreign blends, six negatives, and E048's rule confirmed from both ends
+- **date**: 2026-09-11. CPU only, no quota. Harvested from `pilkwang/rsna-knee-weights`
+  (CC0), which ships **three** systems' predictions on all 4,407 studies:
+  `oof.npz/pred`, and `merge_gain.npz`'s `ours` and `imported`.
+
+**EVERY AVAILABLE FOREIGN SYSTEM IS FAR BEHIND, AND EVERY BLEND OF THEM LOSES.**
+
+| system | gold-58 macro |
+|---|---:|
+| CC0 CoAtNet v5 (the 0.928 arm) | **0.9214** |
+| this project, `v1public` 5-fold | 0.8980 |
+| `pilkwang` merge_gain "ours" | 0.8435 |
+| `pilkwang` oof pred (20-model DINOv2) | 0.8400 |
+| `pilkwang` merge_gain "imported" | 0.7924 |
+
+  All six pairwise 50/50 rank blends among those four:
+
+```
+oof + mg.ours        0.8424  (-0.0011)     mg.ours  + imported   0.8371  (-0.0064)
+oof + imported       0.8335  (-0.0065)     mg.ours  + ours       0.8863  (-0.0117)
+oof + ours           0.8861  (-0.0119)     imported + ours       0.8756  (-0.0224)
+```
+
+  **Six for six, every one worse than its best member.** Not "not separated" —
+  negative, and the size of the loss tracks the size of the gap.
+
+**AND THE BOARD SAYS THE OPPOSITE ABOUT A DIFFERENT BLEND.** E097's four-arm
+CoAtNet blend paid **+0.004**, above the ±0.003 board floor. So blending is not
+dead; these blends are.
+
+**THE VARIABLE THAT SEPARATES THEM IS E048's RULE, AND IT NOW HAS BOTH SIGNS.**
+
+| blend | member gap | result |
+|---|---:|---|
+| four CoAtNet arms (E097) | 0.9067–0.9214, **≤0.015** | **+0.004 on the board** |
+| every pair here | **0.05–0.13** | **−0.001 to −0.022 on gold** |
+
+  E048 said a union pays when its members are comparable and imports errors when
+  they are not. Until now that was four "not separated" readings and an argument.
+  **It is now a measured contrast with a positive case and six negative ones**,
+  and the threshold sits somewhere between a 0.015 gap and a 0.05 gap.
+
+- **so the "harvest other competitors' models" route is closed, not by licence
+  but by quality.** Every foreign system this project can legally reach is
+  0.08–0.13 behind the CoAtNet arm. The only comparable members in existence are
+  the CoAtNet family's own, and E097 used all four published ones.
+- **a caution about the instrument, recorded rather than acted on.** Gold-58 has
+  now called six blends negative while the board called a seventh positive. That
+  is consistent with E048 (different member gaps) and does **not** on its own
+  prove gold-58 is blind to blend gains — but the four "not separated" blend
+  readings in this log (E033, E039, E046, E048) were all measured on the same
+  n=58 instrument that has never once seen a blend gain. **Do not close another
+  blend on gold-58 evidence alone.**
+- **cost**: under a megabyte and a merge. This is the second entry in two days
+  where a rival's published file priced a route for nothing (E096 was the first).

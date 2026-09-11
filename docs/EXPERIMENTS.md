@@ -5425,3 +5425,62 @@ run is an ERROR (E085, one member).
   best-shaped pair in the log. Four previous unions paid nothing, but each had a
   member 0.03–0.06 behind. This is the first where both members are the best
   thing this project has.
+
+### E096 — two more routes priced and closed for nothing, using someone else's published OOF
+- **date**: 2026-09-11. CPU only, no quota, no submission. **Total download: under
+  one megabyte.**
+
+**THE ASSET NOBODY HAD OPENED.** `pilkwang/rsna-knee-weights` is the single
+most-mounted dataset in the competition — 186 of 626 public notebooks (E088) —
+and it is CC0. Beside its twenty checkpoints it ships **`oof.npz`: their
+out-of-fold predictions for all 4,407 studies**, plus a manifest. That is a
+foreign system's predictions on our own gold studies, free, and this project had
+never looked.
+
+**ROUTE 1 CLOSED — the CC0 DINOv2 arm is too weak to add.**
+
+| system | gold-58 macro |
+|---|---:|
+| `pilkwang` DINOv2 ensemble, 20 models | **0.8400** |
+| ours, `v1public` 5-fold | 0.8980 |
+| 50/50 rank blend of the two | **0.8861** |
+
+  **The blend is 0.0119 WORSE than our own member alone.** E048's rule exactly:
+  a member 0.058 behind imports errors. Per finding it beats us on only 3 of 12
+  (Effusion +0.014, Fracture +0.010, MCL +0.002) — and **CoAtNet beats both of us
+  on all three of those**. The arm the 0.937 systems weight at 0.40 is, in its
+  published CC0 form, not worth mounting.
+
+**ROUTE 2 CLOSED — blending our resnet into the CoAtNet arm has a ceiling of
++0.0023, and the ceiling is measured by cheating.** Per-finding, the v5 model
+that actually scored 0.928:
+
+| | CoAtNet v5 | ours | |
+|---|---:|---:|---|
+| MCL | 0.9796 | 0.8821 | +0.098 |
+| Effusion | 0.9764 | 0.9292 | +0.047 |
+| Lateral OA | 0.8665 | 0.8221 | +0.044 |
+| … | | | |
+| **Baker's** | 0.9710 | **0.9837** | **−0.013** |
+| **PF OA** | 0.8468 | **0.8584** | **−0.012** |
+| **Medial OA** | 0.9767 | **0.9798** | **−0.003** |
+| **macro** | **0.9214** | 0.8980 | |
+
+  **CoAtNet wins 9 of 12.** An *oracle* per-finding pick — take whichever model
+  is better on each finding, which fits twelve free parameters to 58 studies and
+  is not a recipe anyone may ship — reaches **0.9237, just +0.0023 over CoAtNet
+  alone.** The honest blend is worth less than that, and **+0.0023 is below the
+  board's own ±0.003 floor (E092)**. There is nothing there.
+
+- **so the model-level blend E095 called "the best-shaped pair in the log" is
+  dead**, and it died for free instead of for 1.7 GPU-h and a submission slot.
+  E048's comparability rule said the pair was worth an afternoon; it got one, on
+  CPU, and the answer was no.
+- **what survives is one thing.** `knee-infer-raptorcc0x4`, built and verified,
+  whose authors measure the four-arm CoAtNet blend at **0.9254 against v5-alone's
+  0.9198** — +0.0056, the only remaining gap above the board floor. It has been
+  waiting on a click since 2026-09-10.
+- **and a note on why our resnet keeps losing.** It is behind CoAtNet on nine
+  findings and ahead on three by margins (0.003–0.013) that gold-58's ±0.015
+  cannot resolve. The project's own model is not a useful member of anything any
+  more. That is worth saying plainly rather than discovering it a third time.

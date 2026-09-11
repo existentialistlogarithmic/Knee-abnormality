@@ -5877,3 +5877,20 @@ a reader.
   supposed to differ, check that they differ.**
 - **what it did not cost**: the hole was found by a free run that had already
   passed on its own terms. The submission it guards has not been spent.
+
+**ADDENDUM — the re-run, and the guard was insurance rather than a fix.** Five
+distinct fingerprints from five distinct trainer slugs:
+
+```
+v1 members 5 | distinct weight fingerprints 5 | [-7.2595, -7.4884, -6.3623, -3.9854, -9.1438]
+  knee-train-v1pubfull/checkpoint_foldall.pt        knee-train-v1pubfull-s6/...
+  knee-train-v1pubfull-s4/checkpoint_foldall.pt     knee-train-v1pubfull-s7/...
+  knee-train-v1pubfull-s5/checkpoint_foldall.pt
+```
+
+  **The mount was correct all along**, and the CoAtNet arms reproduced 0.9198 /
+  0.9170 / 0.9167 / 0.9116 for the third consecutive run. So the entry above
+  reports a hole in the *instrument*, not a defect in the ensemble — the log
+  could not have told the difference, and now it can. Recorded that way rather
+  than as a catch, because a guard that never fired is not evidence of anything
+  it prevented.

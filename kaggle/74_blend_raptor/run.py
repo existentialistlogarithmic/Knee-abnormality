@@ -41,6 +41,7 @@ depend on what the metric actually reads and nothing else.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -117,6 +118,14 @@ def find_all_markers(pattern: str, max_depth: int = 4) -> list[Path]:
     return found
 
 
+def _test_study_ids():
+    """The competition's own test list, or None if it is not mounted."""
+    for root, _dirs, files in os.walk("/kaggle/input"):
+        if "test.csv" in files and "sample_submission.csv" in files:
+            return pd.read_csv(os.path.join(root, "test.csv"))["StudyInstanceUID"].astype(str).tolist()
+    return None
+
+
 def main() -> int:
     # Every mounted kernel output that contains a submission. Discovered rather
     # than hardcoded: E078 cost two runs because a glob assumed where Kaggle
@@ -160,6 +169,33 @@ def main() -> int:
                 "members that disagree about which studies exist")
         if frame.index.duplicated().any():
             raise SystemExit(f"{path} lists a study more than once")
+
+    # THE TRAP THIS KERNEL IS BUILT OVER, and the check that closes it.
+    #
+    # A mounted kernel supplies its LAST SAVED OUTPUT, not a fresh run. Every
+    # inference kernel here last ran against the 3-study visible stub, so its
+    # saved submission.csv has 3 rows. At scoring time this kernel re-runs
+    # against the ~1,300-study hidden set (FINDINGS 2.12) while its members stay
+    # frozen at 3 — and the index check above passes, because the members agree
+    # with EACH OTHER. It would write a 3-row submission and spend a slot.
+    #
+    # The field agrees this is the wrong shape: of 626 public notebooks, 152
+    # mount another notebook for its CHECKPOINTS and only 3 read a
+    # submission.csv (E088's corpus). `knee-infer-v1pubmix` scored 0.926 by
+    # mounting weights and running inference itself; no CSV-chained kernel in
+    # this project has ever produced a score.
+    #
+    # So compare against the competition's own test list rather than against the
+    # other members, and fail loudly rather than submit a stub.
+    test_ids = _test_study_ids()
+    if test_ids is not None and set(index) != set(test_ids):
+        raise SystemExit(
+            f"members cover {len(index):,} studies but the test set has "
+            f"{len(test_ids):,}. Mounted kernels supply their LAST SAVED "
+            f"output, which is the 3-study visible run — they do not re-run at "
+            f"scoring time. Blend at the MODEL level in one kernel instead "
+            f"(mount the checkpoints, predict, then rank-average), which is "
+            f"what knee-infer-v1pubmix did to score 0.926.")
 
     print(f"{len(index):,} studies, {len(frames)} members, {len(FINDINGS)} findings")
 

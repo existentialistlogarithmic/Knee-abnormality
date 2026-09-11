@@ -5388,3 +5388,40 @@ different problem from grading, and it is not fixable by re-parsing text at all:
 no amount of reading a report recovers a finding the report never mentions.
 E059 reached the same conclusion for Synovitis by a different route and this
 project treated it as a special case. It may be the general case.
+
+### E095 — the CSV-blend kernel would have spent a submission writing three rows
+- **date**: 2026-09-11. CPU only. Found while checking whether
+  `knee-blend-raptor` could finally run, now that both of its members exist.
+
+**IT COULD RUN. IT WOULD ALSO BE WRONG.** A mounted kernel supplies its **last
+saved output**, not a fresh run. Every inference kernel here last ran against the
+**3-study visible stub**, so each saved `submission.csv` has three rows. At
+scoring time `knee-blend-raptor` re-runs against the ~1,300-study hidden set
+while its members stay frozen at three.
+
+**And the guard that exists would not have caught it.** The index check compares
+members **against each other**. Both have the same three rows, so they agree, the
+check passes, and the kernel writes a three-row submission for a 1,300-study test
+— spending a slot and scoring nothing. E084's `MEMBERS_EXPECTED` catches a
+missing member; nothing caught a member of the wrong *size*.
+
+**THE FIELD AGREES THIS IS THE WRONG SHAPE.** Of the 626 public notebooks pulled
+in E088: **152 mount another notebook for its CHECKPOINTS, and 3 read a
+`submission.csv`.** This project's own evidence says the same — `knee-infer-
+v1pubmix` scored 0.926 by mounting *weights* and predicting itself, and **no
+CSV-chained kernel here has ever produced a score.** `knee-blend-raptor`'s only
+run is an ERROR (E085, one member).
+
+- **fixed**: the template now reads the competition's own `test.csv` and refuses
+  unless the members cover exactly those studies, with the reason and the
+  remedy in the failure message. It fails loudly instead of submitting a stub.
+- **the real remedy is a different kernel.** Blending the CC0 CoAtNet arm with
+  this project's full-fit ensemble has to happen **at the model level, in one
+  kernel**: mount both sets of checkpoints, predict both, rank-average. Both
+  lineages read DICOM at test time, so one pass over each study can feed both.
+  Cost ~1.7 h against a 9 h cap.
+- **why it is still worth building.** That union is 0.928 against 0.926 — 0.002
+  apart and maximally different in kind, which is E048's rule exactly, and the
+  best-shaped pair in the log. Four previous unions paid nothing, but each had a
+  member 0.03–0.06 behind. This is the first where both members are the best
+  thing this project has.

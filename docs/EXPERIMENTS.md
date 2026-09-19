@@ -7645,3 +7645,49 @@ therefore *added three diverse members* against 0.940, which is one variable.
   batch 16 on a 25M-parameter backbone, and `convnext_tiny` then failed twice at
   this geometry — OOM at batch 16, host-killed at batch 4, ~3 GPU-h lost. The
   effective batch stays 16 either way.
+
+**FIRST RESULT, AND IT IS A FAILURE THAT EXPLAINS AN OLDER ONE.**
+`tf_efficientnet_b0` died with a bare **`Killed`** — host RAM, not CUDA. It
+mounted everything, printed `DataParallel across 2 GPUs` and the monitor line,
+then the kernel was killed at the start of training.
+
+**That is the second time this exact death has happened here**, and E109's
+`convnext_tiny` failure was recorded as *"host `Killed` at batch 4, undiagnosed"*.
+Two undiagnosed host-kills is a pattern worth testing rather than two accidents:
+
+| backbone | `build_model` routes to | outcome |
+|---|---|---|
+| resnet34 | torchvision | **works** (five shipped members) |
+| resnet50 | torchvision | **works** (E111, +0.002) |
+| resnext50_32x4d | torchvision | running |
+| convnext_tiny | **timm** | **host-killed** (E109) |
+| tf_efficientnet_b0 | **timm** | **host-killed** (here) |
+
+  **Every timm-routed backbone has host-killed. Every torchvision-routed one has
+  worked.** `build_model` sends a backbone to timm only on a dot or a listed
+  prefix, and the timm branch asks for `dynamic_img_size=True` — which builds a
+  resolution-agnostic wrapper the torchvision branch never constructs. **That is a
+  candidate mechanism, not a proven cause**: four runs, two on each side, is
+  suggestive and nothing more. It is recorded as a hypothesis that fits every
+  data point and costs nothing to act on.
+
+**ACTED ON RATHER THAN RETRIED.** `regnety_032.ra_in1k` also routed to timm and
+would have been the third ~2 GPU-h host-kill. Both remaining members were moved
+onto the branch that works, keeping the families:
+
+- `regnety_032.ra_in1k` → **`regnet_y_3_2gf`** — the same RegNetY-3.2GF, via
+  torchvision.
+- `tf_efficientnet_b0` → **`shufflenet_v2_x1_0`** — channel shuffle over grouped
+  convolutions at **2.3M** parameters, a tenth of resnet50's. It keeps the role
+  efficientnet was chosen for: the member most likely to **disagree**.
+
+  The constraint that decided both is narrow and worth writing down: the
+  torchvision branch reads `net.fc.in_features`, so a torchvision model is only
+  usable here **if it exposes `.fc`**. `efficientnet_b0`, `densenet121` and
+  `mnasnet1_0` all expose `.classifier` instead and would raise. Checked across
+  thirteen candidates locally before choosing.
+
+- **this is E109's rule being honoured, not broken.** That entry's lesson was to
+  report a repeated failure honestly rather than retry it a third time. The
+  backbone is not being retried — **the route is being changed**, on a pattern
+  that only became visible once a second backbone died the same way.

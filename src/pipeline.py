@@ -2028,8 +2028,8 @@ EXTRAS = [
              "CC0-1.0, repackaged as `knee-phase1-public`.",
     ),
     Kernel(
-        slug="knee-train-v1pubfull-effb0",
-        directory="100_train_v1pubfull_effb0",
+        slug="knee-train-v1pubfull-shuffle",
+        directory="100_train_v1pubfull_shuffle",
         template="train",
         gpu=True,
         internet=True,
@@ -2038,7 +2038,7 @@ EXTRAS = [
         datasets=[PUBLIC_DATASET],
         constants={"RUN_FOLD": -1,
                    **V1.constants(),
-                   **TrainConfig(backbone="tf_efficientnet_b0", epochs=24, batch=8, accum=2,
+                   **TrainConfig(backbone="shufflenet_v2_x1_0", epochs=24, batch=8, accum=2,
                                  lr=6e-4, input_norm=False, seed=3).constants()},
         note="E119. A NEW v1 MEMBER FROM A DIFFERENT BACKBONE FAMILY.\n"
              "\n"
@@ -2083,7 +2083,7 @@ EXTRAS = [
         datasets=[PUBLIC_DATASET],
         constants={"RUN_FOLD": -1,
                    **V1.constants(),
-                   **TrainConfig(backbone="regnety_032.ra_in1k", epochs=24, batch=8, accum=2,
+                   **TrainConfig(backbone="regnet_y_3_2gf", epochs=24, batch=8, accum=2,
                                  lr=6e-4, input_norm=False, seed=3).constants()},
         note="E119. A NEW v1 MEMBER FROM A DIFFERENT BACKBONE FAMILY.\n"
              "\n"

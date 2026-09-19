@@ -7579,3 +7579,69 @@ the member jobs first would spend the same hours and learn less.
   and no token is needed — the Kaggle UI is sufficient. Generated with the
   overrides set, copied out, and the repo tree regenerated and drift-checked back
   to `RUN_SEED = 3`.
+
+### E119 — PRE-REGISTRATION: three members, three families, written before any of them finished training
+- **date**: 2026-09-19. ~8 GPU-h of a fresh 30. Written **before** the first run
+  completed and committed before any number existed.
+
+**THE ONLY LEVER LEFT, AND E064 SAYS WHICH KIND.** Every other route is closed on
+measurement: blend weights (E107, E116), the CC0 checkpoint bench (E117),
+per-finding weighting (E116), synovitis (E115, a label ceiling), resolution
+(E079, **−0.088** on 881 held-out studies, and *worse* with a better teacher).
+What remains is adding members — and E064 is specific about which kind:
+
+| change | board |
+|---|---:|
+| a second **seed** | **+0.000** |
+| resnet34 → resnet50 (**depth**) | **+0.002**, twice, at two blend weights |
+
+  **Reseeding this lineage is measured worthless.** Changing what the network *is*
+  is the part that paid. These go one step past depth, to a different **family**.
+
+**THE THREE, and why these three.**
+
+| member | family | params |
+|---|---|---:|
+| `resnext50_32x4d` | grouped convolutions | 25M |
+| `tf_efficientnet_b0` | inverted residuals + SE | 5M |
+| `regnety_032.ra_in1k` | designed space + SE | 19M |
+
+  `resnext50_32x4d` is the **smallest possible step off the resnet trunk** — the
+  family changes and the capacity does not, so it isolates family from size.
+  `tf_efficientnet_b0` is the opposite bet: a fifth of the capacity and a
+  genuinely different inductive bias, the member most likely to **disagree**.
+  `regnety_032` sits between them so the three are not one bet in triplicate.
+  **Disagreement is what the blend buys**: the v1 arm correlates **0.542** with
+  the CoAtNet half against **0.905–0.986** among the CoAtNet arms, and that
+  cross-family disagreement is worth +0.006–0.008 of the shipped score.
+
+**ONE VARIABLE.** All three hold everything equal to the resnet50 member — 24
+epochs, batch 8 × 2 accumulation, LR 6e-4, seed 3, `input_norm=False` (E109:
+ImageNet normalisation is −0.0064 here, CI [−0.0113, −0.0014]), V1 geometry, the
+same 4,349 public CC0 labels. **The backbone is the only difference.**
+
+**THE SUBMISSION THIS BUILDS TOWARD**: the six-member configuration that scored
+the banked 0.940, **plus these three** — nine v1 members. The comparison is
+therefore *added three diverse members* against 0.940, which is one variable.
+
+**PRE-REGISTERED, board unseen:**
+
+| board | reading |
+|---|---|
+| **≥ 0.944** | family diversity pays and the member lever is confirmed; train more families |
+| 0.938–0.943 | inside the floor — three members bought less than one depth change did, and the lever is weaker than the 2×2 suggested |
+| **≤ 0.937** | the new families are too far behind and E048's comparability rule has caught us again, exactly as it did in E117 |
+
+- **these are FULL FITS and cannot be scored offline** — they train on all 58
+  gold. The board is the only judge, 0.940 is banked, and the leaderboard keeps a
+  team's best, so being wrong costs one click and no points.
+- **a bug caught before it cost GPU**: `regnety_032` without a dot routes to
+  **torchvision**, which has no such model, and the pretrained fallback re-raises
+  the `AttributeError` uncaught — the kernel would have died at model
+  construction after mounting everything. `build_model` sends a backbone to timm
+  only on a dot or a listed prefix. Verified locally that all three names resolve
+  on the branch they route to; the name ships as `regnety_032.ra_in1k`.
+- **the memory budget is not guessed**: batch 8 × 2 because E109 OOMed a T4 at
+  batch 16 on a 25M-parameter backbone, and `convnext_tiny` then failed twice at
+  this geometry — OOM at batch 16, host-killed at batch 4, ~3 GPU-h lost. The
+  effective batch stays 16 either way.

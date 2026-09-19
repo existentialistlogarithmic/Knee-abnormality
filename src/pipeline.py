@@ -1983,6 +1983,141 @@ EXTRAS = [
     # not have been in E109: this is an ensemble member, not a controlled
     # comparison, so differing batch statistics cost nothing readable.
     Kernel(
+        slug="knee-train-v1pubfull-rx50",
+        directory="99_train_v1pubfull_rx50",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": -1,
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnext50_32x4d", epochs=24, batch=8, accum=2,
+                                 lr=6e-4, input_norm=False, seed=3).constants()},
+        note="E119. A NEW v1 MEMBER FROM A DIFFERENT BACKBONE FAMILY.\n"
+             "\n"
+             "resnext50_32x4d: grouped convolutions at resnet50's depth and\nparameter count, so it is the smallest possible step OFF the\nresnet trunk - the family changes, the capacity does not.\n"
+             "\n"
+             "WHY FAMILY AND NOT SEED. E064 submitted a second seed and the\n"
+             "board returned +0.000. E111 changed DEPTH (resnet34 -> resnet50)\n"
+             "and the board returned +0.002, twice, at two different blend\n"
+             "weights. So reseeding this lineage is measured worthless and\n"
+             "changing what the network IS is the part that paid. This goes\n"
+             "one step further than depth: a different family.\n"
+             "\n"
+             "EVERYTHING ELSE IS HELD EQUAL to the resnet50 member - 24\n"
+             "epochs, batch 8 x 2 accumulation, LR 6e-4, seed 3,\n"
+             "input_norm=False, V1 geometry, the same 4,349 public CC0\n"
+             "labels. The backbone is the only difference.\n"
+             "\n"
+             "batch 8 x 2 rather than 16 because E109 OOMed a T4 at batch 16\n"
+             "on a 25M-parameter backbone, and convnext_tiny then failed\n"
+             "twice at 192px x 60 images per study. Memory here is tight and\n"
+             "the effective batch stays 16 either way.\n"
+             "\n"
+             "input_norm=False by MEASUREMENT, not default: E109 put ImageNet\n"
+             "normalisation at -0.0064 on 882 held-out studies, CI\n"
+             "[-0.0113, -0.0014], on this lineage.\n"
+             "\n"
+             "FULL FIT, so it cannot be scored offline - it trains on all 58\n"
+             "gold. The board is the only judge. 0.940 is banked and the\n"
+             "leaderboard keeps a team's best, so being wrong costs one click.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
+        slug="knee-train-v1pubfull-effb0",
+        directory="100_train_v1pubfull_effb0",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": -1,
+                   **V1.constants(),
+                   **TrainConfig(backbone="tf_efficientnet_b0", epochs=24, batch=8, accum=2,
+                                 lr=6e-4, input_norm=False, seed=3).constants()},
+        note="E119. A NEW v1 MEMBER FROM A DIFFERENT BACKBONE FAMILY.\n"
+             "\n"
+             "tf_efficientnet_b0: inverted residuals and squeeze-excite at 5M\nparameters, a genuinely different inductive bias and a fifth of\nthe capacity. If diversity is what the blend buys, this is the\nmember most likely to disagree with the resnets.\n"
+             "\n"
+             "WHY FAMILY AND NOT SEED. E064 submitted a second seed and the\n"
+             "board returned +0.000. E111 changed DEPTH (resnet34 -> resnet50)\n"
+             "and the board returned +0.002, twice, at two different blend\n"
+             "weights. So reseeding this lineage is measured worthless and\n"
+             "changing what the network IS is the part that paid. This goes\n"
+             "one step further than depth: a different family.\n"
+             "\n"
+             "EVERYTHING ELSE IS HELD EQUAL to the resnet50 member - 24\n"
+             "epochs, batch 8 x 2 accumulation, LR 6e-4, seed 3,\n"
+             "input_norm=False, V1 geometry, the same 4,349 public CC0\n"
+             "labels. The backbone is the only difference.\n"
+             "\n"
+             "batch 8 x 2 rather than 16 because E109 OOMed a T4 at batch 16\n"
+             "on a 25M-parameter backbone, and convnext_tiny then failed\n"
+             "twice at 192px x 60 images per study. Memory here is tight and\n"
+             "the effective batch stays 16 either way.\n"
+             "\n"
+             "input_norm=False by MEASUREMENT, not default: E109 put ImageNet\n"
+             "normalisation at -0.0064 on 882 held-out studies, CI\n"
+             "[-0.0113, -0.0014], on this lineage.\n"
+             "\n"
+             "FULL FIT, so it cannot be scored offline - it trains on all 58\n"
+             "gold. The board is the only judge. 0.940 is banked and the\n"
+             "leaderboard keeps a team's best, so being wrong costs one click.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
+        slug="knee-train-v1pubfull-regnet",
+        directory="101_train_v1pubfull_regnet",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": -1,
+                   **V1.constants(),
+                   **TrainConfig(backbone="regnety_032.ra_in1k", epochs=24, batch=8, accum=2,
+                                 lr=6e-4, input_norm=False, seed=3).constants()},
+        note="E119. A NEW v1 MEMBER FROM A DIFFERENT BACKBONE FAMILY.\n"
+             "\n"
+             "regnety_032: a designed-space network with squeeze-excite at 19M\nparameters. Third family, chosen to sit between the other two in\ncapacity so the three are not all making the same bet.\n"
+             "\n"
+             "WHY FAMILY AND NOT SEED. E064 submitted a second seed and the\n"
+             "board returned +0.000. E111 changed DEPTH (resnet34 -> resnet50)\n"
+             "and the board returned +0.002, twice, at two different blend\n"
+             "weights. So reseeding this lineage is measured worthless and\n"
+             "changing what the network IS is the part that paid. This goes\n"
+             "one step further than depth: a different family.\n"
+             "\n"
+             "EVERYTHING ELSE IS HELD EQUAL to the resnet50 member - 24\n"
+             "epochs, batch 8 x 2 accumulation, LR 6e-4, seed 3,\n"
+             "input_norm=False, V1 geometry, the same 4,349 public CC0\n"
+             "labels. The backbone is the only difference.\n"
+             "\n"
+             "batch 8 x 2 rather than 16 because E109 OOMed a T4 at batch 16\n"
+             "on a 25M-parameter backbone, and convnext_tiny then failed\n"
+             "twice at 192px x 60 images per study. Memory here is tight and\n"
+             "the effective batch stays 16 either way.\n"
+             "\n"
+             "input_norm=False by MEASUREMENT, not default: E109 put ImageNet\n"
+             "normalisation at -0.0064 on 882 held-out studies, CI\n"
+             "[-0.0113, -0.0014], on this lineage.\n"
+             "\n"
+             "FULL FIT, so it cannot be scored offline - it trains on all 58\n"
+             "gold. The board is the only judge. 0.940 is banked and the\n"
+             "leaderboard keeps a team's best, so being wrong costs one click.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
         slug="knee-train-v1pubfull-r50",
         directory="97_train_v1pubfull_r50",
         template="train",

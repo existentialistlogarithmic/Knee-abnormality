@@ -22,7 +22,10 @@
     "achelijndiamantidis/knee-train-v1pubfull-s4",
     "achelijndiamantidis/knee-train-v1pubfull-s5",
     "achelijndiamantidis/knee-train-v1pubfull-s6",
-    "achelijndiamantidis/knee-train-v1pubfull-s7"
+    "achelijndiamantidis/knee-train-v1pubfull-s7",
+    "achelijndiamantidis/knee-train-v1pubfull-r50",
+    "achelijndiamantidis/knee-train-v1pubfull-rx50",
+    "achelijndiamantidis/knee-train-v1pubfull-regnet"
   ],
   "model_sources": []
 }

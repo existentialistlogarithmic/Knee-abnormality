@@ -7691,3 +7691,54 @@ onto the branch that works, keeping the families:
   report a repeated failure honestly rather than retry it a third time. The
   backbone is not being retried — **the route is being changed**, on a pattern
   that only became visible once a second backbone died the same way.
+
+**THE ROUTING HYPOTHESIS IS FALSIFIED, and by the run designed on it.**
+`shufflenet_v2_x1_0` is **torchvision**-routed — it was chosen *because* of that —
+and it host-killed anyway, `Killed` after two clean epochs. So "timm routes die,
+torchvision routes live" is **wrong**, and it was wrong in the direction that
+matters: it predicted this run would survive.
+
+**What the seven runs actually say**, with the falsified column removed:
+
+| backbone | convolutions | outcome |
+|---|---|---|
+| resnet34, resnet50 | dense | **live** |
+| resnext50_32x4d | grouped | **live** |
+| regnet_y_3_2gf | grouped + SE | **live** |
+| convnext_tiny (E109) | depthwise | **killed** |
+| tf_efficientnet_b0 | depthwise + SE | **killed** |
+| shufflenet_v2_x1_0 | depthwise + shuffle | **killed** |
+
+  The surviving correlation is **depthwise separable convolutions**, not the
+  library. Three of three depthwise architectures have died; four of four
+  dense-or-grouped have lived. **That is a better-supported guess than the last
+  one and it is still a guess** — it is recorded as a correlation over seven
+  runs, with no mechanism established. The kill is **host RAM**, not CUDA, and
+  shufflenet reached epoch 2 before dying, which points at something that grows
+  over time rather than a single allocation.
+
+- **not retried, per E109's rule.** Three architectures of this shape have now
+  died the same way. A fourth attempt would be the retry that rule exists to
+  prevent. **The route was changed once on evidence; it will not be changed twice
+  on a worse guess.**
+- **and the previous entry's claim is withdrawn, not quietly edited.** It said
+  every timm-routed backbone had host-killed and every torchvision one had
+  worked, four runs, two a side, and called it a candidate mechanism. The fifth
+  run killed it. The swap it justified — `regnety_032.ra_in1k` →
+  `regnet_y_3_2gf` — still produced a working member, so the decision survived
+  its reasoning. **That is luck, and it is recorded as luck.**
+
+**WHAT SHIPS: EIGHT MEMBERS, NOT NINE. The pre-registration asked for three new
+families and two arrived**, so the dose is two thirds of what the brackets were
+written for. The brackets are **not** being widened to compensate — E119 keeps
+≥0.944 / 0.938–0.943 / ≤0.937 exactly as written, and the reduced dose is a
+reason to read a middle-bracket result as *weaker evidence against* family
+diversity than a full-dose middle result would be.
+
+| | v1 members |
+|---|---|
+| banked 0.940 | 6 — five resnet34 + resnet50 |
+| **this submission** | **8** — five resnet34 + resnet50 + **resnext50** + **regnet_y_3_2gf** |
+
+  The resnet50 is restored alongside them, so the comparison against 0.940 is
+  **exactly "+2 new families"** and stays one variable.

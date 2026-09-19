@@ -2601,7 +2601,16 @@ EXTRAS = [
                   "dreaddevelopment/raptor-knee-native384dense"],
         depends=["knee-train-v1pubfull", "knee-train-v1pubfull-s4",
                  "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
-                 "knee-train-v1pubfull-s7"],
+                 "knee-train-v1pubfull-s7",
+                 # E111's resnet50, restored. E064 priced a reseed of this
+                 # lineage at +0.000 and this depth change at +0.002, twice, at
+                 # two different blend weights -- it is the one added member
+                 # whose gain has a mechanism behind it rather than a draw.
+                 "knee-train-v1pubfull-r50",
+                 # E119's two survivors: new backbone FAMILIES, not seeds.
+                 # shufflenet_v2_x1_0 was the third and host-killed at epoch 2.
+                 "knee-train-v1pubfull-rx50",
+                 "knee-train-v1pubfull-regnet"],
         constants={
             "MEMBERS_EXPECTED": 4,
             "ARMS": RAPTOR_ARMS,
@@ -2623,7 +2632,7 @@ EXTRAS = [
             # do anything. The 0.940 stays banked whatever this says -- the board
             # keeps a team's best -- so the revert costs nothing and keeping it
             # would be banking a number the instrument cannot resolve.
-            "V1_MEMBERS": 5,
+            "V1_MEMBERS": 8,
             # BACK TO THE SCALAR, per E116's pre-registration. E116 shipped one
             # weight per finding, derived without touching gold-58 and without
             # touching CoAtNet's predictions -- leakage-free by construction,
@@ -2679,7 +2688,16 @@ EXTRAS = [
                   "dreaddevelopment/raptor-knee-native384dense"],
         depends=["knee-train-v1pubfull", "knee-train-v1pubfull-s4",
                  "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
-                 "knee-train-v1pubfull-s7"],
+                 "knee-train-v1pubfull-s7",
+                 # E111's resnet50, restored. E064 priced a reseed of this
+                 # lineage at +0.000 and this depth change at +0.002, twice, at
+                 # two different blend weights -- it is the one added member
+                 # whose gain has a mechanism behind it rather than a draw.
+                 "knee-train-v1pubfull-r50",
+                 # E119's two survivors: new backbone FAMILIES, not seeds.
+                 # shufflenet_v2_x1_0 was the third and host-killed at epoch 2.
+                 "knee-train-v1pubfull-rx50",
+                 "knee-train-v1pubfull-regnet"],
         constants={
             "MEMBERS_EXPECTED": 4,
             "ARMS": RAPTOR_ARMS,
@@ -2701,7 +2719,7 @@ EXTRAS = [
             # do anything. The 0.940 stays banked whatever this says -- the board
             # keeps a team's best -- so the revert costs nothing and keeping it
             # would be banking a number the instrument cannot resolve.
-            "V1_MEMBERS": 5,
+            "V1_MEMBERS": 8,
             # BACK TO THE SCALAR, per E116's pre-registration. E116 shipped one
             # weight per finding, derived without touching gold-58 and without
             # touching CoAtNet's predictions -- leakage-free by construction,

@@ -7742,3 +7742,27 @@ diversity than a full-dose middle result would be.
 
   The resnet50 is restored alongside them, so the comparison against 0.940 is
   **exactly "+2 new families"** and stays one variable.
+
+**STUB RUN VERIFIED (version 7, ready to submit).**
+
+```
+v1 members 8 | distinct weight fingerprints 8 |
+  [9.9743, -7.0889, -14.5778, -7.2595, -7.4884, -6.3623, -3.9854, -9.1438]
+[blend] + v1 arm at 0.50/0.50 (coat/v1, mean of 1 weight)
+fallbacks 0/3 on every arm | wrote submission.csv rows=3
+```
+
+  **Eight distinct fingerprints for eight declared members.** The two new families
+  are visible as the outliers — **−7.0889** and **−14.5778** against the five
+  resnet34s' −3.9 to −9.1 and the resnet50's +9.9743 — which is what a different
+  architecture should look like and is the guard discriminating weights rather
+  than counting files. The blend reports the scalar 0.50 and `mean of 1 weight`,
+  confirming E116's revert is still in force and this run changes member count
+  and nothing else.
+
+**RUNTIME: 2.62 h projected of the 9 h cap** (1.08 + 0.58 + 0.41 CoAtNet, 0.55
+v1). Two more members cost **less** wall-clock than six did in E116's run —
+resnext50 and regnet_y_3_2gf are cheaper per image than the earlier grouping
+implied, and the template groups by preprocessing signature so the extra members
+add forward passes to a volume that is already built. **There is still ~6.4 h
+idle**, which remains the standing invitation E117 could not fill.

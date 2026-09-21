@@ -1,173 +1,129 @@
-# Research brief: RSNA Knee Abnormality Detection — how to get from 0.940 to 0.945+
+# RSNA Knee Abnormality Detection — research brief
 
-**Paste this whole file into Claude Research.** It is a self-contained statement
-of a Kaggle competition, what has been tried, what was measured, and the specific
-questions worth researching. Everything below is measured unless flagged.
+**Written 2026-09-21. Everything here is measured in this project unless marked
+as someone else's self-report. Numbers have dates because several decay.**
 
----
-
-## The ask
-
-We are at **0.940** public LB, rank **688 / 3,839**. We want **0.945+**, which is
-rank ~86, the top 2.2%. **We need +0.005 and have exhausted every route we could
-think of.** Tell us what we are missing — ideally from published literature or
-from what winning solutions in comparable medical-imaging competitions actually
-do.
-
-**We are not looking for a list of standard ideas.** Sections 4 and 5 list what
-we already tried and the number it returned. Please read those before answering,
-and say explicitly if you are re-proposing something we closed and why you think
-our test was wrong.
+We are stuck at **0.940** and our last attempt scored **0.921 / 0.923**. We want
+ideas that survive the constraints in §4 — not a list of standard Kaggle advice,
+most of which we have already measured and closed (§3).
 
 ---
 
-## 1. The competition
+## 1. The task and the numbers
 
-- **Task**: 12 binary findings per knee MRI study (ACL, MCL, Medial/Lateral
-  Meniscus, Medial/Lateral/PF OA, Effusion, Synovitis, Baker's cyst, Contusion,
-  Fracture).
-- **Metric**: **macro ROC-AUC over the 12 findings.** Threshold-free, so
-  calibration is a no-op. Every finding is weighted equally, which matters: our
-  weakest (Synovitis 0.809) has far more headroom than our strongest (Effusion
-  0.984).
-- **Data**: 4,407 training studies, each with multiple DICOM series across
-  sagittal / coronal / axial planes. Hidden test ~1,300 studies.
-- **Labels**: the training set ships **radiology report text**, not per-finding
-  labels. Only **58 studies** carry expert per-finding labels. Everyone in the
-  field derives training labels by LLM-parsing the reports. **No report text
-  exists at test time.**
-- **Format**: notebook-only code competition, 9h runtime cap, 5 submissions/day,
-  ends 2026-10-22.
+- RSNA knee MRI, **12 binary findings**, metric **macro ROC-AUC** (threshold-free).
+- **Code competition**: notebook-only submission, hidden test ~1,300 studies,
+  9 h runtime cap, no internet at inference, 5 submissions/day.
+- **Our board: 0.940.** Top of board **0.957**. ~3,800 teams.
+- Public forks of the public baseline cluster at **0.936–0.939**, so our
+  independently built system is roughly at the level of the free public notebook.
+- **The wall**: ~837 teams at ≥0.938, ~706 at ≥0.940, but only **81 at ≥0.945**.
+  The cliff is around 0.943.
 
-## 2. The leaderboard shape — this is the important context
+## 2. What we ship
 
-```
-score    teams at or above
-0.957      1      (top)
-0.950     38
-0.945     86     <- our target, top 2.2%
-0.943    134
-0.941    616     <- a cliff: 482 teams between 0.941 and 0.943
-0.940    792
-0.938    924
-```
+A rank-mean blend of two arms, 50/50:
 
-**There is a wall at ~0.941 and a cliff at ~0.943.** Roughly 600 teams sit within
-0.003 of us. The public-notebook fork crowd lands at 0.936–0.941. **Whatever the
-top 134 teams are doing is qualitatively different, and we cannot see it.**
+| arm | what it is | board alone |
+|---|---|---:|
+| CoAtNet | 4 arms from **3 distinct public CC0 checkpoints** (`coatnet_rmlp_2_rw_384`), at the authors' published weights 0.55/0.20/0.15/0.10, 336–384 px, 44–64 slices | **0.932** |
+| v1 (ours) | full-fit 2.5D resnet34s, 3 planes × 20 slices at 192 px / 0.6 mm, per-finding attention pooling | **0.926** |
 
-That is the central question: **what separates 0.943+ from the 0.941 plateau in a
-competition of this shape?**
+Blended: **0.940**. The blend gain (+0.008) comes from **disagreement**: the two
+arms correlate **0.542**, while the four CoAtNet arms correlate 0.905–0.986 with
+each other.
 
-## 3. Our current system (0.940)
+## 3. THE ANOMALY WE MOST WANT EXPLAINED
 
-A rank-mean blend, 50/50, of two halves:
+We added two new v1 members from new backbone families (`resnext50_32x4d`,
+`regnet_y_3_2gf`) to the five resnet34s and one resnet50, giving **8 v1 members**,
+changing nothing else. The board returned **0.921 and 0.923**.
 
-**Half A — four CoAtNet arms (0.932 alone).** Public CC0 checkpoints from another
-competitor (`coatnet_rmlp_2_rw_384`), run at their published geometry: a fixed
-slot layout over plane/fluid-sensitivity combinations, 336–384px, a 140mm
-physical crop, ~62 three-slice windows per study, attention-pooled per finding.
-Four arms from three checkpoints at published weights 0.55 / 0.20 / 0.15 / 0.10.
+**That is below BOTH constituent arms** (v1 alone 0.926, CoAtNet alone 0.932).
+A rank-mean blend of two arms scoring below the worse of them is not "weak new
+members" — it is the signature of something broken. **−0.017 against a ±0.003
+reseed floor.**
 
-**Half B — six full-fit resnet34/50 (0.926 alone).** Our own 2.5D model: 3 planes
-× 20 slices at 192px / 0.6mm, a 2D backbone over slices, attention-pooled to a
-study, 12 heads. Trained on LLM-parsed report labels.
+Facts around it, all verified in the stub log:
+- `v1 members 8 | distinct weight fingerprints 8` — eight distinct checkpoints
+  actually loaded, not one file counted eight times.
+- `fallbacks 0/3` on every arm; `submission.csv rows=3`; runtime 2.62 h of 9 h.
+- The v1 arm rank-averages its members **uniformly**, then the two arms are
+  rank-meaned 50/50.
+- The two new members trained to completion, export at epoch 20, loss decreasing
+  monotonically. Their training AUCs are **memorisation** (full fit on all 4,407
+  studies including our 58 expert-labelled ones), so they carry no information
+  about generalisation.
+- **Open question we cannot resolve from the API**: the two low submissions carry
+  **no version description**, while our 0.940 reads `Notebook
+  knee-infer-raptorv1 | Version 6`. We are not certain the 8-member version is
+  what was scored.
 
-**Measured on our 58 expert studies:** CoAtNet half 0.9223, our half 0.8980,
-blend 0.9254. Cross-architecture rank correlation **0.793**.
+**Questions we want answered**: what mechanism makes a uniform rank-average of 8
+members score below the same arm with 6? Is uniform member averaging the wrong
+aggregation once members differ in quality? Should a member be weighted by
+anything measurable when we have no honest validation set for full-fit models?
 
-## 4. What we measured about our own instruments (read this before proposing evaluation)
+## 4. THE CONSTRAINT THAT KILLS MOST ADVICE: we have no trustworthy validation
 
-This is the part we would most like challenged, because it constrains everything.
+This is the crux. Three instruments, each defective:
 
-- **58 expert studies** is our only honest offline instrument. Paired CI on a
-  blend difference is **±0.006 at best**; absolute CI is ±0.0153. It cannot fit
-  parameters.
-- **Report labels on 4,349 non-gold studies** — 75× the sample — are
-  **anti-informative across architectures**: asked to weight our arm against the
-  CoAtNet arm, the optimum was to **delete our arm**, the one worth +0.006 on the
-  board. Its per-finding preferences correlate **+0.052** with what the expert
-  labels want. *Mechanism*: the public models were themselves trained toward
-  LLM-parsed report labels, so scoring them on report labels rewards agreement
-  with what they were fitted to, and our arm earns its gain exactly where it
-  departs from that consensus.
-- **The same report labels ARE usable within one checkpoint family** (+0.800
-  agreement) — the bias is common-mode between two inference geometries of the
-  same weights.
-- **The board's own floor is ±0.003**, established by a pure reseed (same
-  config, different RNG: 0.926 → 0.923 / 0.921).
-- **Gold→board transfer ≈ 1.6–2.0×** for *adding a member* to a blend, and
-  **does not apply to re-mixing members already present** (predicted 0.941 for a
-  weight change; board printed 0.938).
+| instrument | size | defect |
+|---|---:|---|
+| gold-58 (expert labels) | 58 | ±0.0153 absolute, ±0.006 paired. Cannot fit 12 parameters. Fitting anything on it and reporting on it is circular — this destroyed one of our experiments. |
+| report labels | 4,349 | **The CoAtNet checkpoints were trained on these studies**, so their predictions here are in-sample. Anything fitted against this arbiter reads memorisation. |
+| the board | ~1,300 | ±0.003 reseed floor, 5/day. The only honest judge, and low-resolution. |
 
-**Question for you: is there a better offline instrument we are missing?** With
-58 expert labels and 4,349 noisy proxy labels, is there a published approach to
-model selection that we should be using — noisy-label-aware validation, some form
-of agreement-based ranking, anything?
+**Our full-fit members train on all 58 gold studies, so they cannot be scored
+offline at all.** Any proposal requiring a validation signal must say which of
+these three it uses and why that one is not fatal.
 
-## 5. What we tried and what it returned — please do not re-propose without cause
+## 5. CLOSED ON MEASUREMENT — please do not propose these
 
 | route | result |
 |---|---|
-| Other public/foreign models (5 systems) | all score **0.79–0.86** on our 58 vs our CoAtNet's 0.92; every blend declines monotonically from weight 0 |
-| The field's most-mounted CC0 asset (20× DINOv2-small) | its own published predictions read **0.840**; blending measured negative |
-| RadImageNet arm | 0.8576, same dead band |
-| Public LLM label sets (3 surveyed) | none beats the one we use; training on a different 4,349-study set: **not separated** |
-| Test-time augmentation (12 variants) | 10 of 12 correlate **>0.98** with their parent; negative on top of the shipped blend |
-| Per-finding blend weights | oracle headroom is **+0.0076** and **provably unreachable** — 58 studies can't fit 12 params, and the larger arbiter is anti-correlated |
-| Blend mixing weight 0.5 → 0.4 | **0.938 both ways**, identical to 3 decimals |
-| Narrower inference crop | looked like **+0.0055** on 58 studies; on 4,349 it is **−0.0068**. Opposite sign |
-| Re-fitting the CoAtNet arm weights off-gold | +0.0024 on held-out, below our bar |
-| A 6th ensemble member (resnet50) | 0.938 → **0.940**, i.e. **+0.002, inside the ±0.003 floor** |
+| Higher resolution (288 px/0.40 mm vs 192 px/0.60) | **−0.088** on 881 held-out studies, same fold/teacher. Worse with a *better* teacher, which kills the "label noise punished capacity" explanation. |
+| Per-finding blend weights | Derived leakage-free, +0.0023 on held-out gold, P(better) 0.897 → board returned **exactly the same 0.940**. |
+| Blend mixing weight (coat vs v1) | 0.40 vs 0.50 → **0.938 both times**. Inert. |
+| Re-mixing the 4 CoAtNet arm weights | closed |
+| 6 more public CC0 checkpoints from the same author | All scored **below** every incumbent on gold-58 (0.906→0.884 vs 0.912–0.920). Both parameter-free weightings **lost**. |
+| TTA (slice reversal, span jitter) | closed |
+| Public label sets | Three of four newer sets were literal answer keys (gold macro 1.0000). Ours is the best admissible. |
+| Synovitis specifically | **Label ceiling**: our labels score 0.790 on it, our model 0.779. Control: fracture labels 0.793, model 0.885. |
+| A second seed of an existing member | **+0.000** on the board |
+| AutoML / hyperparameter search | Rejected on §4: no trustworthy signal to search against. |
 
-**One live sub-finding**: the `maxspan-v5-reverse` arm correlates **0.986** with
-its own parent and an independent fit drives its weight from 0.15 to **0.021**.
-Upstream's blend carries a member that contributes ~nothing.
+**What HAS moved the board**: adding *members* — resnet34→resnet50 (a depth
+change) gave **+0.002**, reproduced at two different blend weights. And mounting
+the public CoAtNet checkpoints at all (0.926 → 0.932 → 0.938).
 
-## 6. Constraints
+## 6. Operational facts that bound any proposal
 
-- ~30 GPU-h/week on 2× T4 (16GB), currently spent. 9h cap per run.
-- Submissions are free and the board keeps our best, so **anything with an
-  argument behind it can just be tested**.
-- Licensing: CC0 and Apache assets only. One key asset (a DINOv3 repro set) has
-  **no licence grant** and is excluded. RadImageNet is CC-BY-NC-SA; ShareAlike
-  doesn't bite for inference-only use, but NonCommercial is a live question for a
-  prize competition.
-- We will not fit parameters on the 58 expert studies. We have declined this
-  seven times and been right each time.
+- **~30 GPU-h/week** on 2×T4 (16 GB). One resnet34 full fit ≈ 1.5 h; resnet50 ≈
+  3.5 h. **20.3 h left this week.**
+- **Inference budget is NOT the constraint**: we use 2.62 h of a 9 h cap. ~6.4 h
+  idle. Anything that spends inference rather than training is cheap for us.
+- **Three depthwise-separable architectures have host-OOM-killed** at our
+  geometry (`convnext_tiny`, `tf_efficientnet_b0`, `shufflenet_v2_x1_0`), while
+  four dense/grouped ones trained fine (resnet34/50, resnext50, regnet_y_3_2gf).
+  Correlation over seven runs, **no mechanism established**. Host RAM, not CUDA.
+- Everything mounted must be **CC0 or otherwise licence-clear**; we audit this.
+- Final submission **2026-10-22**.
 
-## 7. The specific questions
+## 7. What we are asking for
 
-1. **What do teams at 0.943–0.957 plausibly have that a 0.941 plateau team does
-   not**, in a competition with report-derived labels and a tiny expert set?
-   Is the gap architecture, label quality, ensembling scale, or something
-   structural we have not considered?
-2. **Label quality is our largest measured lever** (+0.107 from switching label
-   sets, and the strongest public write-up says the same: "better labels > bigger
-   models"). Is there published work on extracting better structured labels from
-   free-text radiology reports than a single-pass LLM — multi-pass, ensemble
-   labellers, uncertainty-aware labelling, VisualCheXbert-style
-   image-conditioned relabelling?
-3. **Macro-AUC with 12 unequal findings**: is there published work on optimising
-   *macro* AUC specifically — per-class loss weighting, AUC-margin losses,
-   class-balanced sampling — that reliably beats plain BCE on the weak classes?
-4. **Our weak findings are Synovitis (0.809), Lateral OA (0.845), PF OA (0.842).**
-   Is there anatomical/MRI-sequence knowledge that says these need a specific
-   plane, sequence, or resolution we may be discarding? Our 2.5D model pools
-   3 planes × 20 slices at 192px, which may be too coarse for subtle findings.
-5. **Ensembling**: we have 2 strong arms at correlation 0.793. Published 0.937
-   systems use 4 arms / 39 models. Is there evidence on how many decorrelated
-   arms it takes to move macro AUC by 0.005 at this level, and whether the
-   returns are worth the compute?
-6. **Is there anything about MRI-specific preprocessing** — intensity
-   normalisation across scanners, bias-field correction, sequence-aware
-   handling, registration — that medical-imaging competition winners routinely do
-   and we are not?
+1. **A mechanism for §3.** Why would 8 uniformly-averaged members underperform 6?
+2. **Aggregation alternatives** to uniform rank-mean that need no fitted
+   parameters and no validation set — we can only afford rules that are arguments
+   rather than knobs.
+3. **Anything that converts our ~6.4 idle inference hours into score**, given
+   that more public checkpoints are closed (§5).
+4. **How teams reach 0.957** on this task — specifically what the top of a
+   12-label MRI leaderboard typically does that a 2-arm blend does not.
+5. Honest assessment of whether **0.945 is reachable at all** from 0.940 with
+   ~20 GPU-h/week and one month, or whether the remaining gap is compute.
 
-## 8. What a useful answer looks like
-
-Concrete, cited where possible, and honest about effect sizes. We have a
-disciplined measurement setup and will test what you propose properly — so a
-ranked list of 3–5 mechanisms with expected magnitude and cost beats twenty
-generic suggestions. **If your honest read is that 0.945 requires compute or data
-we do not have, say that.**
+Please distinguish clearly between (a) things that need a validation set we do
+not have, (b) things testable directly on the board at 5 clicks/day, and (c)
+things testable offline on 58 studies without circularity. Only (b) and (c) are
+actionable for us.

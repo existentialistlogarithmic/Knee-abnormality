@@ -7766,3 +7766,42 @@ resnext50 and regnet_y_3_2gf are cheaper per image than the earlier grouping
 implied, and the template groups by preprocessing signature so the extra members
 add forward passes to a volume that is already built. **There is still ~6.4 h
 idle**, which remains the standing invitation E117 could not fill.
+
+**RESULT (2026-09-21). BOARD 0.921 AND 0.923, AGAINST A BANKED 0.940.**
+That is **−0.017**, more than five times the ±0.003 reseed floor. E119's
+pre-registered bracket for ≤0.937 was *"the new families are too far behind and
+E048's comparability rule has caught us again"*, and that bracket is hereby
+honoured — **the two new members are out of the shipped blend.**
+
+**BUT THE MAGNITUDE SAYS SOMETHING STRONGER THAN "TOO FAR BEHIND", and it should
+not be filed as a simple negative.** The blend scored **below both of its own
+arms**: the v1 half alone is 0.926 on the board and the CoAtNet half alone is
+0.932. **A rank-mean of two arms landing under the worse of them is not weak
+members — it is the signature of something broken.** E048's rule describes a
+union that *gains less*; it does not describe one that falls 0.005 under its own
+weakest component.
+
+**WHAT THE STUB LOG RULES OUT.** Eight distinct weight fingerprints for eight
+declared members, so no file was counted twice and no member silently failed to
+mount. Zero fallbacks on every arm. `rows=3` written. Runtime 2.62 h of 9 h. The
+blend line reported the scalar 0.50 and `mean of 1 weight`, so E116's revert held
+and member count was the only thing that changed.
+
+**WHAT IT DOES NOT RULE OUT, and this is now the live question.** The v1 arm
+rank-averages its members **uniformly**. Six members produced 0.940; eight
+produced ~0.922. If two members are near-useless, uniform averaging over eight
+gives them 25% of the arm — which is a mechanism for real damage, and an argument
+that **uniform member averaging is wrong once members stop being interchangeable
+seeds**. E064 justified uniform weights with *"these differ only by seed"*. **That
+premise stopped being true the moment we added families.**
+
+- **AN UNCERTAINTY THAT MUST BE RESOLVED BEFORE ANYTHING IS CONCLUDED.** Both low
+  submissions carry **no version description**, while the 0.940 reads `Notebook
+  knee-infer-raptorv1 | Version 6`. Two submissions landed **12 seconds apart**
+  and scored differently (0.921, 0.923), which cannot happen twice from one
+  deterministic version. **We do not actually know that the eight-member Version 7
+  is what was scored.** Until that is confirmed, this entry's conclusion is
+  provisional and the −0.017 may be about a configuration nobody intended to test.
+- **the pre-registration is applied anyway**, because that is what pre-registration
+  means: the bracket was written before the number and the number landed in it.
+  Reverting costs nothing — 0.940 is banked and the board keeps a team's best.

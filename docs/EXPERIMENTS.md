@@ -7805,3 +7805,62 @@ premise stopped being true the moment we added families.**
 - **the pre-registration is applied anyway**, because that is what pre-registration
   means: the bracket was written before the number and the number landed in it.
   Reverting costs nothing — 0.940 is banked and the board keeps a team's best.
+
+### E120 — an external review says the E119 drop is structural, and the memorisation check that localises it
+- **date**: 2026-09-21. ~0.5 GPU-h, no submission.
+
+**THE REVIEW'S CENTRAL CLAIM, and it is arithmetic rather than opinion.** A
+simulation calibrated to our four measurements (0.926 / 0.932 / 0.940 / ρ 0.542)
+was broken in different ways:
+
+| fault | blend cost |
+|---|---:|
+| both new members pure noise | −0.001 |
+| both new members' rows misaligned | −0.002 |
+| **both new members perfectly inverted** | **−0.003** |
+| v1 arm falling back to a constant on 40% of studies | **−0.019** |
+| v1 arm dropped entirely | −0.009 (0.931, CoAtNet alone) |
+
+  **At 1/8 weight each, two members cannot produce −0.017 even if they are
+  adversarially wrong.** The drop requires the **whole v1 arm** to have fallen to
+  roughly 0.80–0.85. And note the third line against the fourth: **partial
+  failure is worse than total failure**, because constant rows rank mid-pack
+  regardless of what the other arm says.
+
+**AND IT DISMANTLES OUR STUB EVIDENCE, correctly.** We treated three clean rows
+as reassurance. They are not:
+
+- at a 40% per-study failure rate, **`fallbacks 0/3` still appears 22% of the
+  time**;
+- sort- and gather-order bugs frequently do not surface on three IDs;
+- **"8 distinct fingerprints" proves eight FILES were read**, not that each
+  file's weights reached its network. A partial `state_dict` load still yields
+  distinct fingerprints.
+
+**THE TEST THAT NEEDS NO VALIDATION SET, because it exploits memorisation.**
+Every v1 member is a full fit over all 4,407 studies **including all 58 gold**.
+Each has therefore *seen* every study it would be scored on. Through a correct
+inference path each must return **~0.99 macro AUC on the 58**. Normally that
+memorisation is the reason gold is useless for a full fit; **here it is exactly
+what makes the instrument sharp**. A model cannot fail to recognise data it
+memorised unless something between the checkpoint and the forward pass is wrong.
+
+  `knee-gold-v1integrity` (kernel 102) runs all eight members on the 58 and
+  `gold_probs.csv` carries **one row per member per study**. **The five resnet34s
+  and the resnet50 are the control**: they shipped inside the 0.940 blend, so if
+  *they* fail to memorise, the fault is in shared code and has nothing to do with
+  the two new members.
+
+**TWO CORRECTIONS TO OUR OWN BRIEF, both of which change how we read the board.**
+- **The public leaderboard is ~30% of the test — about 390 studies, not 1,300.**
+  Every "±0.003 floor" statement in this log was reasoned against the wrong
+  denominator. The ~900 remaining studies decide the final standing.
+- **Public notebooks now show 0.941–0.942, above our 0.940** — though a widely
+  forked base openly warns it is likely overfit to the public split.
+
+- **the aggregation hypothesis in the previous entry is withdrawn.** We guessed
+  uniform member averaging had become wrong once members stopped being seeds. The
+  simulation prices two useless members at −0.001, and our own board history
+  agrees: mixing weight inert, per-finding weights inert, a second seed +0.000.
+  **Estimated weights lose to equal ones unless quality differences are large and
+  well measured**, which is the forecast-combination result. Uniform was right.

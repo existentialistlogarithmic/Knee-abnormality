@@ -2591,6 +2591,75 @@ EXTRAS = [
     # so this is marginal by construction. E042 found the same shape at the same
     # w=0.3 against a different partner and never got to submit it.
     Kernel(
+        slug="knee-gold-v1integrity",
+        directory="102_gold_v1integrity",
+        template="raptor_infer",
+        gpu=True,
+        internet=False,
+        datasets=["dreaddevelopment/raptor-knee-maxspan",
+                  "dreaddevelopment/raptor-knee-native384",
+                  "dreaddevelopment/raptor-knee-native384dense"],
+        depends=["knee-train-v1pubfull", "knee-train-v1pubfull-s4",
+                 "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
+                 "knee-train-v1pubfull-s7", "knee-train-v1pubfull-r50",
+                 "knee-train-v1pubfull-rx50", "knee-train-v1pubfull-regnet"],
+        constants={
+            "MEMBERS_EXPECTED": 4,
+            "ARMS": RAPTOR_ARMS,
+            "CROP_MM": 140.0,
+            "LAB": RAPTOR_LAB,
+            "FALLBACK_LIMIT": 0.02,
+            "DECODE_AHEAD": 32,
+            "EVAL_SPLIT": "gold",
+            "GOLD_EXPECTED": 58,
+            "V1_MEMBERS": 8,
+            "V1_BLEND_W": 0.50,
+            "V1_BATCH_STUDIES": V1.infer_batch,
+            "V1_SLICE_SUBSAMPLE": None,
+            "V1_INPUT_NORM": False,
+            "CHECKPOINT_GLOB": "checkpoint_fold*.pt",
+            "SKIP_DIRECTORIES": Raw('{"train_series", "test_series"}'),
+            **V1.constants(),
+            "PLANES": ("Sagittal", "Coronal", "Axial"),
+        },
+        note="NOT A SUBMISSION. E120's INTEGRITY CHECK, and it needs no\n"
+             "validation set because it exploits MEMORISATION.\n"
+             "\n"
+             "Every v1 member is a FULL FIT trained on all 4,407 studies,\n"
+             "including all 58 gold. Each one has therefore SEEN every study\n"
+             "it is scored on here. Run through a correct inference path each\n"
+             "must come back at ~0.99 macro AUC on the 58. That is normally\n"
+             "the reason gold is unusable for a full fit; here it is exactly\n"
+             "what makes the test sharp.\n"
+             "\n"
+             "ANY MEMBER WELL SHORT OF ~0.99 HAS A LOAD OR MAPPING FAULT,\n"
+             "not a quality problem. A model cannot fail to recognise data it\n"
+             "memorised unless something between the checkpoint and the\n"
+             "forward pass is wrong - a partial state_dict, a backbone\n"
+             "rebuilt with different feature widths, a normalisation flag\n"
+             "that differs from training, or rows joined by position.\n"
+             "\n"
+             "WHY THIS RUN EXISTS. E119 shipped eight members and the board\n"
+             "returned 0.921/0.923 against six members' 0.940 - BELOW BOTH\n"
+             "arms alone (v1 0.926, CoAtNet 0.932). A rank-mean under its own\n"
+             "weakest component is breakage, not a weak union, and nothing\n"
+             "confined to two members at 1/8 weight can move a blend that far.\n"
+             "The stub could not see it: at a 40% per-study failure rate,\n"
+             "`fallbacks 0/3` still appears 22% of the time, and eight\n"
+             "distinct fingerprints prove eight FILES were read, not that\n"
+             "each file's weights reached its network.\n"
+             "\n"
+             "WHAT TO READ: gold_probs.csv carries one row per member per\n"
+             "study. Score each member separately. The five resnet34s and the\n"
+             "resnet50 are the CONTROL - they shipped in the 0.940 blend, so\n"
+             "if they do not memorise either, the fault is in shared code and\n"
+             "not in the two new members at all.\n"
+             "\n"
+             "Writes no submission.csv: these 58 are training data.\n"
+             "\n"
+             "ATTRIBUTION: as `knee-infer-raptorv1`.",
+    ),
+    Kernel(
         slug="knee-gold-raptorv1",
         directory="85_gold_raptorv1",
         template="raptor_infer",

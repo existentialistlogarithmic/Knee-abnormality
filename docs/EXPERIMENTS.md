@@ -7864,3 +7864,45 @@ memorised unless something between the checkpoint and the forward pass is wrong.
   agrees: mixing weight inert, per-finding weights inert, a second seed +0.000.
   **Estimated weights lose to equal ones unless quality differences are large and
   well measured**, which is the forecast-combination result. Uniform was right.
+
+**RESULT: ALL EIGHT MEMBERS MEMORISE. THE LOAD PATH IS CLEAN AND THE TWO NEW
+MEMBERS ARE EXONERATED.**
+
+| member | gold macro | role |
+|---|---:|---|
+| `v1pubfull` | 0.9979 | control |
+| `s4`, `s5`, `s6`, `s7` | 0.9928–0.9964 | control |
+| `r50` | **1.0000** | control |
+| **`rx50`** | **0.9998** | E119 |
+| **`regnet`** | **1.0000** | E119 |
+
+  The four CoAtNet arms returned 0.9116–0.9198, their expected values — they are
+  not full fits on gold and were never supposed to memorise.
+
+**WHAT THIS RULES OUT, and it is most of the hypothesis space.** No partial
+`state_dict`. No backbone rebuilt at the wrong feature width. No normalisation
+flag differing from training. No rows joined by position **on this path**. A
+model cannot score 1.0000 on 58 studies it memorised if anything between the
+checkpoint and the forward pass is wrong — and `regnet`, one of the two members
+we unmounted as suspects, is the one that scored exactly 1.0000.
+
+**WHAT IT DOES NOT TOUCH, which is now the whole remaining space.** This ran
+`EVAL_SPLIT="gold"`. **The submission ran `EVAL_SPLIT="test"`** — a different
+study list, a different series lookup, and a different join. The review's first
+protocol item targets exactly that gap and this run does not close it.
+
+**AND THE UNRESOLVED SUBMISSION IDENTITY IS NOW THE LEADING CANDIDATE.** Both low
+scores carry **no version description** where our 0.940 reads `Notebook
+knee-infer-raptorv1 | Version 6`, and **two landed 12 seconds apart scoring
+0.921 and 0.923**. An inference-only rerun of one deterministic version cannot
+produce two different numbers. Combined with this run clearing the members, the
+most economical explanation is no longer "the eight-member blend is broken" but
+**"something other than the eight-member blend was scored"**.
+
+- **the revert stands anyway.** It was pre-registered at ≤0.937 and the number
+  landed there. Restoring the members now, on evidence gathered after the fact,
+  would be renegotiating a pre-registration — the precise failure E107 and E111
+  were reverted to avoid. **They go back only after the drop is explained**, and
+  then as a fresh test.
+- **next, in the review's order**: the label-free replay across `EVAL_SPLIT`
+  paths, which is the only remaining place a fault of this size can hide.

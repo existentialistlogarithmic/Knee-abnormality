@@ -7968,3 +7968,46 @@ rank, and this is the first candidate where the two can be told apart.
   E107's boundary says the gold→board transfer factor applies to *adding a
   member*, which this is — but the factor itself is shaky and the board is the
   only judge.
+
+**THE FIX IS BUILDABLE, AND THE GATE PASSES EXACTLY.** Before designing anything
+into the template, the same check that caught the ConvNeXt risk in E117 and the
+regnet routing bug in E119:
+
+```
+state tensors 494 | elements 73,450,105   their EXPECTED_STATE_ELEMENTS 73,450,105
+model params            73,420,000        their EXPECTED_PARAMETERS     73,420,000
+LOADS strict=True
+```
+
+  **Every tensor resolves and both counts match their declarations to the digit.**
+  And their package declares `EXPECTED_T4_GOLD_RANK_ENSEMBLE_AUC =
+  0.9093268412428666`; our independent recomputation against our own
+  `gold_truth.csv` returned **0.90933**. Two independent implementations agreeing
+  to seven figures is what licenses treating their numbers as ours.
+
+**THE DEPENDENCY CHAIN, found by importing rather than by reading.** The
+architecture imports through four more of the author's modules:
+`coatnet_residual_gated_k32` → `coatnet_q2l_bagmatch` → `raptor_k6_surgical`,
+plus `raptor_light224`, `raptor_light_inference`, `smart_crop224`,
+`triplet_physical_crop`, `cnx_dicom_geometry`. **All eight ship inside the same
+CC0 dataset**, so mounting it and putting it on `sys.path` supplies the whole
+chain — no vendoring of foreign source into our generated kernel.
+
+**WHY IT CANNOT REUSE OUR VOLUMES, which is the real cost.** Their geometry
+contract declares **six** slot budgets `(20, 12, 12, 8, 16, 8)` and a **variable**
+48–76 windows per study, against our fixed five slots and `k_eval` 62. It needs
+its own preprocessing pass over the test studies — their `cnx_dicom_geometry`
+reads DICOM directly. Reported ~1 h on 2×T4, against our **~6.4 h idle** under
+the 9 h cap.
+
+**AND IT CANNOT BE A SEPARATE KERNEL.** E085's guard applies: a mounted kernel
+supplies its **last saved output**, frozen at the 3-study visible run, so a
+CSV-chained blend would submit three rows. **The third arm has to run inside
+kernel 86**, as a gated region with its own model loader and its own windowing.
+
+- **what ships if this works**: three pipelines, one vote each — our CoAtNet
+  composite, our v1 arm, and the residual-gated arm — rather than the current
+  two at 50/50.
+- **still unexplained, and still owed**: the E119 −0.017. This work does not
+  touch it, and the assertion build remains the way to get one bit about the
+  hidden set that the stub cannot give.

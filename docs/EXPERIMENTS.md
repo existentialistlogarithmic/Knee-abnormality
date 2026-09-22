@@ -8056,3 +8056,49 @@ only the click it never got.
 - **the process fix**: a submission whose description does not name our kernel and
   version is **not evidence about our kernel**. Two board readings and four days of
   investigation were spent before anyone checked that.
+
+**STUB VERIFIED (kernel 103, version 3) — THE THIRD PIPELINE RUNS END TO END.**
+
+```
+v1 members 8 | distinct weight fingerprints 8
+fallbacks 0/3 on all four CoAtNet arms and the v1 arm
+[resgated] VALID_COAT_RESGATED_EP10_TOP3_RANK_SUBMISSION
+[resgated] third pipeline at 1/3, prior blend at 2/3
+wrote submission.csv  rows=3
+```
+
+**TWO BUGS WERE CAUGHT BY RUNNING IT, and both would have been invisible on the
+board.**
+
+- **discovery.** `/kaggle/input` is **nested** — `competitions/<slug>`,
+  `datasets/<owner>/<name>`, `notebooks/<owner>/<name>` — so a one-level
+  `glob("*")` returns those three directory names and finds nothing. The template
+  already carried `find_all_markers`, a depth-bounded search whose own comment
+  records that both mount shapes "were discovered the expensive way, by a failed
+  kernel run". **A new glob was written instead of reusing it**, and it cost the
+  same run a third time.
+- **the vote, and this one was worse.** The first version rank-meaned the new arm
+  **50/50 with `ranks`** — which by then already carries the CoAtNet and v1
+  pipelines. That is **0.25 / 0.25 / 0.50**: the newcomer taking half the vote
+  while two incumbents split the rest. The comment claimed one vote per pipeline
+  and the log printed `1/2`, **true of the code and false of the intent**. It
+  would have shipped a blend nobody designed and no number would have looked
+  wrong. Now the prior blend is weighted by how many pipelines it carries, giving
+  **1/3 each**, verified by regressing the mixed ranks back onto the three
+  components: `[0.3333, 0.3333, 0.3333]`.
+  **And the assumption underneath is now guarded**: one vote each holds only
+  while the coat/v1 blend is equal-weighted, so a `V1_BLEND_W` other than 0.5
+  raises rather than silently falsifying the claim.
+
+**RUNTIME: ~3.7 h of the 9 h cap** — 1.11 + 0.56 + 0.40 CoAtNet, 0.58 v1, plus
+their reported ~1 h.
+
+**PRE-REGISTERED against the banked 0.940**, board unseen, and this is a test of
+the third pipeline **only** if Version 7 is read alongside it, because kernel 103
+also carries E119's two extra members:
+
+| board | reading |
+|---|---|
+| **≥ 0.943** | the different-author pipeline pays and the +0.0064 on gold transferred |
+| 0.938–0.942 | inside the floor; the offline gain did not survive ~390 public studies |
+| **≤ 0.937** | it dilutes, and E048's band is about correlation rather than rank after all |

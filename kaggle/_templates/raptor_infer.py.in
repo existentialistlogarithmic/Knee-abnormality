@@ -900,11 +900,18 @@ def main():
     _foreign = []
     _fa_group = {f["name"]: f.get("group", f["name"]) for f in FOREIGN_ARMS}
     for _fa in FOREIGN_ARMS:
-        _hits = find_all_markers(_fa["entry"] + ".py")
+        # PINNED TO ITS OWN DATASET, not to the first directory holding a file
+        # of that name. These packages ship each other's scripts: the d4 dataset
+        # contains FOUR *_inference.py files including global96's, so taking
+        # hits[0] loaded global96's script out of d4's directory -- and it ran,
+        # against d4's artifacts, until a version check happened to catch it.
+        # Nothing about that failure named the real problem.
+        _hits = [d for d in find_all_markers(_fa["entry"] + ".py")
+                 if _fa["dataset"] in str(d)]
         if not _hits:
             raise RuntimeError(
-                f"foreign arm {_fa['name']}: no {_fa['entry']}.py under "
-                f"/kaggle/input; is its dataset mounted?")
+                f"foreign arm {_fa['name']}: no {_fa['entry']}.py inside a "
+                f"directory matching {_fa['dataset']}; is that dataset mounted?")
         _dir = _hits[0]
         _sys.path.insert(0, str(_dir))
         try:

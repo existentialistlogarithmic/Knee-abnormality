@@ -2761,7 +2761,6 @@ EXTRAS = [
                   # E121/E123's foreign pipelines. Both CC0-1.0, both from a
                   # DIFFERENT author than the four CoAtNet arms above.
                   "mattiaangeli/rsna-knee-coat-resgated-ep10-top3",
-                  "mattiaangeli/rsna-knee-coatnet-global96-top3",
                   "mattiaangeli/rsna-knee-coatnet-d4-depthzone-swa3-b2"],
         depends=["knee-train-v1pubfull", "knee-train-v1pubfull-s4",
                  "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
@@ -2788,12 +2787,20 @@ EXTRAS = [
             # drives its run_submission and purges its modules afterwards --
             # both packages ship a `cnx_dicom_geometry.py` and the first import
             # would otherwise win for both.
+            # global96 is DROPPED, and not on a score: its package asserts
+            # timm 1.0.22 and Kaggle serves 1.0.26, so it refuses to load. That
+            # is a constraint, not a choice. Losing it costs 0.0005 on gold-58.
+            #
+            # `dataset` pins each arm to its OWN mount. These packages ship each
+            # other's scripts -- d4's dataset holds four *_inference.py files,
+            # global96's among them -- so matching on filename alone loaded the
+            # wrong script from the wrong directory.
             "FOREIGN_ARMS": (
                 {"name": "resgated", "group": "mattiaangeli",
+                 "dataset": "rsna-knee-coat-resgated-ep10-top3",
                  "entry": "coatnet_resgated_ep10_top3_inference"},
-                {"name": "global96", "group": "mattiaangeli",
-                 "entry": "coatnet_global96_baseline_top3_inference"},
                 {"name": "d4", "group": "mattiaangeli",
+                 "dataset": "rsna-knee-coatnet-d4-depthzone-swa3-b2",
                  "entry": "coatnet_d4_depthzone_swa_inference"},
             ),
             **V1.constants(),

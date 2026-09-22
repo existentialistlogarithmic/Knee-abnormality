@@ -107,7 +107,7 @@ V1_SLICE_SUBSAMPLE  = None
 V1_INPUT_NORM       = False
 CHECKPOINT_GLOB     = "checkpoint_fold*.pt"
 SKIP_DIRECTORIES    = {"train_series", "test_series"}
-FOREIGN_ARMS        = ({'name': 'resgated', 'group': 'mattiaangeli', 'entry': 'coatnet_resgated_ep10_top3_inference'}, {'name': 'global96', 'group': 'mattiaangeli', 'entry': 'coatnet_global96_baseline_top3_inference'}, {'name': 'd4', 'group': 'mattiaangeli', 'entry': 'coatnet_d4_depthzone_swa_inference'})
+FOREIGN_ARMS        = ({'name': 'resgated', 'group': 'mattiaangeli', 'dataset': 'rsna-knee-coat-resgated-ep10-top3', 'entry': 'coatnet_resgated_ep10_top3_inference'}, {'name': 'd4', 'group': 'mattiaangeli', 'dataset': 'rsna-knee-coatnet-d4-depthzone-swa3-b2', 'entry': 'coatnet_d4_depthzone_swa_inference'})
 TARGET_MM_PER_PIXEL = 0.6
 TARGET_SIZE         = 192
 SLICES_PER_PLANE    = 20
@@ -1284,11 +1284,18 @@ def main():
     _foreign = []
     _fa_group = {f["name"]: f.get("group", f["name"]) for f in FOREIGN_ARMS}
     for _fa in FOREIGN_ARMS:
-        _hits = find_all_markers(_fa["entry"] + ".py")
+        # PINNED TO ITS OWN DATASET, not to the first directory holding a file
+        # of that name. These packages ship each other's scripts: the d4 dataset
+        # contains FOUR *_inference.py files including global96's, so taking
+        # hits[0] loaded global96's script out of d4's directory -- and it ran,
+        # against d4's artifacts, until a version check happened to catch it.
+        # Nothing about that failure named the real problem.
+        _hits = [d for d in find_all_markers(_fa["entry"] + ".py")
+                 if _fa["dataset"] in str(d)]
         if not _hits:
             raise RuntimeError(
-                f"foreign arm {_fa['name']}: no {_fa['entry']}.py under "
-                f"/kaggle/input; is its dataset mounted?")
+                f"foreign arm {_fa['name']}: no {_fa['entry']}.py inside a "
+                f"directory matching {_fa['dataset']}; is that dataset mounted?")
         _dir = _hits[0]
         _sys.path.insert(0, str(_dir))
         try:

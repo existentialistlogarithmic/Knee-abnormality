@@ -8216,3 +8216,34 @@ average into a single arm with a single vote — gives **+0.0114**.
 **SHIPPED: THREE PIPELINES AT A THIRD EACH** — our CoAtNet composite, our v1 arm,
 and one foreign arm averaging all three of the author's packages. `FOREIGN_ARMS`
 now carries a `group` key, and members of a group average before voting.
+
+**TWO FAULTS THE STUB CAUGHT, AND ONE OF THEM WAS ALREADY RUNNING SILENTLY.**
+
+- **global96 cannot run here at all.** Its package asserts `timm 1.0.22` and
+  Kaggle serves **1.0.26**: `RuntimeError: timm changed: '1.0.26', expected
+  '1.0.22'`. That is a **constraint, not a choice** — dropping it is not
+  selection. resgated and d4 carry no such pin, and resgated has already run
+  end-to-end here at 1.0.26.
+- **AND THE PACKAGES SHIP EACH OTHER'S SCRIPTS.** The traceback named
+  `/kaggle/input/rsna-knee-coatnet-d4-depthzone-swa3-b2/coatnet_global96_baseline_top3_inference.py`
+  — **global96's script, loaded out of d4's directory.** The d4 dataset holds
+  **four** `*_inference.py` files. `find_all_markers(...)[0]` matched on filename
+  alone and took whichever mount came first, so global96's code ran against d4's
+  artifacts. **It only surfaced because a version assertion happened to fire**;
+  without that pin it would have produced plausible numbers from a mismatched
+  pairing and nothing would have raised. Each arm is now pinned to its **own
+  dataset slug**, not to a filename.
+
+**RECOMPUTED ON WHAT CAN ACTUALLY RUN**, which is not a re-selection — the
+candidate set shrank by a hard constraint:
+
+| | gold macro | vs CoAtNet alone |
+|---|---:|---:|
+| our CoAtNet 4-arm | 0.9223 | — |
+| **+ foreign arm (d4 + resgated), one vote** | **0.9332** | **+0.0109**, CI **[+0.0009, +0.0209]**, P(better) **0.983** |
+| with global96 too (unrunnable) | 0.9337 | +0.0114 |
+
+  **Losing global96 costs 0.0005.** The interval still excludes zero.
+
+**SHIPPED: three pipelines at a third each** — our CoAtNet composite, our v1 arm,
+and one foreign arm averaging d4 and resgated.

@@ -1330,13 +1330,30 @@ def main():
     # CoAtNet composite, our v1 arm and this one each get a third. That is the
     # same argument that makes the existing 50/50 defensible, extended by one.
     _rg_r = rankpct(_rg_p)
-    _pipes = [rankpct(ranks), _rg_r]
-    ranks = sum(_pipes) / len(_pipes)
-    _agree = float(np.mean([np.corrcoef(_pipes[0][:, k], _rg_r[:, k])[0, 1]
+    # ONE VOTE EACH, AND THE ARITHMETIC HAS TO EARN THAT CLAIM. By here `ranks`
+    # is ALREADY a blend of the pipelines above it, so rank-meaning it 50/50
+    # with this arm would give the newcomer half the vote and split the other
+    # half between two incumbents -- 0.25/0.25/0.50, not 1/3 each. The first
+    # version of this block did exactly that and the log dutifully printed
+    # "1/2", which was true of the code and false of the intent.
+    #
+    # So weight the prior blend by HOW MANY pipelines it already carries.
+    _n_prior = 2 if V1_MEMBERS else 1
+    if V1_MEMBERS:
+        # The prior blend is only equal-weighted when V1_BLEND_W is 0.5; at any
+        # other value "one vote each" is not what the arithmetic below produces.
+        _wv = np.asarray(V1_BLEND_W, dtype=np.float64)
+        if not np.allclose(_wv, 0.5):
+            raise RuntimeError(
+                f"the third pipeline assumes the coat/v1 blend is equal-weighted, "
+                f"but V1_BLEND_W is {V1_BLEND_W}. One vote each is then false.")
+    ranks = (_n_prior * rankpct(ranks) + _rg_r) / (_n_prior + 1)
+    _agree = float(np.mean([np.corrcoef(rankpct(ranks)[:, k], _rg_r[:, k])[0, 1]
                             for k in range(len(LAB))])) if len(ids) > 2 else float("nan")
-    print(f"[resgated] third pipeline at 1/{len(_pipes)} | mean rank correlation "
-          f"with the rest {_agree:.3f} (0.872 measured on gold-58; our own "
-          f"CoAtNet arms sit at 0.905-0.986)", flush=True)
+    print(f"[resgated] third pipeline at 1/{_n_prior + 1}, prior blend at "
+          f"{_n_prior}/{_n_prior + 1} | mean rank correlation with the rest "
+          f"{_agree:.3f} (0.872 measured on gold-58, where n=58; our own CoAtNet "
+          f"arms sit at 0.905-0.986)", flush=True)
 
     scores = None
     if EVAL_SPLIT == "trainall":

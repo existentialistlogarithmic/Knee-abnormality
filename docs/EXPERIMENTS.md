@@ -8275,3 +8275,36 @@ duplicates.
 - **three packages surveyed, one usable, and all of it cost zero GPU.** The
   screening mechanism works even when the answer is "no": every rejection here
   came from a version assertion or a licence, not from a run.
+
+**STUB VERIFIED (kernel 103, version 4) — READY TO SUBMIT.**
+
+```
+v1 members 8 | distinct weight fingerprints 8
+fallbacks 0/3 on all four CoAtNet arms and the v1 arm
+[resgated] VALID_COAT_RESGATED_EP10_TOP3_RANK_SUBMISSION
+[blend] 3 pipelines, prior blend at 2/3
+wrote submission.csv  rows=3
+```
+
+  **Runtime: our arms project 2.95 h, theirs adds ~1 h, against the 9 h cap.**
+  The `2/3` confirms the grouping arithmetic — the prior blend carries two
+  pipelines and the foreign arm gets one vote, not half the blend.
+
+**IT TOOK FOUR STUB RUNS, and each one found something the board could not have
+told us apart from a bad score:**
+
+| version | fault |
+|---|---|
+| 1 | one-level `glob` over a **nested** `/kaggle/input` |
+| 1 | the newcomer taking **half the vote** while the log said `1/2` and the comment claimed a third |
+| 2 | global96's script loaded **out of d4's directory** — filename match, wrong package |
+| 3 | global96 and d4 both assert **timm 1.0.22** against Kaggle's 1.0.26 |
+
+  **Only the last was a real property of the assets. The other three were mine**,
+  and every one of them would have produced a plausible number rather than an
+  error if a version assertion had not happened to fire.
+
+**PRE-REGISTERED against the banked 0.942**, board unseen: **≥0.945** the foreign
+pipeline pays and the +0.0064 transferred; 0.940–0.944 inside the floor; **≤0.939**
+it dilutes. **This is a one-variable test** — same four CoAtNet arms, same eight
+v1 members as Version 7, one pipeline added.

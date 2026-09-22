@@ -2676,12 +2676,13 @@ EXTRAS = [
                  # two different blend weights -- it is the one added member
                  # whose gain has a mechanism behind it rather than a draw.
                  "knee-train-v1pubfull-r50",
-                 # E119's two survivors are REVERTED. Eight members scored
-                 # 0.921/0.923 against six members' 0.940 -- below BOTH arms
-                 # alone (v1 0.926, CoAtNet 0.932), which is breakage rather
-                 # than weak members, and far outside the +/-0.003 floor. The
-                 # checkpoints and trainers are kept; only the mount is removed.
-                 ],
+                 # E119's two survivors, RESTORED. The 0.921/0.923 that
+                 # unmounted them was never this kernel: those two values
+                 # reproduce, in order and seconds apart, a pair submitted on
+                 # 10 September, and they carry no version description while
+                 # every real submission from here names its version. E122.
+                 "knee-train-v1pubfull-rx50",
+                 "knee-train-v1pubfull-regnet"],
         constants={
             "MEMBERS_EXPECTED": 4,
             "ARMS": RAPTOR_ARMS,
@@ -2703,7 +2704,7 @@ EXTRAS = [
             # do anything. The 0.940 stays banked whatever this says -- the board
             # keeps a team's best -- so the revert costs nothing and keeping it
             # would be banking a number the instrument cannot resolve.
-            "V1_MEMBERS": 6,
+            "V1_MEMBERS": 8,
             # BACK TO THE SCALAR, per E116's pre-registration. E116 shipped one
             # weight per finding, derived without touching gold-58 and without
             # touching CoAtNet's predictions -- leakage-free by construction,
@@ -2765,12 +2766,13 @@ EXTRAS = [
                  # two different blend weights -- it is the one added member
                  # whose gain has a mechanism behind it rather than a draw.
                  "knee-train-v1pubfull-r50",
-                 # E119's two survivors are REVERTED. Eight members scored
-                 # 0.921/0.923 against six members' 0.940 -- below BOTH arms
-                 # alone (v1 0.926, CoAtNet 0.932), which is breakage rather
-                 # than weak members, and far outside the +/-0.003 floor. The
-                 # checkpoints and trainers are kept; only the mount is removed.
-                 ],
+                 # E119's two survivors, RESTORED. The 0.921/0.923 that
+                 # unmounted them was never this kernel: those two values
+                 # reproduce, in order and seconds apart, a pair submitted on
+                 # 10 September, and they carry no version description while
+                 # every real submission from here names its version. E122.
+                 "knee-train-v1pubfull-rx50",
+                 "knee-train-v1pubfull-regnet"],
         constants={
             "MEMBERS_EXPECTED": 4,
             "ARMS": RAPTOR_ARMS,
@@ -2792,7 +2794,7 @@ EXTRAS = [
             # do anything. The 0.940 stays banked whatever this says -- the board
             # keeps a team's best -- so the revert costs nothing and keeping it
             # would be banking a number the instrument cannot resolve.
-            "V1_MEMBERS": 6,
+            "V1_MEMBERS": 8,
             # BACK TO THE SCALAR, per E116's pre-registration. E116 shipped one
             # weight per finding, derived without touching gold-58 and without
             # touching CoAtNet's predictions -- leakage-free by construction,

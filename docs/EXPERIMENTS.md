@@ -8011,3 +8011,48 @@ kernel 86**, as a gated region with its own model loader and its own windowing.
 - **still unexplained, and still owed**: the E119 −0.017. This work does not
   touch it, and the assertion build remains the way to get one bit about the
   hidden set that the stub cannot give.
+
+### E122 — the −0.017 never happened: E119 was never scored
+- **date**: 2026-09-22. No GPU, no submission. **A filing error, found by reading
+  our own submission history.**
+
+**THE TWO NUMBERS THAT UNMOUNTED TWO GOOD MEMBERS WERE NOT OURS.**
+
+| when | score |
+|---|---:|
+| 2026-09-10 11:09:29 | **0.923** |
+| 2026-09-10 11:10:03 | **0.921** |
+| 2026-09-21 13:53:21 | **0.921** |
+| 2026-09-21 13:53:33 | **0.923** |
+
+  **The same pair, seconds apart, eleven days later.** Two old notebooks from the
+  0.928 era were re-submitted. Both 21 September rows carry **no version
+  description**, while every real submission from kernel 86 names its version —
+  our 0.940 reads `Notebook knee-infer-raptorv1 | Version 6`. **Version 7, the
+  eight-member blend, was never scored at all.**
+
+**WHAT THIS RETRACTS.** E119's conclusion, E120's "structural fault", and every
+sentence in this log about a blend landing below both of its own arms. There was
+no drop. The reasoning built on it was sound — the review's simulation correctly
+showed two members at 1/8 weight cannot move a blend −0.017, and that *should*
+have made us doubt the input rather than hunt a bug. **We treated a number as
+data without checking it was about us.**
+
+**WHAT IT DOES NOT RETRACT, and this is the part worth keeping.** E120's
+memorisation check stands on its own: every member returns 0.9928–1.0000 on the
+58 studies it trained on, which independently proves the load path is clean. It
+was built to find a fault that never existed and it is still the sharpest
+instrument this project has for a full-fit model. **E121 also stands** — the
+residual-gated arm's +0.0064 was measured offline and owes nothing to the board.
+
+**THE MEMBERS ARE RESTORED, and this is not renegotiating a pre-registration.**
+E119 pre-registered brackets against *its own submission*. That submission never
+reached the board, so no bracket was ever triggered; applying one to a stranger's
+number is a filing error, not a rule being honoured. **The correct action is to
+run the test that was supposed to run.** The repo is back to eight members and
+now matches live Version 7 **byte for byte**, so the experiment needs no push —
+only the click it never got.
+
+- **the process fix**: a submission whose description does not name our kernel and
+  version is **not evidence about our kernel**. Two board readings and four days of
+  investigation were spent before anyone checked that.

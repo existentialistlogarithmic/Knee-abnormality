@@ -8102,3 +8102,38 @@ also carries E119's two extra members:
 | **≥ 0.943** | the different-author pipeline pays and the +0.0064 on gold transferred |
 | 0.938–0.942 | inside the floor; the offline gain did not survive ~390 public studies |
 | **≤ 0.937** | it dilutes, and E048's band is about correlation rather than rank after all |
+
+**RESULT (2026-09-22). VERSION 7 SCORED 0.942 — the best this project has
+recorded, and +0.002 over the banked 0.940.**
+
+**THE PRE-REGISTERED READING IS THE MIDDLE BRACKET.** E119 wrote ≥0.944 pays /
+0.938–0.943 inside the floor / ≤0.937 dilutes, and **0.942 lands inside the
+floor**. Two new backbone families bought the same **+0.002** that one depth
+change bought in E111, and against a ±0.003 reseed floor on **~390 public
+studies** neither is resolved. **The banked score does not depend on the manifest
+— the board keeps a team's best — so 0.942 stands whatever ships next.**
+
+**AND THE MEMBER LEVER NOW HAS THREE READINGS, all the same size:**
+
+| change | board |
+|---|---:|
+| a second **seed** (E064) | +0.000 |
+| resnet34 → resnet50, a **depth** change (E111) | +0.002 |
+| **+2 new backbone families** (E119) | **+0.002** |
+
+  **Reseeds buy nothing and family changes buy +0.002, twice, at two different
+  doses.** Doubling the dose did not double the gain, which is what a saturating
+  ensemble looks like. **Adding members is real and it is small**, and it will not
+  carry us from 0.942 to 0.946 on its own.
+
+**THE REVERT E119 WOULD OTHERWISE OWE IS DEFERRED, for the reason E111's was.**
+`knee-infer-raptor3` is built **on top of** the eight-member configuration, so
+dropping back to six now would make its submission a two-variable change against
+0.942 — third pipeline added *and* two members removed — with no way to read
+which moved the board. **The eight members stay until raptor3 resolves**, and the
+revert is owed the moment it does, in whichever bracket it lands.
+
+**RAPTOR3 IS NOW A CLEAN ONE-VARIABLE TEST against 0.942**: same four CoAtNet
+arms, same eight v1 members, one added pipeline from a different author. Its
+brackets stand as written — **≥0.945** the different-author pipeline pays;
+0.940–0.944 inside the floor; **≤0.939** it dilutes.

@@ -13,8 +13,7 @@
     "dreaddevelopment/raptor-knee-maxspan",
     "dreaddevelopment/raptor-knee-native384",
     "dreaddevelopment/raptor-knee-native384dense",
-    "mattiaangeli/rsna-knee-coat-resgated-ep10-top3",
-    "mattiaangeli/rsna-knee-coatnet-d4-depthzone-swa3-b2"
+    "mattiaangeli/rsna-knee-coat-resgated-ep10-top3"
   ],
   "competition_sources": [
     "rsna-knee-abnormality-detection"

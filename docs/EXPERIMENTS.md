@@ -8247,3 +8247,31 @@ candidate set shrank by a hard constraint:
 
 **SHIPPED: three pipelines at a third each** — our CoAtNet composite, our v1 arm,
 and one foreign arm averaging d4 and resgated.
+
+**AND d4 IS BLOCKED THE SAME WAY — the survey found three packages and the
+environment admits one.** d4 is a **shim over a parent module**,
+`coatnet_pairfilm_swa_inference`, which reads `timm_version: 1.0.22` from a
+manifest and refuses to load against Kaggle's **1.0.26**. That is also why d4's
+dataset ships the other packages' scripts: they are its dependencies, not
+duplicates.
+
+  **The dataset bundles `timm-1.0.22-py3-none-any.whl`**, so a kernel *could*
+  downgrade offline. **It will not.** The downgrade applies to the whole kernel —
+  including the four CoAtNet arms and eight v1 members that produced the banked
+  **0.942 at 1.0.26**. Trading a verified arm for an unverified one to gain
+  **0.0045** on 58 studies is not a trade worth making.
+
+| what can actually run | gold macro | vs CoAtNet alone |
+|---|---:|---:|
+| our CoAtNet 4-arm | 0.9223 | — |
+| **+ resgated, one vote** | **0.9287** | **+0.0064**, CI [−0.0064, +0.0187], P(better) 0.841 |
+| + resgated + d4 (blocked) | 0.9332 | +0.0109 |
+| + all three (blocked) | 0.9337 | +0.0114 |
+
+  **The interval that excluded zero belonged to a configuration the environment
+  will not run.** What ships has P(better) 0.841 and an interval that spans zero.
+  That is weaker, and it is stated rather than rounded up.
+
+- **three packages surveyed, one usable, and all of it cost zero GPU.** The
+  screening mechanism works even when the answer is "no": every rejection here
+  came from a version assertion or a licence, not from a run.

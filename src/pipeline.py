@@ -2760,8 +2760,7 @@ EXTRAS = [
                   "dreaddevelopment/raptor-knee-native384dense",
                   # E121/E123's foreign pipelines. Both CC0-1.0, both from a
                   # DIFFERENT author than the four CoAtNet arms above.
-                  "mattiaangeli/rsna-knee-coat-resgated-ep10-top3",
-                  "mattiaangeli/rsna-knee-coatnet-d4-depthzone-swa3-b2"],
+                  "mattiaangeli/rsna-knee-coat-resgated-ep10-top3"],
         depends=["knee-train-v1pubfull", "knee-train-v1pubfull-s4",
                  "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
                  "knee-train-v1pubfull-s7", "knee-train-v1pubfull-r50",
@@ -2787,21 +2786,28 @@ EXTRAS = [
             # drives its run_submission and purges its modules afterwards --
             # both packages ship a `cnx_dicom_geometry.py` and the first import
             # would otherwise win for both.
-            # global96 is DROPPED, and not on a score: its package asserts
-            # timm 1.0.22 and Kaggle serves 1.0.26, so it refuses to load. That
-            # is a constraint, not a choice. Losing it costs 0.0005 on gold-58.
+            # ONLY resgated, and the reason is a hard constraint rather than a
+            # score. global96 and d4 both assert **timm 1.0.22** where Kaggle
+            # serves 1.0.26 -- d4 through its parent
+            # `coatnet_pairfilm_swa_inference`, which reads the version from a
+            # manifest and refuses to load on a mismatch. Their dataset bundles
+            # `timm-1.0.22-py3-none-any.whl` precisely so a kernel can downgrade,
+            # but that downgrade would apply to the WHOLE kernel, including the
+            # four CoAtNet arms and the eight v1 members that produced the banked
+            # 0.942 at 1.0.26. Trading a verified arm for an unverified one to
+            # gain 0.0045 on 58 studies is not a trade worth making.
             #
-            # `dataset` pins each arm to its OWN mount. These packages ship each
-            # other's scripts -- d4's dataset holds four *_inference.py files,
-            # global96's among them -- so matching on filename alone loaded the
-            # wrong script from the wrong directory.
+            # resgated carries no version pin and has already run end-to-end here.
+            #
+            # `dataset` pins each arm to its OWN mount: these packages ship each
+            # other's scripts -- d4's dataset holds FOUR `*_inference.py` files --
+            # so matching on filename alone loaded global96's code out of d4's
+            # directory, against d4's artifacts, and only a version assertion
+            # caught it.
             "FOREIGN_ARMS": (
                 {"name": "resgated", "group": "mattiaangeli",
                  "dataset": "rsna-knee-coat-resgated-ep10-top3",
                  "entry": "coatnet_resgated_ep10_top3_inference"},
-                {"name": "d4", "group": "mattiaangeli",
-                 "dataset": "rsna-knee-coatnet-d4-depthzone-swa3-b2",
-                 "entry": "coatnet_d4_depthzone_swa_inference"},
             ),
             **V1.constants(),
             "PLANES": ("Sagittal", "Coronal", "Axial"),

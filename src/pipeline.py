@@ -2761,7 +2761,8 @@ EXTRAS = [
                   # E121/E123's foreign pipelines. Both CC0-1.0, both from a
                   # DIFFERENT author than the four CoAtNet arms above.
                   "mattiaangeli/rsna-knee-coat-resgated-ep10-top3",
-                  "mattiaangeli/rsna-knee-coatnet-global96-top3"],
+                  "mattiaangeli/rsna-knee-coatnet-global96-top3",
+                  "mattiaangeli/rsna-knee-coatnet-d4-depthzone-swa3-b2"],
         depends=["knee-train-v1pubfull", "knee-train-v1pubfull-s4",
                  "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
                  "knee-train-v1pubfull-s7", "knee-train-v1pubfull-r50",
@@ -2788,8 +2789,12 @@ EXTRAS = [
             # both packages ship a `cnx_dicom_geometry.py` and the first import
             # would otherwise win for both.
             "FOREIGN_ARMS": (
-                {"name": "resgated", "entry": "coatnet_resgated_ep10_top3_inference"},
-                {"name": "global96", "entry": "coatnet_global96_baseline_top3_inference"},
+                {"name": "resgated", "group": "mattiaangeli",
+                 "entry": "coatnet_resgated_ep10_top3_inference"},
+                {"name": "global96", "group": "mattiaangeli",
+                 "entry": "coatnet_global96_baseline_top3_inference"},
+                {"name": "d4", "group": "mattiaangeli",
+                 "entry": "coatnet_d4_depthzone_swa_inference"},
             ),
             **V1.constants(),
             "PLANES": ("Sagittal", "Coronal", "Axial"),

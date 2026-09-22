@@ -8181,3 +8181,38 @@ wins and the second package runs on the **first one's geometry** — producing
 plausible numbers from the wrong preprocessing, with nothing raising. The
 template now inserts each package's directory at the front of `sys.path`, imports
 it, and **purges every module loaded from inside that directory** before the next.
+
+**A THIRD PACKAGE, AND THE GROUPING QUESTION IT FORCES.**
+`mattiaangeli/rsna-knee-coatnet-d4-depthzone-swa3-b2`, **CC0-1.0**, also ships a
+gold-58 reference with `study_uids` and its own `truth` (asserted equal to ours).
+
+| on gold-58 | macro | ρ with our composite |
+|---|---:|---:|
+| our CoAtNet 4-arm | 0.9223 | — |
+| d4 | 0.9302 | 0.878 |
+| global96 | 0.9305 | 0.879 |
+| resgated | 0.9093 | 0.872 |
+
+  **But ρ(d4, global96) = 0.938** — inside the 0.905–0.986 band our own four arms
+  occupy. **They are not independent of each other.** resgated sits at 0.872–0.897
+  against everything, and is the genuinely distinct one.
+
+**SEVEN COMBINATIONS WERE TRIED ON 58 STUDIES, WHICH IS HOW E106 WENT WRONG.**
+The best-scoring one gives d4 and global96 a full vote each: **+0.0160**. The one
+the **pre-specified rule** produces — all three are one author's lineage, so they
+average into a single arm with a single vote — gives **+0.0114**.
+
+| | gold macro | vs CoAtNet alone |
+|---|---:|---:|
+| by score: d4 + global96, a vote each | 0.9384 | +0.0160 |
+| **by rule: one foreign arm, one vote** | **0.9337** | **+0.0114**, CI **[+0.0017, +0.0213]**, P(better) **0.988** |
+
+  **The grouped form ships and the higher one does not.** Picking a configuration
+  because it scored best on 58 studies is selection on the test set — E106's
+  exact failure, which E113 later traced to reading noise. And the arithmetic
+  agrees with the discipline: **the grouped interval excludes zero; the
+  higher-scoring one's does not.**
+
+**SHIPPED: THREE PIPELINES AT A THIRD EACH** — our CoAtNet composite, our v1 arm,
+and one foreign arm averaging all three of the author's packages. `FOREIGN_ARMS`
+now carries a `group` key, and members of a group average before voting.

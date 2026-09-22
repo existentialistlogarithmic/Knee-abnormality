@@ -107,7 +107,7 @@ V1_SLICE_SUBSAMPLE  = None
 V1_INPUT_NORM       = False
 CHECKPOINT_GLOB     = "checkpoint_fold*.pt"
 SKIP_DIRECTORIES    = {"train_series", "test_series"}
-FOREIGN_ARMS        = ({'name': 'resgated', 'entry': 'coatnet_resgated_ep10_top3_inference'}, {'name': 'global96', 'entry': 'coatnet_global96_baseline_top3_inference'})
+FOREIGN_ARMS        = ({'name': 'resgated', 'group': 'mattiaangeli', 'entry': 'coatnet_resgated_ep10_top3_inference'}, {'name': 'global96', 'group': 'mattiaangeli', 'entry': 'coatnet_global96_baseline_top3_inference'}, {'name': 'd4', 'group': 'mattiaangeli', 'entry': 'coatnet_d4_depthzone_swa_inference'})
 TARGET_MM_PER_PIXEL = 0.6
 TARGET_SIZE         = 192
 SLICES_PER_PLANE    = 20
@@ -1282,6 +1282,7 @@ def main():
     import sys as _sys
 
     _foreign = []
+    _fa_group = {f["name"]: f.get("group", f["name"]) for f in FOREIGN_ARMS}
     for _fa in FOREIGN_ARMS:
         _hits = find_all_markers(_fa["entry"] + ".py")
         if not _hits:
@@ -1336,13 +1337,28 @@ def main():
             raise RuntimeError(
                 f"one vote each assumes the coat/v1 blend is equal-weighted, "
                 f"but V1_BLEND_W is {V1_BLEND_W}.")
-    _total = _n_prior + len(_foreign)
-    ranks = (_n_prior * rankpct(ranks) + sum(r for _, r in _foreign)) / _total
+    # GROUPED, and the grouping is structural rather than chosen on a score.
+    # These packages are ONE author's lineage, and two of them correlate 0.938
+    # with each other -- inside the 0.905-0.986 band our own four CoAtNet arms
+    # occupy. Members that agree that closely are not independent pipelines, and
+    # giving each a full vote double-counts the family. So they average into one
+    # arm and that arm gets ONE vote.
+    #
+    # On gold-58 the ungrouped form scored higher (+0.0160 against +0.0114), and
+    # it is not taken: picking it would be selecting a configuration on 58
+    # studies, which is E106's failure and the trap E117 documented. The grouped
+    # form is what the pre-specified rule produces, and its interval excludes
+    # zero -- CI [+0.0017, +0.0213], P(better) 0.988 -- which the other's
+    # does not.
+    _groups = {}
     for _nm, _r in _foreign:
-        _ag = float(np.mean([np.corrcoef(rankpct(ranks)[:, k], _r[:, k])[0, 1]
-                             for k in range(len(LAB))])) if len(ids) > 2 else float("nan")
-        print(f"[{_nm}] 1/{_total} of the vote | mean rank correlation with the "
-              f"blend {_ag:.3f}", flush=True)
+        _groups.setdefault(_fa_group.get(_nm, _nm), []).append((_nm, _r))
+    _votes = [sum(r for _, r in g) / len(g) for g in _groups.values()]
+    _total = _n_prior + len(_votes)
+    ranks = (_n_prior * rankpct(ranks) + sum(_votes)) / _total
+    for _gname, _members in _groups.items():
+        print(f"[{_gname}] 1/{_total} of the vote, shared by "
+              f"{[n for n, _ in _members]}", flush=True)
     print(f"[blend] {_total} pipelines, prior blend at {_n_prior}/{_total}",
           flush=True)
 

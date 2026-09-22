@@ -8137,3 +8137,47 @@ revert is owed the moment it does, in whichever bracket it lands.
 arms, same eight v1 members, one added pipeline from a different author. Its
 brackets stand as written — **≥0.945** the different-author pipeline pays;
 0.940–0.944 inside the floor; **≤0.939** it dilutes.
+
+### E123 — a second different-author pipeline, better than the first and better than our own composite
+- **date**: 2026-09-22. **No GPU, no submission** to find it.
+
+**E119's 0.942 SAID THE MEMBER LEVER IS REAL AND SMALL. This is the other lever,
+and it is bigger.** E117 closed six checkpoints from the *same* author; E121
+found the rule that explains why. Applying that rule deliberately —
+**different author, check the correlation, not the rank** — found a second one.
+
+`mattiaangeli/rsna-knee-coatnet-global96-top3`, **CC0-1.0** (read from the
+datasets metadata endpoint, which returns licences the list endpoint omits; our
+audit file now records it and the re-read date).
+
+| on gold-58, out-of-sample for every side | macro | ρ with our composite |
+|---|---:|---:|
+| our CoAtNet 4-arm at published weights | 0.9223 | — |
+| **global96 alone** | **0.9305** | **0.879** |
+| resgated alone (E121) | 0.9093 | 0.872 |
+| + global96 at 1/2 | **0.9356** | **+0.0133** |
+| + resgated at 1/2 | 0.9287 | +0.0064 |
+| **+ both at 1/3 each** | **0.9349** | **+0.0126**, CI [−0.0010, +0.0259], P(better) **0.968** |
+
+  **global96 BEATS our own four-arm composite** — 0.9305 against 0.9223 — while
+  correlating **0.879** with it. That is the first public asset this project has
+  found that is both *ahead* of us and *outside* our 0.905–0.986 band.
+
+**THE JOIN WAS PROVEN, NOT ASSUMED.** Their package ships `study_uids` and its
+own `truth` array; after joining on UID, their truth is asserted **equal** to
+ours, element for element. E121 had to reproduce a published AUC to seven figures
+because its package shipped no IDs; this one can be checked directly.
+
+**WHY BOTH SHIP RATHER THAN THE BEST ONE.** global96 alone measures +0.0133
+against both together at +0.0126 — a difference well inside the interval.
+**Picking global96 because it scored higher would be selecting on the 58**, which
+is E106's failure and the trap E117 laid out. The rule is *one vote per
+independent pipeline*, it was fixed before these numbers existed, and it says
+both. **Four pipelines: CoAtNet, v1, resgated, global96, a quarter each.**
+
+**A COLLISION THAT WOULD HAVE BEEN SILENT.** Both packages ship a file named
+`cnx_dicom_geometry.py`. With both directories on `sys.path`, the first import
+wins and the second package runs on the **first one's geometry** — producing
+plausible numbers from the wrong preprocessing, with nothing raising. The
+template now inserts each package's directory at the front of `sys.path`, imports
+it, and **purges every module loaded from inside that directory** before the next.

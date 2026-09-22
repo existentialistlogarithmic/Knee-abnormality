@@ -3,6 +3,8 @@
  "_meta": {
   "note": "A licence is a fact with a date on it. Re-read before shipping.",
   "read_utc": "2026-09-08",
+  "reread_note": "global96 added after E123; read from the datasets metadata endpoint, which returns licences the list endpoint omits.",
+  "reread_utc": "2026-09-22",
   "scope": "every dataset mounted by any of the 626 public notebooks",
   "source": "kaggle dataset_list license_name"
  },
@@ -52,6 +54,7 @@
  "mattiaangeli/knee-mri-fold-weights": "CC0: Public Domain",
  "mattiaangeli/opencv-python-headless-4120088-x86": "Unknown",
  "mattiaangeli/rsna-knee-coat-resgated-ep10-top3": "CC0: Public Domain",
+ "mattiaangeli/rsna-knee-coatnet-global96-top3": "CC0: Public Domain",
  "mattiaangeli/rsna-knee-rad-calibration": "CC0: Public Domain",
  "mattiaangeli/rsna-knee-radimagenet-foldsv1-heads": "CC BY-NC-SA 4.0",
  "naveedlihazi/dino-v2-extracted-features-cache": "Unknown",

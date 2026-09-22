@@ -2750,16 +2750,18 @@ EXTRAS = [
              "ATTRIBUTION: as `knee-infer-raptorcc0`.",
     ),
     Kernel(
-        slug="knee-infer-raptor3",
-        directory="103_infer_raptor3",
+        slug="knee-infer-raptor4",
+        directory="103_infer_raptor4",
         template="raptor_infer",
         gpu=True,
         internet=False,
         datasets=["dreaddevelopment/raptor-knee-maxspan",
                   "dreaddevelopment/raptor-knee-native384",
                   "dreaddevelopment/raptor-knee-native384dense",
-                  # E121's third pipeline. CC0-1.0, a DIFFERENT author.
-                  "mattiaangeli/rsna-knee-coat-resgated-ep10-top3"],
+                  # E121/E123's foreign pipelines. Both CC0-1.0, both from a
+                  # DIFFERENT author than the four CoAtNet arms above.
+                  "mattiaangeli/rsna-knee-coat-resgated-ep10-top3",
+                  "mattiaangeli/rsna-knee-coatnet-global96-top3"],
         depends=["knee-train-v1pubfull", "knee-train-v1pubfull-s4",
                  "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
                  "knee-train-v1pubfull-s7", "knee-train-v1pubfull-r50",
@@ -2780,9 +2782,15 @@ EXTRAS = [
             "V1_INPUT_NORM": False,
             "CHECKPOINT_GLOB": "checkpoint_fold*.pt",
             "SKIP_DIRECTORIES": Raw('{"train_series", "test_series"}'),
-            # Their modules import each other by bare name, so the directory
-            # holding them has to reach sys.path. The template globs for it.
-            "RESGATED_DIR": "/kaggle/input",
+            # Each entry is the module name of that package's own inference
+            # script. The template finds its directory, isolates the import,
+            # drives its run_submission and purges its modules afterwards --
+            # both packages ship a `cnx_dicom_geometry.py` and the first import
+            # would otherwise win for both.
+            "FOREIGN_ARMS": (
+                {"name": "resgated", "entry": "coatnet_resgated_ep10_top3_inference"},
+                {"name": "global96", "entry": "coatnet_global96_baseline_top3_inference"},
+            ),
             **V1.constants(),
             "PLANES": ("Sagittal", "Coronal", "Axial"),
         },

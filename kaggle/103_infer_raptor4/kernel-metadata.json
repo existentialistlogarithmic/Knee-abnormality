@@ -1,6 +1,6 @@
 {
-  "id": "achelijndiamantidis/knee-infer-raptor3",
-  "title": "knee-infer-raptor3",
+  "id": "achelijndiamantidis/knee-infer-raptor4",
+  "title": "knee-infer-raptor4",
   "code_file": "run.py",
   "language": "python",
   "kernel_type": "script",
@@ -13,7 +13,8 @@
     "dreaddevelopment/raptor-knee-maxspan",
     "dreaddevelopment/raptor-knee-native384",
     "dreaddevelopment/raptor-knee-native384dense",
-    "mattiaangeli/rsna-knee-coat-resgated-ep10-top3"
+    "mattiaangeli/rsna-knee-coat-resgated-ep10-top3",
+    "mattiaangeli/rsna-knee-coatnet-global96-top3"
   ],
   "competition_sources": [
     "rsna-knee-abnormality-detection"

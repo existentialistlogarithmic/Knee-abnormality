@@ -874,103 +874,94 @@ def main():
               f"correlation {agree:.3f} (E101 measured 0.793 on gold; CoAtNet's "
               f"own four arms sit at 0.905-0.986)", flush=True)
 @@ENDIF V1_MEMBERS@@
-@@IF RESGATED_DIR@@
+@@IF FOREIGN_ARMS@@
 
-    # A THIRD PIPELINE (E121). `mattiaangeli/rsna-knee-coat-resgated-ep10-top3`,
-    # CC0-1.0, a DIFFERENT author from every arm above.
+    # FOREIGN PIPELINES (E121, E123). Whole inference packages from OTHER
+    # authors, each mounted as a CC0 dataset and driven through its own
+    # `run_submission`. We do not reimplement their windowing: each declares its
+    # own geometry contract -- six slot budgets, variable windows per study --
+    # and rebuilding that from the contract would be a second chance to get it
+    # subtly wrong for no benefit.
     #
-    # WHY IT EARNS A VOTE when E117's six same-author checkpoints did not. On the
-    # 58 it scores 0.9093 against our CoAtNet composite's 0.9223 -- behind -- but
-    # it correlates 0.872 with us while our own four arms sit at 0.905-0.986 with
-    # each other. The blend buys DISAGREEMENT, not rank, and this is the first
-    # public asset found outside that band while close in quality. Rank-meaned
-    # 50/50 with the CoAtNet composite offline it gave 0.9287, +0.0064, CI
-    # [-0.0064, +0.0187], P(better) 0.841. Nothing was fitted on the 58.
+    # WHY THEY EARN VOTES WHEN E117's SIX SAME-AUTHOR CHECKPOINTS DID NOT. Our
+    # four CoAtNet arms correlate 0.905-0.986 with EACH OTHER. These sit at
+    # 0.872 and 0.879 with us. A union pays for DISAGREEMENT, not rank, and
+    # E117's six were inside our band and lost.
     #
-    # IT CANNOT REUSE OUR VOLUMES. Its geometry contract declares six slot
-    # budgets (20, 12, 12, 8, 16, 8) and a VARIABLE 48-76 windows per study,
-    # against our fixed five slots and k_eval 62. It reads DICOM itself.
-    #
-    # AND IT CANNOT BE A SEPARATE KERNEL: E085's guard means a mounted kernel
-    # supplies its last SAVED output, frozen at the 3-study visible run, so a
-    # CSV-chained blend would submit three rows. It has to run here.
-    #
-    # We DRIVE their entry point rather than reimplement it. Their
-    # `run_submission` self-discovers the test set and writes a submission-shaped
-    # CSV; reimplementing six-slot windowing from their contract would be a
-    # second chance to get it subtly wrong for no benefit.
+    # THE COLLISION THIS ISOLATION EXISTS FOR: both packages ship a file called
+    # `cnx_dicom_geometry.py`. With both directories on sys.path the first
+    # import wins and the second package would run on the FIRST one's geometry
+    # -- silently, producing plausible numbers from the wrong preprocessing. So
+    # each package is imported with its own directory at the front of sys.path,
+    # and every module loaded from inside that directory is purged afterwards.
     import importlib
     import sys as _sys
 
-    # `find_all_markers`, not a one-level glob. /kaggle/input is NESTED --
-    # competitions/<slug>, datasets/<owner>/<name>, notebooks/<owner>/<name> --
-    # and a glob("*") over it returns exactly those three directory names and
-    # finds nothing. That cost one stub run; the depth-bounded search above
-    # already knew the layout, which is the whole reason it exists.
-    _rg_hits = find_all_markers("coatnet_resgated_ep10_top3_inference.py")
-    if not _rg_hits:
-        raise RuntimeError(
-            "no coatnet_resgated_ep10_top3_inference.py found under "
-            f"{RESGATED_DIR}; is the resgated dataset mounted?")
-    _rg_root = _rg_hits[0]
-    _sys.path.insert(0, str(_rg_root))
-    _resg = importlib.import_module("coatnet_resgated_ep10_top3_inference")
+    _foreign = []
+    for _fa in FOREIGN_ARMS:
+        _hits = find_all_markers(_fa["entry"] + ".py")
+        if not _hits:
+            raise RuntimeError(
+                f"foreign arm {_fa['name']}: no {_fa['entry']}.py under "
+                f"/kaggle/input; is its dataset mounted?")
+        _dir = _hits[0]
+        _sys.path.insert(0, str(_dir))
+        try:
+            _mod = importlib.import_module(_fa["entry"])
+            gc.collect()
+            if str(device).startswith("cuda"):
+                torch.cuda.empty_cache()   # their shards want both T4s
+            _out = Path(f"/kaggle/working/_foreign_{_fa['name']}.csv")
+            _receipt = _mod.run_submission(
+                competition_root=Path(root),
+                artifact_root=_mod.find_artifact_root(),
+                output_path=_out,
+            )
+            print(f"[{_fa['name']}] {_receipt.get('status', '?')}", flush=True)
+        finally:
+            _sys.path.remove(str(_dir))
+            for _n, _m in list(_sys.modules.items()):
+                _f = getattr(_m, "__file__", None)
+                if _f and str(_dir) in str(_f):
+                    del _sys.modules[_n]
+            gc.collect()
 
-    # Free our GPUs first: their pipeline runs two isolated T4 shards and asks
-    # for both devices. Ours are done with by here.
-    gc.collect()
-    if str(device).startswith("cuda"):
-        torch.cuda.empty_cache()
+        _df = pd.read_csv(_out).set_index("StudyInstanceUID")
+        _miss = [i for i in ids if i not in _df.index]
+        if _miss:
+            # Joined on study_id, never on position. A positional join is the
+            # fault class that reads as a weak arm rather than as a bug.
+            raise RuntimeError(
+                f"foreign arm {_fa['name']} returned no row for {len(_miss)} "
+                f"studies, first {_miss[:3]}")
+        _pr = _df.loc[list(ids), list(LAB)].to_numpy(dtype=np.float64)
+        if not np.isfinite(_pr).all():
+            raise RuntimeError(f"foreign arm {_fa['name']} produced non-finite values")
+        _foreign.append((_fa["name"], rankpct(_pr)))
 
-    _rg_csv = Path("/kaggle/working/_resgated_arm.csv")
-    _rg_receipt = _resg.run_submission(
-        competition_root=Path(root),   # `root` is find_test_root()'s string
-        artifact_root=_resg.find_artifact_root(),
-        output_path=_rg_csv,
-    )
-    print(f"[resgated] {_rg_receipt.get('status', '?')}", flush=True)
-
-    _rg_df = pd.read_csv(_rg_csv).set_index("StudyInstanceUID")
-    _missing = [i for i in ids if i not in _rg_df.index]
-    if _missing:
-        # Joined on study_id, never on position. A silent positional join is the
-        # exact fault class that would look like a weak arm rather than a bug.
-        raise RuntimeError(
-            f"the resgated arm returned no row for {len(_missing)} studies, "
-            f"first {_missing[:3]}")
-    _rg_p = _rg_df.loc[list(ids), list(LAB)].to_numpy(dtype=np.float64)
-    if not np.isfinite(_rg_p).all():
-        raise RuntimeError("the resgated arm produced non-finite probabilities")
-
-    # ONE VOTE PER INDEPENDENT PIPELINE, which is a rule and not a knob: the
-    # CoAtNet composite, our v1 arm and this one each get a third. That is the
-    # same argument that makes the existing 50/50 defensible, extended by one.
-    _rg_r = rankpct(_rg_p)
-    # ONE VOTE EACH, AND THE ARITHMETIC HAS TO EARN THAT CLAIM. By here `ranks`
-    # is ALREADY a blend of the pipelines above it, so rank-meaning it 50/50
-    # with this arm would give the newcomer half the vote and split the other
-    # half between two incumbents -- 0.25/0.25/0.50, not 1/3 each. The first
-    # version of this block did exactly that and the log dutifully printed
-    # "1/2", which was true of the code and false of the intent.
-    #
-    # So weight the prior blend by HOW MANY pipelines it already carries.
+    # ONE VOTE PER INDEPENDENT PIPELINE, and the arithmetic has to earn that.
+    # By here `ranks` ALREADY blends the pipelines above it, so rank-meaning it
+    # against the newcomers would give each newcomer a full share and split one
+    # share between the incumbents. The first version of this block did exactly
+    # that and its log printed "1/2" -- true of the code, false of the intent.
+    # So the prior blend is weighted by HOW MANY pipelines it carries.
     _n_prior = 2 if V1_MEMBERS else 1
     if V1_MEMBERS:
-        # The prior blend is only equal-weighted when V1_BLEND_W is 0.5; at any
-        # other value "one vote each" is not what the arithmetic below produces.
         _wv = np.asarray(V1_BLEND_W, dtype=np.float64)
         if not np.allclose(_wv, 0.5):
             raise RuntimeError(
-                f"the third pipeline assumes the coat/v1 blend is equal-weighted, "
-                f"but V1_BLEND_W is {V1_BLEND_W}. One vote each is then false.")
-    ranks = (_n_prior * rankpct(ranks) + _rg_r) / (_n_prior + 1)
-    _agree = float(np.mean([np.corrcoef(rankpct(ranks)[:, k], _rg_r[:, k])[0, 1]
-                            for k in range(len(LAB))])) if len(ids) > 2 else float("nan")
-    print(f"[resgated] third pipeline at 1/{_n_prior + 1}, prior blend at "
-          f"{_n_prior}/{_n_prior + 1} | mean rank correlation with the rest "
-          f"{_agree:.3f} (0.872 measured on gold-58, where n=58; our own CoAtNet "
-          f"arms sit at 0.905-0.986)", flush=True)
-@@ENDIF RESGATED_DIR@@
+                f"one vote each assumes the coat/v1 blend is equal-weighted, "
+                f"but V1_BLEND_W is {V1_BLEND_W}.")
+    _total = _n_prior + len(_foreign)
+    ranks = (_n_prior * rankpct(ranks) + sum(r for _, r in _foreign)) / _total
+    for _nm, _r in _foreign:
+        _ag = float(np.mean([np.corrcoef(rankpct(ranks)[:, k], _r[:, k])[0, 1]
+                             for k in range(len(LAB))])) if len(ids) > 2 else float("nan")
+        print(f"[{_nm}] 1/{_total} of the vote | mean rank correlation with the "
+              f"blend {_ag:.3f}", flush=True)
+    print(f"[blend] {_total} pipelines, prior blend at {_n_prior}/{_total}",
+          flush=True)
+@@ENDIF FOREIGN_ARMS@@
 
     scores = None
     if EVAL_SPLIT == "trainall":

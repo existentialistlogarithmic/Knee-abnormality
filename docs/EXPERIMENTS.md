@@ -7906,3 +7906,65 @@ most economical explanation is no longer "the eight-member blend is broken" but
   then as a fresh test.
 - **next, in the review's order**: the label-free replay across `EVAL_SPLIT`
   paths, which is the only remaining place a fault of this size can hide.
+
+### E121 — two of the review's leads tested offline for zero GPU: one dies, one is the best lead in weeks
+- **date**: 2026-09-22. **No GPU, no submission.**
+
+**THE SYNOVITIS SURROGATE IS DEAD, and it dies on its own mechanism.** MOAKS
+grades effusion-synovitis rather than synovitis on non-contrast MRI, so the
+hypothesis was that gold synovitis is largely an effusion concept. Tested against
+gold synovitis using **CoAtNet predictions, which are out-of-sample on gold**:
+
+| | AUC vs gold synovitis |
+|---|---:|
+| CoAtNet's **synovitis** head | **0.8094** |
+| CoAtNet's **effusion** head | 0.7975 (−0.0119, P(better) 0.195) |
+| rank-mean of the two | 0.8059 (−0.0036, P(better) 0.318) |
+
+  The effusion head does **not** predict gold synovitis better than the synovitis
+  head, and the pre-registered rule `synovitis := rank-mean(synovitis, effusion)`
+  **loses**. This agrees with E114, which found the mechanism real but already
+  captured — the model has the effusion signal in its synovitis head, so saying it
+  twice adds nothing. **One submission saved.**
+
+**AND A DIFFERENT-AUTHOR CHECKPOINT THAT ACTUALLY ADDS.**
+`mattiaangeli/rsna-knee-coat-resgated-ep10-top3` — **CC0: Public Domain**, already
+in our own licence audit, a different author from every arm we mount.
+
+**It ships its own gold-58 predictions (26 KB), so this cost no GPU at all.**
+Alignment was not assumed: the package reports `t4_rank_ensemble_auc 0.90933`
+and recomputing it against our `gold_truth.csv` returns **0.90933**. Reproducing
+someone else's number to five decimals is what proves the rows and the twelve
+label columns line up; a misalignment would have collapsed it toward 0.5.
+
+| on gold-58, out-of-sample for both sides | macro |
+|---|---:|
+| our CoAtNet 4-arm at published weights | 0.9223 |
+| residual-gated alone | 0.9093 |
+| **rank-mean, 50/50, no fitted parameter** | **0.9287** |
+| difference | **+0.0064**, CI [−0.0064, +0.0187], **P(better) 0.841** |
+
+  **Mean per-finding rank correlation with our CoAtNet arm: 0.872.** Our four
+  CoAtNet arms sit at **0.905–0.986** with each other. This is the first public
+  asset this project has found that is *outside* that band while being close in
+  quality — which is exactly E048's condition for a union that pays, and exactly
+  what E117's six same-author checkpoints were not.
+
+**WHY THIS IS NOT E117 AGAIN.** E117 added six checkpoints from **the same
+author, same architecture, same training corpus**, all 0.014–0.035 *behind* the
+incumbents, and both parameter-free weightings lost. This one is **0.013 behind
+the 4-arm composite but disagrees far more** — different author, different
+labels, different preprocessing. The blend gain comes from disagreement, not
+rank, and this is the first candidate where the two can be told apart.
+
+- **the 50/50 is a rule, not a knob**: two independent pipelines, one vote each.
+  Nothing here was fitted on the 58.
+- **what it would cost to ship**: the package carries the author's own inference
+  code and a geometry contract, but the architecture is **not** our
+  `RaptorClassifier`, so `strict=True` will refuse it. It needs its own arm in
+  the template. Three checkpoints at ~294 MB, reported ~1 h on 2×T4 — and we have
+  **~6.4 h of idle inference** under the 9 h cap.
+- **and the caveat that keeps this honest**: n=58 and the interval spans zero.
+  E107's boundary says the gold→board transfer factor applies to *adding a
+  member*, which this is — but the factor itself is shaky and the board is the
+  only judge.

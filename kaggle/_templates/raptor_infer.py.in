@@ -902,13 +902,17 @@ def main():
     import importlib
     import sys as _sys
 
-    _rg = sorted(Path(RESGATED_DIR).glob("*"))
-    _rg_root = next((d for d in [Path(RESGATED_DIR)] + _rg
-                     if (d / "coatnet_resgated_ep10_top3_inference.py").exists()), None)
-    if _rg_root is None:
+    # `find_all_markers`, not a one-level glob. /kaggle/input is NESTED --
+    # competitions/<slug>, datasets/<owner>/<name>, notebooks/<owner>/<name> --
+    # and a glob("*") over it returns exactly those three directory names and
+    # finds nothing. That cost one stub run; the depth-bounded search above
+    # already knew the layout, which is the whole reason it exists.
+    _rg_hits = find_all_markers("coatnet_resgated_ep10_top3_inference.py")
+    if not _rg_hits:
         raise RuntimeError(
-            f"RESGATED_DIR {RESGATED_DIR} holds no "
-            f"coatnet_resgated_ep10_top3_inference.py; found {[str(d) for d in _rg][:8]}")
+            "no coatnet_resgated_ep10_top3_inference.py found under "
+            f"{RESGATED_DIR}; is the resgated dataset mounted?")
+    _rg_root = _rg_hits[0]
     _sys.path.insert(0, str(_rg_root))
     _resg = importlib.import_module("coatnet_resgated_ep10_top3_inference")
 

@@ -2750,6 +2750,76 @@ EXTRAS = [
              "ATTRIBUTION: as `knee-infer-raptorcc0`.",
     ),
     Kernel(
+        slug="knee-infer-raptor3",
+        directory="103_infer_raptor3",
+        template="raptor_infer",
+        gpu=True,
+        internet=False,
+        datasets=["dreaddevelopment/raptor-knee-maxspan",
+                  "dreaddevelopment/raptor-knee-native384",
+                  "dreaddevelopment/raptor-knee-native384dense",
+                  # E121's third pipeline. CC0-1.0, a DIFFERENT author.
+                  "mattiaangeli/rsna-knee-coat-resgated-ep10-top3"],
+        depends=["knee-train-v1pubfull", "knee-train-v1pubfull-s4",
+                 "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
+                 "knee-train-v1pubfull-s7", "knee-train-v1pubfull-r50",
+                 "knee-train-v1pubfull-rx50", "knee-train-v1pubfull-regnet"],
+        constants={
+            "MEMBERS_EXPECTED": 4,
+            "ARMS": RAPTOR_ARMS,
+            "CROP_MM": 140.0,
+            "LAB": RAPTOR_LAB,
+            "FALLBACK_LIMIT": 0.02,
+            "DECODE_AHEAD": 32,
+            "EVAL_SPLIT": "test",
+            "GOLD_EXPECTED": 58,
+            "V1_MEMBERS": 8,
+            "V1_BLEND_W": 0.50,
+            "V1_BATCH_STUDIES": V1.infer_batch,
+            "V1_SLICE_SUBSAMPLE": None,
+            "V1_INPUT_NORM": False,
+            "CHECKPOINT_GLOB": "checkpoint_fold*.pt",
+            "SKIP_DIRECTORIES": Raw('{"train_series", "test_series"}'),
+            # Their modules import each other by bare name, so the directory
+            # holding them has to reach sys.path. The template globs for it.
+            "RESGATED_DIR": "/kaggle/input",
+            **V1.constants(),
+            "PLANES": ("Sagittal", "Coronal", "Axial"),
+        },
+        note="THE THREE-PIPELINE SUBMISSION (E121). `knee-infer-raptorv1`\n"
+             "with one change: a third pipeline from a DIFFERENT author.\n"
+             "\n"
+             "ONE VARIABLE against Version 7 of `knee-infer-raptorv1`, which\n"
+             "is the same four CoAtNet arms and the same eight v1 members.\n"
+             "Only the third arm is added.\n"
+             "\n"
+             "WHY IT EARNS A VOTE WHEN E117's SIX DID NOT. On the 58 it\n"
+             "scores 0.9093 against our CoAtNet composite's 0.9223 - behind -\n"
+             "but it correlates 0.872 with us while our own four arms sit at\n"
+             "0.905-0.986 with each other. A union pays for DISAGREEMENT, not\n"
+             "rank. E117's six were same-author, same-architecture,\n"
+             "same-corpus and inside our correlation band, and they lost.\n"
+             "\n"
+             "OFFLINE, rank-meaned 50/50 with the CoAtNet composite on\n"
+             "gold-58: 0.9287 against 0.9223, +0.0064, CI [-0.0064, +0.0187],\n"
+             "P(better) 0.841. Both sides out-of-sample there. Nothing was\n"
+             "fitted on the 58.\n"
+             "\n"
+             "THE ARITHMETIC WAS CHECKED AGAINST THEIRS BEFORE TRUSTING IT:\n"
+             "their package declares a T4 gold rank-ensemble AUC of\n"
+             "0.9093268412428666 and our independent recomputation returned\n"
+             "0.90933. Their checkpoint loads strict=True with 73,450,105\n"
+             "state elements and 73,420,000 parameters, both matching their\n"
+             "declared constants to the digit.\n"
+             "\n"
+             "RUNTIME: ours projects 2.62 h and theirs is reported ~1 h on\n"
+             "2xT4, against the 9 h cap.\n"
+             "\n"
+             "ATTRIBUTION: CoAtNet arms from `dreaddevelopment`, third arm\n"
+             "from `mattiaangeli/rsna-knee-coat-resgated-ep10-top3`, both\n"
+             "CC0-1.0.",
+    ),
+    Kernel(
         slug="knee-infer-raptorv1",
         directory="86_infer_raptorv1",
         template="raptor_infer",

@@ -52,18 +52,67 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import numpy as np
-@@IF V1_MEMBERS@@
 import pandas as pd
 import pydicom
-@@ENDIF V1_MEMBERS@@
 import timm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-@@CONFIG@@
+# THE THREE-PIPELINE SUBMISSION (E121). `knee-infer-raptorv1`
+# with one change: a third pipeline from a DIFFERENT author.
+#
+# ONE VARIABLE against Version 7 of `knee-infer-raptorv1`, which
+# is the same four CoAtNet arms and the same eight v1 members.
+# Only the third arm is added.
+#
+# WHY IT EARNS A VOTE WHEN E117's SIX DID NOT. On the 58 it
+# scores 0.9093 against our CoAtNet composite's 0.9223 - behind -
+# but it correlates 0.872 with us while our own four arms sit at
+# 0.905-0.986 with each other. A union pays for DISAGREEMENT, not
+# rank. E117's six were same-author, same-architecture,
+# same-corpus and inside our correlation band, and they lost.
+#
+# OFFLINE, rank-meaned 50/50 with the CoAtNet composite on
+# gold-58: 0.9287 against 0.9223, +0.0064, CI [-0.0064, +0.0187],
+# P(better) 0.841. Both sides out-of-sample there. Nothing was
+# fitted on the 58.
+#
+# THE ARITHMETIC WAS CHECKED AGAINST THEIRS BEFORE TRUSTING IT:
+# their package declares a T4 gold rank-ensemble AUC of
+# 0.9093268412428666 and our independent recomputation returned
+# 0.90933. Their checkpoint loads strict=True with 73,450,105
+# state elements and 73,420,000 parameters, both matching their
+# declared constants to the digit.
+#
+# RUNTIME: ours projects 2.62 h and theirs is reported ~1 h on
+# 2xT4, against the 9 h cap.
+#
+# ATTRIBUTION: CoAtNet arms from `dreaddevelopment`, third arm
+# from `mattiaangeli/rsna-knee-coat-resgated-ep10-top3`, both
+# CC0-1.0.
+#
+MEMBERS_EXPECTED    = 4
+ARMS                = ({'name': 'maxspan-v5', 'file': 'raptor_ft_coatnet_v5_full_swa.pt', 'img': 336, 'slots': (('Sagittal', 1, 18), ('Sagittal', 0, 14), ('Coronal', 1, 12), ('Coronal', 0, 8), ('Axial', -1, 12)), 'span': (0.02, 0.98), 'k_eval': 62, 'reverse': False, 'w': 0.55, 'expect_gold': 0.9214}, {'name': 'native384dense-v10', 'file': 'raptor_ft_coatnet_v10_full.pt', 'img': 384, 'slots': (('Sagittal', 1, 18), ('Sagittal', 0, 14), ('Coronal', 1, 12), ('Coronal', 0, 8), ('Axial', -1, 12)), 'span': (0.02, 0.98), 'k_eval': 62, 'reverse': False, 'w': 0.1, 'expect_gold': 0.9174}, {'name': 'maxspan-v5-reverse', 'file': 'raptor_ft_coatnet_v5_full_swa.pt', 'img': 336, 'slots': (('Sagittal', 1, 18), ('Sagittal', 0, 14), ('Coronal', 1, 12), ('Coronal', 0, 8), ('Axial', -1, 12)), 'span': (0.02, 0.98), 'k_eval': 62, 'reverse': True, 'w': 0.15, 'expect_gold': 0.9214}, {'name': 'native384-v8', 'file': 'raptor_ft_coatnet_v8_full_swa.pt', 'img': 384, 'slots': (('Sagittal', 1, 12), ('Sagittal', 0, 10), ('Coronal', 1, 8), ('Coronal', 0, 6), ('Axial', -1, 8)), 'span': (0.06, 0.94), 'k_eval': 42, 'reverse': False, 'w': 0.2, 'expect_gold': 0.9067})
+CROP_MM             = 140.0
+LAB                 = ('ACL', 'MCL', 'Medial Meniscus', 'Lateral Meniscus', 'Medial OA', 'Lateral OA', 'PF OA', 'Effusion', 'Synovitis', "Baker's", 'Contusion', 'Fracture')
+FALLBACK_LIMIT      = 0.02
+DECODE_AHEAD        = 32
+EVAL_SPLIT          = "test"
+GOLD_EXPECTED       = 58
+V1_MEMBERS          = 8
+V1_BLEND_W          = 0.5
+V1_BATCH_STUDIES    = 4
+V1_SLICE_SUBSAMPLE  = None
+V1_INPUT_NORM       = False
+CHECKPOINT_GLOB     = "checkpoint_fold*.pt"
+SKIP_DIRECTORIES    = {"train_series", "test_series"}
+RESGATED_DIR        = "/kaggle/input"
+TARGET_MM_PER_PIXEL = 0.6
+TARGET_SIZE         = 192
+SLICES_PER_PLANE    = 20
+PLANES              = ('Sagittal', 'Coronal', 'Axial')
 
-@@IF V1_MEMBERS@@
 # ---------------------------------------------------------------------------
 # THE SECOND ARCHITECTURE, and why it lives in this file rather than beside it.
 #
@@ -82,10 +131,352 @@ import torch.nn.functional as F
 # Everything below is INERT unless a kernel declares V1_MEMBERS. Kernels 81, 82
 # and 83 set it to None and run the CoAtNet arms alone.
 # ---------------------------------------------------------------------------
-@@INCLUDE discovery:find_all_markers@@
-@@INCLUDE volume@@
-@@INCLUDE model@@
-@@ENDIF V1_MEMBERS@@
+
+# --------------------------------------------------------------------------- #
+# from kaggle/_templates/_shared/discovery.py
+# --------------------------------------------------------------------------- #
+def find_all_markers(pattern: str, max_depth: int = 4) -> list[Path]:
+    """Every mounted directory containing a file matching `pattern`.
+
+    The cache is built as four shard kernels and mounted as four separate
+    inputs. Finding only the first would silently train on a quarter of the
+    data at full apparent success — the worst kind of bug, because the loss
+    curve would look fine.
+    """
+    found = []
+    frontier = [(Path("/kaggle/input"), 0)]
+    while frontier:
+        directory, depth = frontier.pop(0)
+        if depth > max_depth:
+            continue
+        try:
+            entries = sorted(directory.iterdir())
+        except (FileNotFoundError, PermissionError):
+            continue
+        if any(e.is_file() and e.match(pattern) for e in entries):
+            found.append(directory)
+        for entry in entries:
+            if entry.is_dir() and entry.name not in SKIP_DIRECTORIES:
+                frontier.append((entry, depth + 1))
+    return found
+
+
+# --------------------------------------------------------------------------- #
+# from kaggle/_templates/_shared/volume.py
+# --------------------------------------------------------------------------- #
+def normalise(volume: np.ndarray) -> np.ndarray:
+    """Percentile clip then scale to uint8.
+
+    Per-volume rather than per-slice: MRI intensity is arbitrary between studies
+    but consistent within one acquisition, and per-slice normalisation would
+    destroy the relative brightness that distinguishes fluid from fat.
+    """
+    finite = volume[np.isfinite(volume)]
+    if finite.size == 0:
+        return np.zeros_like(volume, dtype=np.uint8)
+    low, high = np.percentile(finite, [1.0, 99.0])
+    if high <= low:
+        high = low + 1.0
+    # Non-finite values must be pinned before the cast: NaN -> uint8 is
+    # undefined and would write arbitrary bytes into the cache silently.
+    filled = np.nan_to_num(volume, nan=low, posinf=high, neginf=low)
+    scaled = (np.clip(filled, low, high) - low) / (high - low)
+    return (scaled * 255.0).astype(np.uint8)
+
+
+def resize(image: np.ndarray, size: int) -> np.ndarray:
+    try:
+        import cv2
+
+        return cv2.resize(image, (size, size), interpolation=cv2.INTER_AREA)
+    except ImportError:
+        from PIL import Image
+
+        return np.asarray(Image.fromarray(image).resize((size, size), Image.BILINEAR))
+
+
+def pick_slices(count: int, wanted: int) -> list[int]:
+    """Evenly spaced through the stack, always including both ends.
+
+    Centre-cropping would be wrong here: meniscal tears sit at the periphery of
+    the sagittal stack, exactly where a centre crop throws data away.
+    """
+    if count <= 0:
+        return []
+    if count <= wanted:
+        return list(range(count)) + [count - 1] * (wanted - count)
+    return list(np.linspace(0, count - 1, wanted).round().astype(int))
+
+
+def read_series_volume(directory: Path) -> tuple[np.ndarray | None, float | None, str | None]:
+    """Return (volume, mm_per_pixel, laterality) with slices in anatomical order."""
+    try:
+        names = sorted(e.name for e in os.scandir(directory) if e.name.endswith(".dcm"))
+    except FileNotFoundError:
+        return None, None, None
+    if not names:
+        return None, None, None
+
+    slices = []
+    spacing = None
+    laterality = None
+    for name in names:
+        try:
+            ds = pydicom.dcmread(str(directory / name), force=True)
+            pixels = ds.pixel_array.astype(np.float32)
+        except Exception:  # noqa: BLE001 - one unreadable slice must not lose the series
+            continue
+        if pixels.ndim != 2:
+            continue
+        position = getattr(ds, "ImagePositionPatient", None)
+        order = float(position[2]) if position is not None and len(position) == 3 else len(slices)
+        if spacing is None:
+            value = getattr(ds, "PixelSpacing", None)
+            if value is not None and len(value) >= 1:
+                spacing = float(value[0])
+        if laterality is None:
+            laterality = (getattr(ds, "Laterality", None)
+                          or _laterality_from_description(getattr(ds, "SeriesDescription", "")))
+        slices.append((order, pixels))
+
+    if not slices:
+        return None, None, None
+    slices.sort(key=lambda item: item[0])
+    return np.stack([s[1] for s in slices]), spacing, laterality
+
+
+def _laterality_from_description(description: str) -> str | None:
+    text = (description or "").upper()
+    if text.startswith("LT") or "_LT_" in text or " LEFT" in text or text.startswith("L_"):
+        return "L"
+    if text.startswith("RT") or "_RT_" in text or " RIGHT" in text or text.startswith("R_"):
+        return "R"
+    return None
+
+
+def build_study(root: Path, split: str, study: str, series_rows: pd.DataFrame) -> tuple:
+    """One study to (planes, slices, size, size) uint8, plus a record of what happened."""
+    record = {"StudyInstanceUID": study, "split": split, "laterality": None,
+              "mirrored": False, "planes_found": 0, "missing_planes": [], "error": None}
+    channels = []
+
+    for plane in PLANES:
+        candidates = series_rows[(series_rows.Anatomical_Plane == plane)
+                                 & (series_rows.Fluid_Sensitive == 1)]
+        if candidates.empty:
+            candidates = series_rows[series_rows.Anatomical_Plane == plane]
+        if candidates.empty:
+            record["missing_planes"].append(plane)
+            channels.append(np.zeros((SLICES_PER_PLANE, TARGET_SIZE, TARGET_SIZE), np.uint8))
+            continue
+
+        # Prefer the series with the most slices — the diagnostic acquisition
+        # rather than a localiser.
+        chosen = candidates.sort_values("n_slices", ascending=False).iloc[0]
+        directory = root / f"{split}_series" / study / chosen.SeriesInstanceUID
+        volume, spacing, laterality = read_series_volume(directory)
+        if volume is None:
+            record["missing_planes"].append(plane)
+            channels.append(np.zeros((SLICES_PER_PLANE, TARGET_SIZE, TARGET_SIZE), np.uint8))
+            continue
+
+        record["laterality"] = record["laterality"] or laterality
+        record["planes_found"] += 1
+
+        indices = pick_slices(len(volume), SLICES_PER_PLANE)
+        volume = volume[indices]
+
+        # Physical resampling: crop or pad to the field of view we want, then
+        # resize once. Doing it in this order keeps millimetres meaningful.
+        if spacing and spacing > 0:
+            wanted_pixels = int(round(TARGET_SIZE * TARGET_MM_PER_PIXEL / spacing))
+            wanted_pixels = max(8, min(wanted_pixels, max(volume.shape[1], volume.shape[2])))
+            centre_y, centre_x = volume.shape[1] // 2, volume.shape[2] // 2
+            half = wanted_pixels // 2
+            y0, y1 = max(0, centre_y - half), min(volume.shape[1], centre_y + half)
+            x0, x1 = max(0, centre_x - half), min(volume.shape[2], centre_x + half)
+            volume = volume[:, y0:y1, x0:x1]
+
+        volume = normalise(volume)
+        resized = np.stack([resize(frame, TARGET_SIZE) for frame in volume])
+        channels.append(resized)
+
+    stack = np.stack(channels)  # (planes, slices, size, size)
+
+    if (record["laterality"] or "").upper().startswith("R"):
+        stack = stack[..., ::-1].copy()
+        record["mirrored"] = True
+
+    return stack, record
+
+
+# --------------------------------------------------------------------------- #
+# from kaggle/_templates/_shared/model.py
+# --------------------------------------------------------------------------- #
+# ImageNet statistics. Every pretrained backbone here — torchvision and DINOv2
+# alike — was trained on inputs normalised this way. The earliest runs fed raw
+# 0..1 values straight in, which shifts the input distribution away from what
+# the pretrained filters expect and quietly costs transfer quality. It never
+# errors; it just makes the pretrained weights worth less than they should be.
+#
+# It is therefore a property of a trained model, not a preference: INPUT_NORM
+# comes from the manifest at training time and from the checkpoint at inference
+# time, and mixing the two in an ensemble is refused rather than averaged.
+IMAGENET_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_STD = (0.229, 0.224, 0.225)
+
+# DINOv2 uses 14-pixel patches, so its input side must be a multiple of 14.
+# A 192px cache becomes 196 here — a 2% resize — which keeps one cache usable
+# by every architecture instead of forcing a rebuild per backbone.
+PATCH_MULTIPLE = 14
+
+
+def build_model(backbone: str, n_planes: int, n_out: int, normalise_input: bool,
+                per_finding_pool: bool = False, focal_k: int = 0):
+    """2.5D: a 2D backbone over slices, attention-pooled to a study.
+
+    Attention pooling rather than mean pooling because a finding is usually
+    visible on a handful of slices; averaging over twenty dilutes it.
+
+    Accepts either a torchvision name or a timm name. DINOv2 is the reason:
+    the public baseline for this competition reportedly reaches ~0.809 with
+    DINOv2 features while this project's ImageNet resnet34 reached 0.725, and
+    self-supervised features transfer to medical imaging far better than
+    ImageNet classification features do.
+    """
+    import torch
+    import torch.nn as nn
+
+    net = None
+    features = None
+    if "." in backbone or backbone.startswith(("vit_", "convnext", "tf_efficientnet")):
+        import timm
+
+        try:
+            net = timm.create_model(backbone, pretrained=True, num_classes=0,
+                                    dynamic_img_size=True)
+        except Exception:  # noqa: BLE001 - offline, or no dynamic_img_size support
+            try:
+                net = timm.create_model(backbone, pretrained=True, num_classes=0)
+            except Exception:  # noqa: BLE001 - internet off (inference kernels)
+                print("no pretrained download (internet off) — random init; "
+                      "at inference the checkpoint replaces all of it")
+                net = timm.create_model(backbone, pretrained=False, num_classes=0,
+                                        dynamic_img_size=True)
+        features = net.num_features
+    else:
+        import torchvision
+
+        try:
+            net = getattr(torchvision.models, backbone)(weights="DEFAULT")
+        except Exception:  # noqa: BLE001
+            print("no pretrained download (internet off) — random init; "
+                  "at inference the checkpoint replaces all of it")
+            net = getattr(torchvision.models, backbone)(weights=None)
+        features = net.fc.in_features
+        net.fc = nn.Identity()
+
+    is_patch_model = backbone.startswith("vit_")
+
+    class Model(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.backbone = net
+            self.patch_multiple = PATCH_MULTIPLE if is_patch_model else 0
+            self.normalise = normalise_input
+            # persistent=False deliberately: these are constants, not learned
+            # state. Persisting them would add two keys to every state_dict and
+            # the strict-load check at inference would then reject every
+            # checkpoint written before they existed — including the folds
+            # currently training.
+            self.register_buffer("mean", torch.tensor(IMAGENET_MEAN).view(1, 3, 1, 1),
+                                 persistent=False)
+            self.register_buffer("std", torch.tensor(IMAGENET_STD).view(1, 3, 1, 1),
+                                 persistent=False)
+            # One attention map for twelve findings forces a single compromise
+            # over which slices matter. A meniscal tear occupies a handful of
+            # sagittal slices and a large effusion occupies most of the study,
+            # so the compromise is paid mostly by the focal findings — which are
+            # exactly the four weakest here (Medial Meniscus 0.656, PF OA 0.659,
+            # Synovitis 0.663, MCL 0.669 on fold 1).
+            #
+            # With per_finding_pool each finding gets its own attention map over
+            # the same slice embeddings and its own weight vector over features.
+            # Cost is one 128xN linear and an einsum over ~60 tokens: negligible
+            # against the backbone, which is why this is worth trying before
+            # anything that buys AUC with runtime.
+            self.per_finding = per_finding_pool
+            maps = n_out if per_finding_pool else 1
+            self.attention = nn.Sequential(nn.Linear(features, 128), nn.Tanh(),
+                                           nn.Linear(128, maps))
+            if per_finding_pool:
+                self.head_weight = nn.Parameter(torch.zeros(n_out, features))
+                nn.init.trunc_normal_(self.head_weight, std=0.02)
+                self.head_bias = nn.Parameter(torch.zeros(n_out))
+            else:
+                self.head = nn.Linear(features, n_out)
+
+            # Focal pooling. Measured motivation (E027): against the same 58
+            # expert-labelled studies, this model BEATS its own teacher on every
+            # diffuse finding — Effusion 0.719 -> 0.924, Lateral OA 0.534 ->
+            # 0.723 — and LOSES to it on every focal one: Medial Meniscus
+            # 0.744 -> 0.516, MCL 0.820 -> 0.612, PF OA 0.828 -> 0.672,
+            # ACL 0.784 -> 0.662. Focal 0.632 against a 0.798 teacher; diffuse
+            # 0.783 against a 0.688 teacher.
+            #
+            # That is what a weighted MEAN over sixty slice embeddings does. A
+            # meniscal tear is on three of them, an effusion is on most. So take
+            # the top-k slices per finding as well, and let a learned per-finding
+            # blend decide which pooling that finding wants. Diffuse findings can
+            # keep the mean; focal ones can read off their few slices.
+            self.focal_k = focal_k
+            if focal_k:
+                # 0 -> sigmoid 0.5: both paths start with equal weight and equal
+                # gradient, rather than one starting switched off.
+                self.mix = nn.Parameter(torch.zeros(n_out))
+
+        def forward(self, x):                      # x: (B, P, S, H, W)
+            b, p, s, h, w = x.shape
+            flat = x.reshape(b * p * s, 1, h, w).repeat(1, 3, 1, 1)
+
+            # Patch-based backbones need a side length divisible by the patch
+            # size. Resizing here rather than in the cache keeps one cache
+            # usable by every architecture.
+            if self.patch_multiple and (h % self.patch_multiple or w % self.patch_multiple):
+                side = int(round(h / self.patch_multiple)) * self.patch_multiple
+                flat = torch.nn.functional.interpolate(
+                    flat, size=(side, side), mode="bilinear", align_corners=False)
+
+            if self.normalise:
+                flat = (flat - self.mean) / self.std
+            embedded = self.backbone(flat).reshape(b, p * s, -1)
+            scores = self.attention(embedded).softmax(dim=1)   # (B, T, maps)
+            if self.per_finding:
+                # (B, T, F) x (B, T, C) -> (B, F, C): one pooled vector per
+                # finding, each attending wherever that finding actually lives.
+                pooled = torch.einsum("btf,btc->bfc", scores, embedded)
+                averaged = (pooled * self.head_weight).sum(-1) + self.head_bias
+            else:
+                averaged = self.head((embedded * scores).sum(dim=1))
+
+            if not self.focal_k:
+                return averaged
+
+            # Score every slice on every finding, then keep the best few. This
+            # is the path a focal finding can win on: it never averages over the
+            # fifty-odd slices the finding is not on.
+            if self.per_finding:
+                per_slice = (torch.einsum("btc,fc->btf", embedded, self.head_weight)
+                             + self.head_bias)
+            else:
+                per_slice = self.head(embedded)                # (B, T, F)
+            k = min(self.focal_k, per_slice.shape[1])
+            strongest = per_slice.topk(k, dim=1).values.mean(dim=1)
+            weight = torch.sigmoid(self.mix)                   # (F,)
+            return weight * averaged + (1 - weight) * strongest
+
+    return Model()
+
 
 torch.backends.cudnn.benchmark = True
 torch.backends.cuda.matmul.allow_tf32 = True
@@ -424,7 +815,6 @@ def main():
             raise RuntimeError(f"{arm['name']}: k_eval {arm['k_eval']} > {maxs - 2} usable centres")
     print(f"arms {len(ARMS)} | distinct checkpoints {len(paths)}", flush=True)
 
-@@IF V1_MEMBERS@@
     # RESOLVE AND FINGERPRINT THE SECOND ARCHITECTURE BEFORE ANY INFERENCE IS
     # SPENT, for the same reason MEMBERS_EXPECTED is checked above: a bad mount
     # should cost two minutes, not the seventeen the CoAtNet pass takes first.
@@ -464,7 +854,6 @@ def main():
               f"{len(set(_fp))} | {[round(f, 4) for f in _fp]}", flush=True)
         v1_checkpoints = (_ck, _fp)
         gc.collect()
-@@ENDIF V1_MEMBERS@@
     for arm in ARMS:
         print(f"  {arm['name']:22s} w={arm['w']:.2f} img={arm['img']} "
               f"slices={sum(int(s[2]) for s in arm['slots'])} span={tuple(arm['span'])} "
@@ -715,7 +1104,6 @@ def main():
 
     # ---- THE SECOND ARCHITECTURE'S PASS ------------------------------------
     v1_probs, v1_members = None, {}
-@@IF V1_MEMBERS@@
     if V1_MEMBERS:
         import torch as _torch
         ckpts, v1_prints = v1_checkpoints
@@ -833,7 +1221,6 @@ def main():
         gc.collect()
         if str(device).startswith("cuda"):
             torch.cuda.empty_cache()
-@@ENDIF V1_MEMBERS@@
 
     weights = np.array([float(a["w"]) for a in ARMS], dtype=np.float64)
     weights = weights / weights.sum()
@@ -841,7 +1228,6 @@ def main():
     print(f"[blend] weighted rank-mean {named}", flush=True)
     ranks = np.tensordot(weights, np.stack([rankpct(np.clip(p, 0, 1)) for p in probs]), axes=(0, 0))
     ranks[~np.isfinite(ranks)] = 0.5
-@@IF V1_MEMBERS@@
     if v1_probs is not None:
         # V1_BLEND_W: ONE WEIGHT PER FINDING (E116), and the manifest explains
         # where each number comes from. What matters here is the invariant:
@@ -873,8 +1259,6 @@ def main():
               f"| mean cross-architecture rank "
               f"correlation {agree:.3f} (E101 measured 0.793 on gold; CoAtNet's "
               f"own four arms sit at 0.905-0.986)", flush=True)
-@@ENDIF V1_MEMBERS@@
-@@IF RESGATED_DIR@@
 
     # A THIRD PIPELINE (E121). `mattiaangeli/rsna-knee-coat-resgated-ep10-top3`,
     # CC0-1.0, a DIFFERENT author from every arm above.
@@ -949,7 +1333,6 @@ def main():
     print(f"[resgated] third pipeline at 1/{len(_pipes)} | mean rank correlation "
           f"with the rest {_agree:.3f} (0.872 measured on gold-58; our own "
           f"CoAtNet arms sit at 0.905-0.986)", flush=True)
-@@ENDIF RESGATED_DIR@@
 
     scores = None
     if EVAL_SPLIT == "trainall":
@@ -999,7 +1382,6 @@ def main():
                            "per_finding": {f: round(bper[k], 4) for k, f in enumerate(LAB)}}
         print(f"[gold] BLEND macro {bm:.4f} | best single {best:.4f} | "
               f"gain {bm - best:+.4f}", flush=True)
-@@IF V1_MEMBERS@@
         for _nm, _pr in v1_members.items():
             _m, _per = macro_auc(truth, _pr)
             scores["arms"][f"v1:{_nm}"] = {
@@ -1021,7 +1403,6 @@ def main():
             print("[gold] NOTE: a FULL-FIT v1 member trained on all 58 gold "
                   "studies, so this number is contaminated upward and is a "
                   "plumbing check, not a score.", flush=True)
-@@ENDIF V1_MEMBERS@@
         for i, a in enumerate(ARMS):
             d = pd.DataFrame(probs[i].astype(np.float32), columns=list(LAB))
             d.insert(0, "arm", a["name"])

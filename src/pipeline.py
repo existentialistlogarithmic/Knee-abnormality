@@ -1983,6 +1983,92 @@ EXTRAS = [
     # not have been in E109: this is an ensemble member, not a controlled
     # comparison, so differing batch statistics cost nothing readable.
     Kernel(
+        slug="knee-train-v1pubfull-wrn50",
+        directory="104_train_v1pubfull_wrn50",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": -1,
+                   **V1.constants(),
+                   **TrainConfig(backbone="wide_resnet50_2", epochs=24, batch=8, accum=2,
+                                 lr=6e-4, input_norm=False, seed=3).constants()},
+        note="E124. ANOTHER v1 MEMBER FROM ANOTHER FAMILY.\n"
+             "\n"
+             "wide_resnet50_2: resnet50's depth at double the bottleneck width, 69M\nparameters. It changes CAPACITY SHAPE rather than family, which is the\none axis the four working members have never varied.\n"
+             "\n"
+             "THE BOARD HAS MOVED +0.002 FOUR TIMES, each time an INDEPENDENT\n"
+             "pipeline or family was added: 0.938 -> 0.940 (a depth change),\n"
+             "-> 0.942 (two new families), -> 0.944 (a different author's\n"
+             "pipeline). A reseed measured +0.000 (E064). This is the same\n"
+             "lever pulled once more.\n"
+             "\n"
+             "DENSE OR GROUPED CONVOLUTIONS ON PURPOSE. Three depthwise\n"
+             "architectures have host-OOM-killed at this geometry -\n"
+             "convnext_tiny, tf_efficientnet_b0, shufflenet_v2_x1_0 - while\n"
+             "four dense/grouped ones trained clean: resnet34, resnet50,\n"
+             "resnext50_32x4d, regnet_y_3_2gf. Seven runs, no mechanism\n"
+             "established, but the correlation decided this choice.\n"
+             "\n"
+             "TORCHVISION-ROUTED AND EXPOSES `.fc`, which `build_model`\n"
+             "requires on that branch: efficientnet, densenet and mnasnet\n"
+             "expose `.classifier` instead and would raise.\n"
+             "\n"
+             "Everything else is held equal to the resnet50 member. The\n"
+             "backbone is the only difference.\n"
+             "\n"
+             "FULL FIT, so it cannot be scored offline. The board is the only\n"
+             "judge; 0.944 is banked and the board keeps a team's best.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
+        slug="knee-train-v1pubfull-r101",
+        directory="105_train_v1pubfull_r101",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": -1,
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet101", epochs=24, batch=8, accum=2,
+                                 lr=6e-4, input_norm=False, seed=3).constants()},
+        note="E124. ANOTHER v1 MEMBER FROM ANOTHER FAMILY.\n"
+             "\n"
+             "resnet101: twice resnet50's depth at 45M parameters. E111 measured the\n34 -> 50 depth step at +0.002 on the board; this asks whether depth\nkeeps paying or has saturated.\n"
+             "\n"
+             "THE BOARD HAS MOVED +0.002 FOUR TIMES, each time an INDEPENDENT\n"
+             "pipeline or family was added: 0.938 -> 0.940 (a depth change),\n"
+             "-> 0.942 (two new families), -> 0.944 (a different author's\n"
+             "pipeline). A reseed measured +0.000 (E064). This is the same\n"
+             "lever pulled once more.\n"
+             "\n"
+             "DENSE OR GROUPED CONVOLUTIONS ON PURPOSE. Three depthwise\n"
+             "architectures have host-OOM-killed at this geometry -\n"
+             "convnext_tiny, tf_efficientnet_b0, shufflenet_v2_x1_0 - while\n"
+             "four dense/grouped ones trained clean: resnet34, resnet50,\n"
+             "resnext50_32x4d, regnet_y_3_2gf. Seven runs, no mechanism\n"
+             "established, but the correlation decided this choice.\n"
+             "\n"
+             "TORCHVISION-ROUTED AND EXPOSES `.fc`, which `build_model`\n"
+             "requires on that branch: efficientnet, densenet and mnasnet\n"
+             "expose `.classifier` instead and would raise.\n"
+             "\n"
+             "Everything else is held equal to the resnet50 member. The\n"
+             "backbone is the only difference.\n"
+             "\n"
+             "FULL FIT, so it cannot be scored offline. The board is the only\n"
+             "judge; 0.944 is banked and the board keeps a team's best.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
         slug="knee-train-v1pubfull-rx50",
         directory="99_train_v1pubfull_rx50",
         template="train",

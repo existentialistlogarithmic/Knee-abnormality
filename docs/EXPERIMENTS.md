@@ -8308,3 +8308,54 @@ told us apart from a bad score:**
 pipeline pays and the +0.0064 transferred; 0.940–0.944 inside the floor; **≤0.939**
 it dilutes. **This is a one-variable test** — same four CoAtNet arms, same eight
 v1 members as Version 7, one pipeline added.
+
+**RESULT (2026-09-22). BOARD 0.944 — the foreign pipeline paid.**
+
+| submission | v1 members | pipelines | board |
+|---|---|---|---:|
+| E105 | 5 | 2 | 0.938 |
+| E111 | 6 | 2 | 0.940 |
+| E119 | 8 | 2 | 0.942 |
+| **E123** | 8 | **3** | **0.944** |
+
+  **Four steps, +0.002 each, and every one added an INDEPENDENT pipeline or
+  family.** A reseed measured +0.000 (E064). The lever is consistent and it is
+  small: **the size of the step does not depend on the size of the addition** —
+  one depth change, two families, and a whole foreign pipeline each bought the
+  same +0.002.
+
+**E123's bracket said 0.940–0.944 is inside the floor, and 0.944 is its top
+edge** — the same position E111's 0.940 occupied. The offline gain was +0.0064
+with an interval spanning zero, so this is not resolved evidence; it is a banked
+number. **Both are true and the manifest keeps the arm**, because the next test
+builds on it and dropping it would make that test two-variable.
+
+### E124 — PRE-REGISTRATION: two more families, and the timm wall is worth climbing after all
+- **date**: 2026-09-24. Written before either run finished.
+
+**THE TWO PACKAGES BLOCKED BY A VERSION PIN ARE THE LARGEST MEASURED GAIN LEFT.**
+d4 adds **+0.0045** on gold beyond resgated and global96 a further +0.0005 — more
+than resgated's own +0.0064 contributed. They were dropped because their timm
+1.0.22 assertion would have forced a **global** downgrade onto arms verified at
+1.0.26.
+
+  **global96's dataset ships `timm-1.0.22-py3-none-any.whl`.** So the downgrade
+  need not be global: install that wheel to a private directory and run each
+  pinned package in a **subprocess with its own `PYTHONPATH`**, leaving our
+  process on 1.0.26. Their code already spawns isolated GPU-owner subprocesses,
+  which inherit the parent's environment. **That is isolation rather than a
+  compromise, and it is the next build.**
+
+**MEANWHILE, TWO MORE FAMILIES**, launched now because they are the long pole:
+
+| member | why |
+|---|---|
+| `wide_resnet50_2` | resnet50's depth at **double the bottleneck width**. Changes capacity SHAPE rather than family — the one axis the four working members never varied. |
+| `resnet101` | twice resnet50's depth. E111 priced 34→50 at +0.002; this asks whether depth still pays or has saturated. |
+
+  Both **dense/grouped and torchvision-routed with `.fc`**: three depthwise
+  architectures have host-OOM-killed here and four dense/grouped ones have not.
+
+**PRE-REGISTERED against the banked 0.944**: **≥0.947** families still pay at ten
+members; 0.942–0.946 inside the floor and the member lever has saturated;
+**≤0.941** the additions dilute.

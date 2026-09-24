@@ -8380,3 +8380,44 @@ entries may now declare `"timm": "1.0.22"`. A declared package:
 half right**: the constraint was real, but "global downgrade or nothing" was a
 false choice. **The gain it unlocks is +0.0045 on gold beyond resgated — larger
 than resgated's own contribution.**
+
+### E125 — the most independent asset yet found, and adding it is a disaster
+- **date**: 2026-09-24. No GPU, no submission.
+
+**E121 and E123 could be read as "low correlation is what pays". This is the
+control that stops that reading.** `nekkon/rsna-knee-image-oof-gold`, CC0-1.0, a
+**different author and a different architecture family** — a 5-fold
+EfficientNet-B3 multi-slot MIL, with gold studies never in its training, so its
+numbers are honestly out-of-sample.
+
+| | gold macro | ρ with our composite |
+|---|---:|---:|
+| our CoAtNet 4-arm | 0.9223 | — |
+| **nekkon b3, 5-fold mean** | **0.6278** | **0.317** |
+| coat + the mattiaangeli arm | 0.9337 | +0.0114 |
+| **+ b3 as a third vote** | **0.9006** | **−0.0218** |
+
+  **b3 added vs not: −0.0333, CI [−0.0516, −0.0159], P(better) = 0.000.**
+
+**IT IS THE MOST INDEPENDENT ASSET THIS PROJECT HAS EVER MEASURED** — ρ **0.317**
+against our arms' internal 0.905–0.986 and 0.303 against the foreign arm — **and
+it is the worst thing we could add.** Its README says why: trained on **929 of
+4,407 studies**, disk-limited.
+
+**SO THE RULE IS BOTH CONDITIONS, NOT EITHER.** E048 said a union pays when
+members are *comparable*; E121 found that same-author checkpoints inside our
+correlation band do not pay even when comparable. Put together:
+
+> **A member must be comparable in quality AND independent in error.** resgated
+> is 0.013 behind at ρ 0.872 and pays. E117's six were comparable but at ρ
+> 0.905–0.986 and did not. b3 is maximally independent at ρ 0.317 but 0.29
+> behind, and it destroys the blend.
+
+  **Independence buys nothing on its own, and this is the first measurement in
+  this log that separates the two axes cleanly.** It also retires a temptation:
+  every future survey will turn up weak-but-different assets, and they look
+  attractive under a correlation-only rule.
+
+- **cost: zero.** Its own README carried the study count that predicted the
+  result, and the package ships gold predictions and a study order, so the
+  measurement was arithmetic on 58 rows.

@@ -2846,7 +2846,11 @@ EXTRAS = [
                   "dreaddevelopment/raptor-knee-native384dense",
                   # E121/E123's foreign pipelines. Both CC0-1.0, both from a
                   # DIFFERENT author than the four CoAtNet arms above.
-                  "mattiaangeli/rsna-knee-coat-resgated-ep10-top3"],
+                  "mattiaangeli/rsna-knee-coat-resgated-ep10-top3",
+                  "mattiaangeli/rsna-knee-coatnet-d4-depthzone-swa3-b2",
+                  # Also the source of timm-1.0.22-py3-none-any.whl, which the
+                  # pinned packages need and which no other mount carries.
+                  "mattiaangeli/rsna-knee-coatnet-global96-top3"],
         depends=["knee-train-v1pubfull", "knee-train-v1pubfull-s4",
                  "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
                  "knee-train-v1pubfull-s7", "knee-train-v1pubfull-r50",
@@ -2872,28 +2876,31 @@ EXTRAS = [
             # drives its run_submission and purges its modules afterwards --
             # both packages ship a `cnx_dicom_geometry.py` and the first import
             # would otherwise win for both.
-            # ONLY resgated, and the reason is a hard constraint rather than a
-            # score. global96 and d4 both assert **timm 1.0.22** where Kaggle
-            # serves 1.0.26 -- d4 through its parent
-            # `coatnet_pairfilm_swa_inference`, which reads the version from a
-            # manifest and refuses to load on a mismatch. Their dataset bundles
-            # `timm-1.0.22-py3-none-any.whl` precisely so a kernel can downgrade,
-            # but that downgrade would apply to the WHOLE kernel, including the
-            # four CoAtNet arms and the eight v1 members that produced the banked
-            # 0.942 at 1.0.26. Trading a verified arm for an unverified one to
-            # gain 0.0045 on 58 studies is not a trade worth making.
+            # THREE PACKAGES, ONE SHARED VOTE. All one author's lineage, and
+            # two of them correlate 0.938 with each other, so they average into
+            # one arm rather than voting separately -- members that agree that
+            # closely are not independent pipelines.
             #
-            # resgated carries no version pin and has already run end-to-end here.
+            # `timm` marks a package that asserts an exact version and refuses to
+            # load otherwise. d4 does it through its parent, which reads the
+            # version from a manifest. Those run in a SUBPROCESS with the wheel
+            # their own dataset ships installed to a private directory, so the
+            # downgrade never touches the four CoAtNet arms or the eight v1
+            # members, which are verified at the serving version.
             #
-            # `dataset` pins each arm to its OWN mount: these packages ship each
-            # other's scripts -- d4's dataset holds FOUR `*_inference.py` files --
-            # so matching on filename alone loaded global96's code out of d4's
-            # directory, against d4's artifacts, and only a version assertion
-            # caught it.
+            # `dataset` pins each arm to its own mount: these packages ship each
+            # other's scripts -- d4's dataset holds four `*_inference.py` files --
+            # so matching on filename alone loaded the wrong one.
             "FOREIGN_ARMS": (
                 {"name": "resgated", "group": "mattiaangeli",
                  "dataset": "rsna-knee-coat-resgated-ep10-top3",
                  "entry": "coatnet_resgated_ep10_top3_inference"},
+                {"name": "d4", "group": "mattiaangeli", "timm": "1.0.22",
+                 "dataset": "rsna-knee-coatnet-d4-depthzone-swa3-b2",
+                 "entry": "coatnet_d4_depthzone_swa_inference"},
+                {"name": "global96", "group": "mattiaangeli", "timm": "1.0.22",
+                 "dataset": "rsna-knee-coatnet-global96-top3",
+                 "entry": "coatnet_global96_baseline_top3_inference"},
             ),
             **V1.constants(),
             "PLANES": ("Sagittal", "Coronal", "Axial"),

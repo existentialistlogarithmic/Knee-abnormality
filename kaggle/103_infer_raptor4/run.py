@@ -107,7 +107,7 @@ V1_SLICE_SUBSAMPLE  = None
 V1_INPUT_NORM       = False
 CHECKPOINT_GLOB     = "checkpoint_fold*.pt"
 SKIP_DIRECTORIES    = {"train_series", "test_series"}
-FOREIGN_ARMS        = ({'name': 'resgated', 'group': 'mattiaangeli', 'dataset': 'rsna-knee-coat-resgated-ep10-top3', 'entry': 'coatnet_resgated_ep10_top3_inference'},)
+FOREIGN_ARMS        = ({'name': 'resgated', 'group': 'mattiaangeli', 'dataset': 'rsna-knee-coat-resgated-ep10-top3', 'entry': 'coatnet_resgated_ep10_top3_inference'}, {'name': 'd4', 'group': 'mattiaangeli', 'timm': '1.0.22', 'dataset': 'rsna-knee-coatnet-d4-depthzone-swa3-b2', 'entry': 'coatnet_d4_depthzone_swa_inference'}, {'name': 'global96', 'group': 'mattiaangeli', 'timm': '1.0.22', 'dataset': 'rsna-knee-coatnet-global96-top3', 'entry': 'coatnet_global96_baseline_top3_inference'})
 TARGET_MM_PER_PIXEL = 0.6
 TARGET_SIZE         = 192
 SLICES_PER_PLANE    = 20
@@ -1279,9 +1279,11 @@ def main():
     # each package is imported with its own directory at the front of sys.path,
     # and every module loaded from inside that directory is purged afterwards.
     import importlib
+    import subprocess
     import sys as _sys
 
     _foreign = []
+    _timm_dir = None
     _fa_group = {f["name"]: f.get("group", f["name"]) for f in FOREIGN_ARMS}
     for _fa in FOREIGN_ARMS:
         # PINNED TO ITS OWN DATASET, not to the first directory holding a file
@@ -1297,26 +1299,82 @@ def main():
                 f"foreign arm {_fa['name']}: no {_fa['entry']}.py inside a "
                 f"directory matching {_fa['dataset']}; is that dataset mounted?")
         _dir = _hits[0]
-        _sys.path.insert(0, str(_dir))
-        try:
-            _mod = importlib.import_module(_fa["entry"])
-            gc.collect()
-            if str(device).startswith("cuda"):
-                torch.cuda.empty_cache()   # their shards want both T4s
-            _out = Path(f"/kaggle/working/_foreign_{_fa['name']}.csv")
-            _receipt = _mod.run_submission(
-                competition_root=Path(root),
-                artifact_root=_mod.find_artifact_root(),
-                output_path=_out,
-            )
-            print(f"[{_fa['name']}] {_receipt.get('status', '?')}", flush=True)
-        finally:
-            _sys.path.remove(str(_dir))
-            for _n, _m in list(_sys.modules.items()):
-                _f = getattr(_m, "__file__", None)
-                if _f and str(_dir) in str(_f):
-                    del _sys.modules[_n]
-            gc.collect()
+        _out = Path(f"/kaggle/working/_foreign_{_fa['name']}.csv")
+        gc.collect()
+        if str(device).startswith("cuda"):
+            torch.cuda.empty_cache()   # their shards want both T4s
+
+        if _fa.get("timm"):
+            # A PINNED PACKAGE RUNS IN ITS OWN PROCESS, NOT IN OURS.
+            #
+            # These assert an exact timm and refuse to load otherwise -- d4 via
+            # its parent `coatnet_pairfilm_swa_inference`, which reads the
+            # version from a manifest. Installing that timm globally would
+            # downgrade the FOUR CoAtNet arms and EIGHT v1 members above, which
+            # are verified at the serving version and produced the banked score.
+            #
+            # So the downgrade is confined: the wheel their own dataset ships is
+            # installed to a private directory, and the package runs as a
+            # subprocess whose PYTHONPATH puts that directory first. Their code
+            # already spawns isolated GPU-owner subprocesses, and those inherit
+            # this environment. Our process never imports the old timm at all.
+            if _timm_dir is None:
+                _wheel_dirs = find_all_markers(f"timm-{_fa['timm']}-py3-none-any.whl")
+                if not _wheel_dirs:
+                    raise RuntimeError(
+                        f"{_fa['name']} needs timm {_fa['timm']} and no "
+                        f"timm-{_fa['timm']}-py3-none-any.whl is mounted")
+                _wheel = next(iter(sorted(
+                    _wheel_dirs[0].glob(f"timm-{_fa['timm']}-py3-none-any.whl"))))
+                _timm_dir = "/kaggle/working/_timm_pinned"
+                # --no-index and --no-deps: this kernel has no internet, and a
+                # resolver reaching for dependencies would fail rather than
+                # quietly succeed.
+                subprocess.run(
+                    [_sys.executable, "-m", "pip", "install", "--quiet",
+                     "--no-index", "--no-deps", "--target", _timm_dir, str(_wheel)],
+                    check=True)
+                print(f"[foreign] pinned timm {_fa['timm']} installed to "
+                      f"{_timm_dir}, for subprocesses only", flush=True)
+            _runner = (
+                "import sys\n"
+                f"sys.path.insert(0, {str(_dir)!r})\n"
+                f"import {_fa['entry']} as m\n"
+                "from pathlib import Path\n"
+                # d4 is a shim and exposes no find_artifact_root of its own; its
+                # parent does. Ask the module, then its parent, then fail loudly.
+                "root_fn = getattr(m, 'find_artifact_root', None) or "
+                "getattr(getattr(m, 'parent', None), 'find_artifact_root', None)\n"
+                "if root_fn is None: raise SystemExit('no find_artifact_root')\n"
+                f"r = m.run_submission(competition_root=Path({root!r}), "
+                f"artifact_root=root_fn(), output_path=Path({str(_out)!r}))\n"
+                "print('[subprocess]', r.get('status', '?'), flush=True)\n")
+            _env = dict(os.environ)
+            _env["PYTHONPATH"] = _timm_dir + os.pathsep + _env.get("PYTHONPATH", "")
+            _r = subprocess.run([_sys.executable, "-c", _runner], env=_env,
+                                capture_output=True, text=True)
+            print(_r.stdout[-2000:], flush=True)
+            if _r.returncode != 0:
+                raise RuntimeError(
+                    f"foreign arm {_fa['name']} subprocess failed rc={_r.returncode}: "
+                    f"{_r.stderr[-1500:]}")
+        else:
+            _sys.path.insert(0, str(_dir))
+            try:
+                _mod = importlib.import_module(_fa["entry"])
+                _receipt = _mod.run_submission(
+                    competition_root=Path(root),
+                    artifact_root=_mod.find_artifact_root(),
+                    output_path=_out,
+                )
+                print(f"[{_fa['name']}] {_receipt.get('status', '?')}", flush=True)
+            finally:
+                _sys.path.remove(str(_dir))
+                for _n, _m in list(_sys.modules.items()):
+                    _f = getattr(_m, "__file__", None)
+                    if _f and str(_dir) in str(_f):
+                        del _sys.modules[_n]
+                gc.collect()
 
         _df = pd.read_csv(_out).set_index("StudyInstanceUID")
         _miss = [i for i in ids if i not in _df.index]

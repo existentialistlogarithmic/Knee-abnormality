@@ -8359,3 +8359,24 @@ than resgated's own +0.0064 contributed. They were dropped because their timm
 **PRE-REGISTERED against the banked 0.944**: **≥0.947** families still pay at ten
 members; 0.942–0.946 inside the floor and the member lever has saturated;
 **≤0.941** the additions dilute.
+
+**THE TIMM WALL, CLIMBED BY ISOLATION RATHER THAN COMPROMISE.** `FOREIGN_ARMS`
+entries may now declare `"timm": "1.0.22"`. A declared package:
+
+1. has the wheel **its own dataset ships** installed to `/kaggle/working/_timm_pinned`
+   with `pip --no-index --no-deps --target` — no internet, and a resolver that
+   reached for dependencies would fail loudly rather than quietly succeed;
+2. runs as a **subprocess** whose `PYTHONPATH` puts that directory first;
+3. never touches our process, which keeps the serving timm for the four CoAtNet
+   arms and eight v1 members that produced the banked **0.944**.
+
+  Their code already spawns isolated GPU-owner subprocesses, and those inherit
+  this environment, so the pin reaches the workers that assert it.
+  **d4 exposes no `find_artifact_root` of its own** — it is a shim and its parent
+  has it — so the runner asks the module, then its parent, then fails loudly
+  rather than guessing.
+
+**This is what the earlier entry called "a constraint, not a choice" and it was
+half right**: the constraint was real, but "global downgrade or nothing" was a
+false choice. **The gain it unlocks is +0.0045 on gold beyond resgated — larger
+than resgated's own contribution.**

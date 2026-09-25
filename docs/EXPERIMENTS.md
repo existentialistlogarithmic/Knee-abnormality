@@ -8592,3 +8592,44 @@ here so that it cannot be quietly re-derived later:
   applies to are one author's lineage — an accidental discount on a correlated
   family is not clearly a loss. What is not acceptable is a comment claiming one
   vote each over code that gives 1/√5.
+
+### E128 — the pending build's offline gain is twice resgated's and the first one separated from zero
+- **date**: 2026-09-25. No GPU, no submission. Same module, same 58 rows.
+
+**HAVING THE SCREEN AS A FUNCTION MADE THIS FREE**, so the obvious question got
+asked: what is the pending three-package arm actually worth offline, and would
+dropping its weakest member help? Baseline is the coat 4-arm at 0.9223 — **v1 is
+excluded on purpose**, because eight full fits read 0.9998 on gold and any
+baseline containing them is memorisation, not a measurement. (That exclusion is
+E120's point, and the first pass of this screen got it wrong by including them;
+it is recorded here rather than quietly re-run.)
+
+| added to coat, one vote | gold | Δ | 95% CI | P(better) |
+|---|---:|---:|---|---:|
+| resgated alone — **this is the banked 0.944** | 0.9283 | +0.0060 | [−0.0068, +0.0181] | 0.830 |
+| d4 alone | 0.9339 | +0.0115 | [+0.0011, +0.0218] | 0.985 |
+| global96 alone | 0.9355 | +0.0131 | [+0.0027, +0.0244] | 0.993 |
+| **grouped 3 — this is version 5** | **0.9340** | **+0.0116** | **[+0.0012, +0.0217]** | **0.985** |
+| grouped 2, resgated dropped | 0.9356 | +0.0133 | [+0.0034, +0.0233] | 0.995 |
+
+**THE PENDING BUILD IS THE FIRST ADDITION IN THIS LOG WHOSE INTERVAL EXCLUDES
+ZERO.** Every prior +0.002 board step was bought with an offline gain whose CI
+spanned zero — resgated's own did. Version 5's is **twice the size and
+separated**. That is not a board prediction: the board's floor is ±0.003 and
+1,300 studies is a different instrument from 58. It is the difference between
+a measured effect and a hopeful one.
+
+**AND THE CHANGE THAT IS NOT BEING MADE.** Dropping resgated reads **+0.0017,
+CI [−0.0020, +0.0055], P(better) 0.817** — not separated, and worth well under
+the board's own floor. **So all three stay.** The temptation is obvious and so is
+the trap: resgated is the weakest package *on these 58 studies*, and removing a
+member because of where it sits in a 58-study ranking is E106's failure and the
+one E117 documented. The two-axis rule does not rescue it either — resgated is
+0.013 behind our coat arm at ρ 0.871, which is exactly the profile E125 said
+*pays*.
+
+  **Family structure, for the record:** resgated ρ 0.897/0.898 with d4 and
+  global96, and d4 ρ **0.938** with global96, against 0.871–0.879 for all three
+  versus our arms. One author's lineage, tighter with each other than with us —
+  which is the whole reason the kernel groups them into one vote instead of
+  three.

@@ -8633,3 +8633,75 @@ one E117 documented. The two-axis rule does not rescue it either — resgated is
   versus our arms. One author's lineage, tighter with each other than with us —
   which is the whole reason the kernel groups them into one vote instead of
   three.
+
+### E129 — both stubs verified: the timm wall is down and the two new backbones memorise
+- **date**: 2026-09-25. Two kernel runs, no submission yet.
+
+**`knee-infer-raptor4` VERSION 5 — three foreign pipelines, three timm versions,
+one process.** The isolation E124 designed works exactly as written:
+
+```
+device cuda | torch 2.10.0+cu128 | timm 1.0.26          <- our process, untouched
+[foreign] pinned timm 1.0.22 installed to /kaggle/working/_timm_pinned,
+          for subprocesses only
+  resgated   returncode 0, fallback_studies 0
+  d4         "timm": "1.0.22"   returncode 0, fallback_studies 0
+  global96   "timm": "1.0.22"   returncode 0, fallback_studies 0
+[mattiaangeli] 1/3 of the vote, shared by ['resgated', 'd4', 'global96']
+[blend] 3 pipelines, prior blend at 2/3
+wrote /kaggle/working/submission.csv  rows=3
+```
+
+  resgated reproduced its own declared gold figure to the digit
+  (`0.9094696373252056`), eight distinct v1 fingerprints, zero fallbacks on every
+  arm. **"A constraint, not a choice" was wrong and this is the proof**: two
+  packages that assert timm 1.0.22 now run beside four CoAtNet arms verified at
+  1.0.26, in the same kernel, with no downgrade anywhere.
+
+  **Note what the log prints and E127 says about it.** `prior blend at 2/3` is
+  the code's claim; the measured influence of the foreign vote is 1/√5, not
+  1/√3, because the prior is re-ranked first. **The stub cannot see this and
+  neither could any log** — it is a property of the arithmetic, and it took
+  writing the arithmetic down as a testable function to find.
+
+**`knee-gold-v1integrity` VERSION 2 — ten members, and E120's construction used
+for the purpose it was built for.** Every member is a full fit over all 58 gold,
+so each must come back at ~0.99 through this path or something between the
+checkpoint and the forward pass is broken:
+
+| member | gold macro | |
+|---|---:|---|
+| `wide_resnet50_2` | **1.0000** | **NEW** |
+| `resnet101` | **0.9997** | **NEW** |
+| resnet50 | 1.0000 | control |
+| regnet_y_3_2gf | 1.0000 | control |
+| resnext50_32x4d | 0.9998 | control |
+| resnet34 ×5 (seeds) | 0.9928 – 0.9979 | control |
+
+  **No load fault.** `build_model` rebuilt a `wide_resnet50_2` at the right
+  bottleneck width and a `resnet101` at the right depth from `weights=None` with
+  internet off, and `load_state_dict(strict=False)` dropped nothing that
+  mattered. The log confirms it independently — ten distinct fingerprints, and
+  each member printing its own backbone name off its own checkpoint. **This is
+  the check the stub's fingerprint guard cannot perform**: ten distinct FILES
+  were read is not ten networks that got their weights.
+
+**AND THE COAT ARMS AGREE WITH THEIR AUTHOR, which is the control on the control:**
+maxspan-v5 0.9199 vs their 0.9214, native384dense 0.9170 vs 0.9174, native384-v8
+0.9116 vs 0.9067. Four arms within ±0.005 of numbers we did not produce.
+
+**COST, MEASURED RATHER THAN PROJECTED.** The ten-member v1 arm runs **1.94
+s/study → 0.70 h on 1,300**, against E100's 0.14 h for five resnet34s: the two
+heavy backbones cost more than the five light ones put together. Kernel 86 comes
+to **3.13 h** against the 9 h cap. The manifest note carried a projection of
+"under 0.6 h" and now carries the measurement; the pushed version 8 predates the
+correction and the difference is a comment.
+
+**THE ONE RISK LEFT ON VERSION 5, STATED PLAINLY.** Each foreign package
+re-prepares DICOM independently, so preparation is now paid four times over, and
+three studies is far too few to extrapolate a 1,300-study runtime from. What is
+known: version 4 carried one package and completed, and d4 and global96 each
+read *cheaper* than resgated in the stub. What is not known is version 4's actual
+runtime — `kaggle competitions submissions` returns **403** for this account,
+the same restriction that blocks CLI submission. **A timeout costs the slot, not
+the banked 0.944.**

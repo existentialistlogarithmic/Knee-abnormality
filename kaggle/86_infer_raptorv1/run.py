@@ -97,9 +97,11 @@ import torch.nn.functional as F
 # same 0.940 the scalar scored, so the structure is worth nothing
 # this instrument can read.
 #
-# Cost: 82's four arms (2.43 h on 1,300) plus the v1 arm, which
-# E100 measured at 0.14 h for five resnet34s; ten members with two
-# heavier backbones projects under 0.6 h. ~3.1 h against a 9 h cap.
+# Cost, MEASURED at ten members on the 58-study gold run rather
+# than projected: the v1 arm runs 1.94 s/study, which is 0.70 h on
+# 1,300. With 82's four arms at 2.43 h that is 3.13 h against a 9 h
+# cap. E100 measured five resnet34s at 0.14 h, so the two heavier
+# backbones cost more than the five light ones together.
 #
 # ATTRIBUTION: the CoAtNet arms are Dread Development's, run
 # from the CC0 datasets `raptor-knee-maxspan`,

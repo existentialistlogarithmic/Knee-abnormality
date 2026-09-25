@@ -90,7 +90,17 @@ import torch.nn.functional as F
 # study. Score each member separately. The five resnet34s and the
 # resnet50 are the CONTROL - they shipped in the 0.940 blend, so
 # if they do not memorise either, the fault is in shared code and
-# not in the two new members at all.
+# not in the newer members at all.
+#
+# NOW TEN. wide_resnet50_2 and resnet101 (E124) are the two under
+# test here. Both reported a best val macro AUC of 0.9837 and
+# 0.9882 IN THEIR OWN TRAINING LOGS, which is memorisation and
+# says nothing about quality - but it does mean the weights on
+# disk fit the data. If either reads far below ~0.99 THROUGH THIS
+# PATH while the control members do not, the fault is between the
+# checkpoint and the forward pass: `build_model` rebuilding a
+# wide_resnet50_2 at the wrong width, or a resnet101 state_dict
+# loading partially under strict=False.
 #
 # Writes no submission.csv: these 58 are training data.
 #
@@ -104,7 +114,7 @@ FALLBACK_LIMIT      = 0.02
 DECODE_AHEAD        = 32
 EVAL_SPLIT          = "gold"
 GOLD_EXPECTED       = 58
-V1_MEMBERS          = 8
+V1_MEMBERS          = 10
 V1_BLEND_W          = 0.5
 V1_BATCH_STUDIES    = 4
 V1_SLICE_SUBSAMPLE  = None

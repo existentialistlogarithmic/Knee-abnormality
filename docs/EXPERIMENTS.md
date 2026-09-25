@@ -8421,3 +8421,80 @@ correlation band do not pay even when comparable. Put together:
 - **cost: zero.** Its own README carried the study count that predicted the
   result, and the package ships gold predictions and a study order, so the
   measurement was arithmetic on 58 rows.
+
+### E126 — the two new families are wired, and they go in a different kernel from the foreign arms
+- **date**: 2026-09-25. Build entry. Board unseen for both configurations.
+
+**BOTH E124 BUILDS ARE NOW REAL, AND THEY ARE DELIBERATELY NOT IN THE SAME
+KERNEL.** E124 pre-registered two additions at once — two v1 families and two
+more foreign packages — and shipping them together would have made the next
+board reading two-variable. They are split:
+
+| kernel | v1 members | foreign pipelines | its one variable | baseline |
+|---|---:|---:|---|---:|
+| `knee-infer-raptorv1` (86) | **10** | 0 (4 CoAtNet arms only) | +2 families | E119 **0.942** |
+| `knee-infer-raptor4` (103) | 8 | **3** | +2 packages | E123 **0.944** |
+
+  **The 0.944 is banked whatever either returns** — the board keeps a team's
+  best — so both are free reads. What they are not is free *slots*: five a day,
+  and these are two of them.
+
+**THE TWO MEMBERS CAME BACK CLEAN.** Both trained to epoch 24, exported the
+full fit at epoch 20, no host kill:
+
+| member | params | best val macro (report-derived) |
+|---|---:|---:|
+| `wide_resnet50_2` | 69M | 0.9837 |
+| `resnet101` | 45M | 0.9882 |
+
+  **Those AUCs are MEMORISATION and mean nothing about quality.** Both are full
+  fits over all 4,407 studies including the validation split; the numbers say
+  only that the runs trained and the weights on disk fit the data. They are
+  reported here because a full fit that *failed* would show up as a low one.
+
+**SIX FOR SIX on the dense/grouped correlation.** resnet34, resnet50,
+resnext50_32x4d, regnet_y_3_2gf, wide_resnet50_2, resnet101 all trained clean;
+convnext_tiny, tf_efficientnet_b0 and shufflenet_v2_x1_0 all host-OOM-killed.
+**Still a correlation with no mechanism** — E124's withdrawn "timm-routed dies"
+hypothesis was the last attempt at one, and `shufflenet_v2_x1_0` is
+torchvision-routed and died anyway.
+
+**THE LOAD RISK THIS ADDS, AND THE CHECK FOR IT.** Inference runs with internet
+off, so `build_model` takes the `weights=None` branch and then
+`load_state_dict(w, strict=False)`. **`strict=False` drops a mismatched or
+misnamed tensor silently.** Neither backbone has ever been rebuilt on the
+inference path, and a `wide_resnet50_2` reconstructed at the wrong bottleneck
+width would load partially, score like noise, and raise nothing. The stub's
+fingerprint guard cannot see this: it proves ten distinct FILES were read, not
+that each file's weights reached its network.
+
+  **So `knee-gold-v1integrity` (102) goes to ten first and runs before the
+  submission.** Every member is a full fit over all 58 gold, so each must come
+  back near ~0.99 through this path; the eight that shipped in the 0.942 are
+  the control. A new member well short of ~0.99 while the control is fine is a
+  load fault, not a quality problem — E120's construction, used for the purpose
+  it was built for.
+
+**PRE-REGISTERED for kernel 86, board unseen, against E119's 0.942** (E124's
+bracket restated for this kernel's own baseline rather than the three-pipeline
+0.944, which belongs to 103):
+
+- **≥ 0.945** — families still pay at ten members, and the member lever is live.
+- **0.940–0.944** — inside the ±0.003 floor (E092). **The member lever has
+  saturated**: four backbones and two capacity axes bought nothing readable, and
+  the next gain has to come from a pipeline rather than a backbone.
+- **≤ 0.939** — the two additions dilute and come straight back out.
+
+  **Note the asymmetry that makes the middle bracket informative for once.**
+  Every previous +0.002 step added an independent *pipeline or family*, and the
+  step size never depended on the size of the addition. Two families at once, if
+  the lever were still live, is the first addition that should have moved more
+  than one step — so a middle reading here is evidence of saturation in a way
+  E111's and E123's middle readings were not.
+
+**COST.** E100 measured the v1 arm at 0.14 h for five resnet34s on 1,300
+studies. Ten members with two heavier backbones projects under 0.6 h; with 82's
+four arms at 2.43 h that is ~3.1 h against the 9 h cap. Neither build needs GPU
+quota to *prepare* — a code-competition notebook commits against the 3-study
+visible set — so the 6.18 h left before the 26 Sep refresh is not the binding
+constraint. The five-a-day submission limit is.

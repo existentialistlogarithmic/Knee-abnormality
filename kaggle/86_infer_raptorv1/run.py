@@ -59,29 +59,47 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-# THE SUBMISSION. Four CC0 CoAtNet arms (board 0.932) and five
-# full-fit resnet34 members (board 0.926), rank-blended 50/50
-# inside one kernel.
+# A SUBMISSION, AND THE MEMBER-COUNT TEST. Four CC0 CoAtNet arms
+# (board 0.932) and TEN full-fit v1 members (eight of them scored
+# 0.926 alone), rank-blended 50/50 inside one kernel.
 #
-# DO NOT SUBMIT BEFORE `knee-gold-raptorv1` HAS RUN. Two
-# architectures in one kernel is two ways for a preprocessing
-# skew to hide, and the gold run is what makes this readable.
+# ONE VARIABLE, AGAINST E119's 0.942. That submission was this
+# exact kernel at EIGHT members: five resnet34 seeds, resnet50,
+# resnext50_32x4d, regnet_y_3_2gf, same four arms, same w=0.5.
+# wide_resnet50_2 and resnet101 are the only change.
 #
-# PRE-REGISTERED, per E101:
-#   > 0.935   the offline sweep transferred and then some
-#   0.933-0.935  a real gain above the +/-0.003 board floor
-#   0.930-0.932  inside the floor; gold-58 saw a gain the board
-#                cannot, which is the E083 failure again
-#   < 0.929   below the CoAtNet arm alone, so the second member
-#             DILUTES, and E048's rule is wrong at a 0.024 gap
+# WHY THESE TWO. The board has moved +0.002 four times and every
+# step added an INDEPENDENT pipeline or family; a reseed measured
+# +0.000 (E064). The eight vary seed and depth-within-resnet but
+# never CAPACITY SHAPE. wide_resnet50_2 doubles resnet50's
+# bottleneck width at the same depth; resnet101 doubles its depth
+# at the same width. If the member lever has saturated, this is
+# where it shows.
 #
-# The weight is 0.5 and nothing is fitted, for the fifth time.
-# The sweep's peak at w=0.3 beats 0.5 by +0.0022, which is below
-# the board's own reseed floor: a fitted weight would buy a
-# difference the board cannot measure.
+# DO NOT SUBMIT BEFORE `knee-gold-v1integrity` HAS RUN AT TEN.
+# Two architectures in one kernel is two ways for a preprocessing
+# skew to hide, and both new members are backbones this inference
+# path has never rebuilt. The stub proves ten distinct files were
+# READ; only the memorisation check proves each file's weights
+# reached its network.
 #
-# Cost: 82's four arms (2.43 h on 1,300) plus 63's five members
-# (~1.0 h), so ~3.5 h against a 9 h cap.
+# PRE-REGISTERED, board unseen, against E119's 0.942 (E124's
+# bracket, restated for THIS kernel's baseline rather than the
+# three-pipeline 0.944):
+#   >= 0.945     families still pay at ten members
+#   0.940-0.944  inside the +/-0.003 floor (E092); the member
+#                lever has saturated and the next gain must come
+#                from a pipeline, not a backbone
+#   <= 0.939     the two additions DILUTE and come back out
+#
+# The weight is 0.5 and nothing is fitted, for the sixth time.
+# E116 shipped a per-finding vector and the board returned the
+# same 0.940 the scalar scored, so the structure is worth nothing
+# this instrument can read.
+#
+# Cost: 82's four arms (2.43 h on 1,300) plus the v1 arm, which
+# E100 measured at 0.14 h for five resnet34s; ten members with two
+# heavier backbones projects under 0.6 h. ~3.1 h against a 9 h cap.
 #
 # ATTRIBUTION: the CoAtNet arms are Dread Development's, run
 # from the CC0 datasets `raptor-knee-maxspan`,
@@ -97,7 +115,7 @@ FALLBACK_LIMIT      = 0.02
 DECODE_AHEAD        = 32
 EVAL_SPLIT          = "test"
 GOLD_EXPECTED       = 58
-V1_MEMBERS          = 8
+V1_MEMBERS          = 10
 V1_BLEND_W          = 0.5
 V1_BATCH_STUDIES    = 4
 V1_SLICE_SUBSAMPLE  = None

@@ -2688,7 +2688,11 @@ EXTRAS = [
         depends=["knee-train-v1pubfull", "knee-train-v1pubfull-s4",
                  "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
                  "knee-train-v1pubfull-s7", "knee-train-v1pubfull-r50",
-                 "knee-train-v1pubfull-rx50", "knee-train-v1pubfull-regnet"],
+                 "knee-train-v1pubfull-rx50", "knee-train-v1pubfull-regnet",
+                 # E124's two capacity-shape members: wide_resnet50_2 and
+                 # resnet101. Both full-fit, both dense/grouped, both verified
+                 # to export at epoch 20 with no host kill.
+                 "knee-train-v1pubfull-wrn50", "knee-train-v1pubfull-r101"],
         constants={
             "MEMBERS_EXPECTED": 4,
             "ARMS": RAPTOR_ARMS,
@@ -2698,7 +2702,7 @@ EXTRAS = [
             "DECODE_AHEAD": 32,
             "EVAL_SPLIT": "gold",
             "GOLD_EXPECTED": 58,
-            "V1_MEMBERS": 8,
+            "V1_MEMBERS": 10,
             "V1_BLEND_W": 0.50,
             "V1_BATCH_STUDIES": V1.infer_batch,
             "V1_SLICE_SUBSAMPLE": None,
@@ -2739,7 +2743,17 @@ EXTRAS = [
              "study. Score each member separately. The five resnet34s and the\n"
              "resnet50 are the CONTROL - they shipped in the 0.940 blend, so\n"
              "if they do not memorise either, the fault is in shared code and\n"
-             "not in the two new members at all.\n"
+             "not in the newer members at all.\n"
+             "\n"
+             "NOW TEN. wide_resnet50_2 and resnet101 (E124) are the two under\n"
+             "test here. Both reported a best val macro AUC of 0.9837 and\n"
+             "0.9882 IN THEIR OWN TRAINING LOGS, which is memorisation and\n"
+             "says nothing about quality - but it does mean the weights on\n"
+             "disk fit the data. If either reads far below ~0.99 THROUGH THIS\n"
+             "PATH while the control members do not, the fault is between the\n"
+             "checkpoint and the forward pass: `build_model` rebuilding a\n"
+             "wide_resnet50_2 at the wrong width, or a resnet101 state_dict\n"
+             "loading partially under strict=False.\n"
              "\n"
              "Writes no submission.csv: these 58 are training data.\n"
              "\n"
@@ -2768,7 +2782,11 @@ EXTRAS = [
                  # 10 September, and they carry no version description while
                  # every real submission from here names its version. E122.
                  "knee-train-v1pubfull-rx50",
-                 "knee-train-v1pubfull-regnet"],
+                 "knee-train-v1pubfull-regnet",
+                 # E124's two capacity-shape members: wide_resnet50_2 and
+                 # resnet101. Both full-fit, both dense/grouped, both verified
+                 # to export at epoch 20 with no host kill.
+                 "knee-train-v1pubfull-wrn50", "knee-train-v1pubfull-r101"],
         constants={
             "MEMBERS_EXPECTED": 4,
             "ARMS": RAPTOR_ARMS,
@@ -2778,19 +2796,25 @@ EXTRAS = [
             "DECODE_AHEAD": 32,
             "EVAL_SPLIT": "gold",
             "GOLD_EXPECTED": 58,
-            # THE SECOND ARCHITECTURE, ON. Five full-fit resnet34 members at
-            # this project's own v1 geometry, run in the same kernel because a
-            # CSV-chained blend cannot work here (see `rank_blend`'s own guard:
-            # a mounted kernel supplies its last SAVED output, frozen at the
-            # 3-study visible run).
+            # THE SECOND ARCHITECTURE, ON. Full-fit members at this project's
+            # own v1 geometry, run in the same kernel because a CSV-chained
+            # blend cannot work here (see `rank_blend`'s own guard: a mounted
+            # kernel supplies its last SAVED output, frozen at the 3-study
+            # visible run).
             #
-            # BACK TO FIVE, per E111's own pre-registered rule. The resnet50
-            # sixth member moved the board 0.938 -> 0.940, which is inside the
-            # +/-0.003 reseed floor E092 established, so it has not been shown to
-            # do anything. The 0.940 stays banked whatever this says -- the board
-            # keeps a team's best -- so the revert costs nothing and keeping it
-            # would be banking a number the instrument cannot resolve.
-            "V1_MEMBERS": 8,
+            # TEN, E124. Eight was E119's set -- five resnet34 seeds, resnet50,
+            # resnext50_32x4d, regnet_y_3_2gf -- and it scored 0.942 with these
+            # same four CoAtNet arms. The two added here are wide_resnet50_2
+            # (resnet50's depth at double the bottleneck width) and resnet101
+            # (twice its depth): CAPACITY SHAPE and DEPTH, the two axes the
+            # eight never varied. Both trained clean and exported at epoch 20.
+            #
+            # THIS LINEAGE IS THE ONE-VARIABLE TEST OF THAT ADDITION. Its
+            # baseline is E119's 0.942 -- same arms, same weight, eight members
+            # instead of ten. The three-pipeline 0.944 belongs to
+            # `knee-infer-raptor4`, which stays at EIGHT members for exactly
+            # this reason: two kernels, one variable each.
+            "V1_MEMBERS": 10,
             # BACK TO THE SCALAR, per E116's pre-registration. E116 shipped one
             # weight per finding, derived without touching gold-58 and without
             # touching CoAtNet's predictions -- leakage-free by construction,
@@ -2961,7 +2985,11 @@ EXTRAS = [
                  # 10 September, and they carry no version description while
                  # every real submission from here names its version. E122.
                  "knee-train-v1pubfull-rx50",
-                 "knee-train-v1pubfull-regnet"],
+                 "knee-train-v1pubfull-regnet",
+                 # E124's two capacity-shape members: wide_resnet50_2 and
+                 # resnet101. Both full-fit, both dense/grouped, both verified
+                 # to export at epoch 20 with no host kill.
+                 "knee-train-v1pubfull-wrn50", "knee-train-v1pubfull-r101"],
         constants={
             "MEMBERS_EXPECTED": 4,
             "ARMS": RAPTOR_ARMS,
@@ -2971,19 +2999,25 @@ EXTRAS = [
             "DECODE_AHEAD": 32,
             "EVAL_SPLIT": "test",
             "GOLD_EXPECTED": 58,
-            # THE SECOND ARCHITECTURE, ON. Five full-fit resnet34 members at
-            # this project's own v1 geometry, run in the same kernel because a
-            # CSV-chained blend cannot work here (see `rank_blend`'s own guard:
-            # a mounted kernel supplies its last SAVED output, frozen at the
-            # 3-study visible run).
+            # THE SECOND ARCHITECTURE, ON. Full-fit members at this project's
+            # own v1 geometry, run in the same kernel because a CSV-chained
+            # blend cannot work here (see `rank_blend`'s own guard: a mounted
+            # kernel supplies its last SAVED output, frozen at the 3-study
+            # visible run).
             #
-            # BACK TO FIVE, per E111's own pre-registered rule. The resnet50
-            # sixth member moved the board 0.938 -> 0.940, which is inside the
-            # +/-0.003 reseed floor E092 established, so it has not been shown to
-            # do anything. The 0.940 stays banked whatever this says -- the board
-            # keeps a team's best -- so the revert costs nothing and keeping it
-            # would be banking a number the instrument cannot resolve.
-            "V1_MEMBERS": 8,
+            # TEN, E124. Eight was E119's set -- five resnet34 seeds, resnet50,
+            # resnext50_32x4d, regnet_y_3_2gf -- and it scored 0.942 with these
+            # same four CoAtNet arms. The two added here are wide_resnet50_2
+            # (resnet50's depth at double the bottleneck width) and resnet101
+            # (twice its depth): CAPACITY SHAPE and DEPTH, the two axes the
+            # eight never varied. Both trained clean and exported at epoch 20.
+            #
+            # THIS LINEAGE IS THE ONE-VARIABLE TEST OF THAT ADDITION. Its
+            # baseline is E119's 0.942 -- same arms, same weight, eight members
+            # instead of ten. The three-pipeline 0.944 belongs to
+            # `knee-infer-raptor4`, which stays at EIGHT members for exactly
+            # this reason: two kernels, one variable each.
+            "V1_MEMBERS": 10,
             # BACK TO THE SCALAR, per E116's pre-registration. E116 shipped one
             # weight per finding, derived without touching gold-58 and without
             # touching CoAtNet's predictions -- leakage-free by construction,
@@ -3008,29 +3042,47 @@ EXTRAS = [
             **V1.constants(),
             "PLANES": ("Sagittal", "Coronal", "Axial"),
         },
-        note="THE SUBMISSION. Four CC0 CoAtNet arms (board 0.932) and five\n"
-             "full-fit resnet34 members (board 0.926), rank-blended 50/50\n"
-             "inside one kernel.\n"
+        note="A SUBMISSION, AND THE MEMBER-COUNT TEST. Four CC0 CoAtNet arms\n"
+             "(board 0.932) and TEN full-fit v1 members (eight of them scored\n"
+             "0.926 alone), rank-blended 50/50 inside one kernel.\n"
              "\n"
-             "DO NOT SUBMIT BEFORE `knee-gold-raptorv1` HAS RUN. Two\n"
-             "architectures in one kernel is two ways for a preprocessing\n"
-             "skew to hide, and the gold run is what makes this readable.\n"
+             "ONE VARIABLE, AGAINST E119's 0.942. That submission was this\n"
+             "exact kernel at EIGHT members: five resnet34 seeds, resnet50,\n"
+             "resnext50_32x4d, regnet_y_3_2gf, same four arms, same w=0.5.\n"
+             "wide_resnet50_2 and resnet101 are the only change.\n"
              "\n"
-             "PRE-REGISTERED, per E101:\n"
-             "  > 0.935   the offline sweep transferred and then some\n"
-             "  0.933-0.935  a real gain above the +/-0.003 board floor\n"
-             "  0.930-0.932  inside the floor; gold-58 saw a gain the board\n"
-             "               cannot, which is the E083 failure again\n"
-             "  < 0.929   below the CoAtNet arm alone, so the second member\n"
-             "            DILUTES, and E048's rule is wrong at a 0.024 gap\n"
+             "WHY THESE TWO. The board has moved +0.002 four times and every\n"
+             "step added an INDEPENDENT pipeline or family; a reseed measured\n"
+             "+0.000 (E064). The eight vary seed and depth-within-resnet but\n"
+             "never CAPACITY SHAPE. wide_resnet50_2 doubles resnet50's\n"
+             "bottleneck width at the same depth; resnet101 doubles its depth\n"
+             "at the same width. If the member lever has saturated, this is\n"
+             "where it shows.\n"
              "\n"
-             "The weight is 0.5 and nothing is fitted, for the fifth time.\n"
-             "The sweep's peak at w=0.3 beats 0.5 by +0.0022, which is below\n"
-             "the board's own reseed floor: a fitted weight would buy a\n"
-             "difference the board cannot measure.\n"
+             "DO NOT SUBMIT BEFORE `knee-gold-v1integrity` HAS RUN AT TEN.\n"
+             "Two architectures in one kernel is two ways for a preprocessing\n"
+             "skew to hide, and both new members are backbones this inference\n"
+             "path has never rebuilt. The stub proves ten distinct files were\n"
+             "READ; only the memorisation check proves each file\'s weights\n"
+             "reached its network.\n"
              "\n"
-             "Cost: 82's four arms (2.43 h on 1,300) plus 63's five members\n"
-             "(~1.0 h), so ~3.5 h against a 9 h cap.\n"
+             "PRE-REGISTERED, board unseen, against E119\'s 0.942 (E124\'s\n"
+             "bracket, restated for THIS kernel\'s baseline rather than the\n"
+             "three-pipeline 0.944):\n"
+             "  >= 0.945     families still pay at ten members\n"
+             "  0.940-0.944  inside the +/-0.003 floor (E092); the member\n"
+             "               lever has saturated and the next gain must come\n"
+             "               from a pipeline, not a backbone\n"
+             "  <= 0.939     the two additions DILUTE and come back out\n"
+             "\n"
+             "The weight is 0.5 and nothing is fitted, for the sixth time.\n"
+             "E116 shipped a per-finding vector and the board returned the\n"
+             "same 0.940 the scalar scored, so the structure is worth nothing\n"
+             "this instrument can read.\n"
+             "\n"
+             "Cost: 82\'s four arms (2.43 h on 1,300) plus the v1 arm, which\n"
+             "E100 measured at 0.14 h for five resnet34s; ten members with two\n"
+             "heavier backbones projects under 0.6 h. ~3.1 h against a 9 h cap.\n"
              "\n"
              "ATTRIBUTION: the CoAtNet arms are Dread Development's, run\n"
              "from the CC0 datasets `raptor-knee-maxspan`,\n"

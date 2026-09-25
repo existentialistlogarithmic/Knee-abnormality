@@ -8498,3 +8498,97 @@ four arms at 2.43 h that is ~3.1 h against the 9 h cap. Neither build needs GPU
 quota to *prepare* — a code-competition notebook commits against the 3-study
 visible set — so the 6.18 h left before the 26 Sep refresh is not the binding
 constraint. The five-a-day submission limit is.
+
+### E127 — a zero-cost reject, and the vote fix that overcorrected
+- **date**: 2026-09-25. No GPU, no submission. `eda/screen_foreign_gold.py`,
+  `tests/test_screen_foreign_gold.py`.
+
+**THE SCREEN IS NOW A MODULE, BECAUSE E125 WAS RUN AND NOT KEPT.** That entry's
+numbers were arithmetic on 58 rows done in a shell and thrown away, which means
+the rule it established could not be re-applied without redoing it. It is now
+`eda/screen_foreign_gold.py`, with the tie-averaged AUC, the study-level paired
+bootstrap and the vote arithmetic in one place and under test.
+
+**FIRST USE: `starkhushi/rsna-knee-58study-member-preds`, CC0-1.0.** Six member
+prediction sets on the exact gold-58, shipping their own UIDs and labels. **Its
+truth agrees with ours on 696/696 cells**, which is worth more than it sounds —
+it is an independent confirmation of our gold labels from a stranger's file.
+
+| | gold macro | ρ vs baseline |
+|---|---:|---:|
+| our coat 4-arm | 0.9223 | — |
+| starkhushi V2 … V7, individually | 0.8432 – 0.8729 | 0.693 – 0.785 |
+| **V2–V7 grouped as one arm** | **0.8918** | **0.890** |
+
+  Against **coat + the mattiaangeli 3-pack (0.9340)**, adding it as a fourth
+  vote gives **0.9281: −0.0059, CI [−0.0120, −0.0000], P(better) 0.024.**
+
+**REJECTED ON BOTH AXES, which is the first time E125's rule has been used as a
+rule rather than stated.** 0.042 behind on quality, and at ρ 0.890 it sits
+*inside* our own arms' 0.905–0.986 band rather than outside it — less
+independent than resgated's 0.872, which pays. **Cost: one dataset download.**
+
+**AND A RECONCILIATION THAT MATTERED.** E125's table reports "coat + the
+mattiaangeli arm" at 0.9337, and coat + **resgated alone** reproduces at 0.9283,
+not 0.9337. The 0.9337 is coat + **all three** mattiaangeli packages grouped,
+which reproduces here at **0.9340**. The entry's phrasing was ambiguous, not
+wrong, but a baseline that cannot be reproduced from its own description is a
+baseline nobody can check.
+
+  **The three packages measured separately, and this is the news:**
+
+| | gold macro |
+|---|---:|
+| resgated | 0.9093 |
+| **d4** | **0.9302** |
+| **global96** | **0.9305** |
+| the three grouped | 0.9315 |
+| **our own coat 4-arm** | 0.9223 |
+
+  **d4 and global96 each beat our entire four-arm CoAtNet composite on gold-58,
+  alone.** The pipeline that has been sitting behind a timm version assertion
+  since E123 is *better than ours*, and the one that was let through first is
+  the weakest of the three. That is the case for the pending three-package
+  build, made from numbers rather than from hope.
+
+**THE SECOND FINDING, AND IT IS A BUG IN SHIPPED CODE.** Writing the vote
+arithmetic down as a testable function is what exposed it. E124 fixed a real
+problem — a newcomer rank-meaned 50/50 against an already-blended composite gets
+half the ensemble, not one vote — by weighting the prior by how many pipelines
+it carries. **The implementation goes one call too far.** With independent
+uniform inputs, measured at n = 20,000:
+
+| form | ρ(blend, newcomer) | exact |
+|---|---:|---:|
+| true three-way equal mean | 0.5784 | 1/√3 |
+| pre-E124: `(rankpct(prior) + c)/2` | 0.7064 | 1/√2 |
+| **shipped: `(2·rankpct(prior) + c)/3`** | **0.4457** | **1/√5** |
+| **correction: `(2·prior + c)/3`** | **0.5784** | **1/√3** |
+
+  **`rankpct(prior)` re-uniformises an average of ranks**, undoing exactly the
+  variance reduction that made two members count as two. The prior then enters
+  at full variance with weight 2 and the newcomer lands at 1/√5. **The fix is to
+  delete one call.** E124 identified the right defect and overcorrected it: the
+  foreign arm has been carrying *less* than one vote, not more.
+
+  It only bites when `V1_MEMBERS` is on, which is every submission since E105 —
+  `n_prior = 1` is an honest 50/50 and needs no correction.
+
+**IT IS NOT BEING FIXED IN THIS COMMIT, ON PURPOSE.** `knee-infer-raptor4`
+version 5 is already pushed and awaiting a click, and it is the one-variable
+test of the three-package arm against the banked 0.944. Editing the blend under
+it would make that reading two-variable and waste the slot. **The correction is
+the next single variable after v5's number comes back**, and it is pre-registered
+here so that it cannot be quietly re-derived later:
+
+> Against whatever v5 scores: **≥ +0.003** the under-weighting was costing us and
+> the foreign pipelines deserve their full vote; **±0.002** inside the floor,
+> and the shipped form stays because a change with no measured effect is churn;
+> **≤ −0.003** the over-weighted prior was accidentally right and the arithmetic
+> stays as it is with this entry as its reason.
+
+  **The direction is not obvious and that is why it gets a bracket.** Under-
+  weighting a member is the conservative error, and the three packages the vote
+  applies to are one author's lineage — an accidental discount on a correlated
+  family is not clearly a loss. What is not acceptable is a comment claiming one
+  vote each over code that gives 1/√5.

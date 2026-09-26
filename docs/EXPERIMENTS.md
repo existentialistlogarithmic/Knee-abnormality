@@ -8705,3 +8705,99 @@ read *cheaper* than resgated in the stub. What is not known is version 4's actua
 runtime — `kaggle competitions submissions` returns **403** for this account,
 the same restriction that blocks CLI submission. **A timeout costs the slot, not
 the banked 0.944.**
+
+### E130 — the field's "0.957" is a local diagnostic, and we already lead the public plateau
+- **date**: 2026-09-26. No GPU, no submission. Survey refresh + two screens.
+
+**THE SURVEY WAS 18 DAYS STALE, SO IT WAS RE-RUN.** 700 public notebooks now
+against E088's 626, **235 of them run on or after 8 September**. Ranking by the
+score claimed in title or slug put two notebooks above everything else at
+**0.957** — above our banked 0.944, and the reason this entry exists.
+
+**THEY ARE NOT 0.957 ON THE BOARD, AND THE NOTEBOOK SAYS SO ITSELF.** From its
+own RUN CONFIG cell:
+
+```
+# This copy fixes the parent routing used by the local 0.957385 diagnostic.
+  "probe22"  - as submitted (0.941 public)
+  "parent"   - the flat 0.60 routing the probes started from (0.939 public)
+```
+
+  **0.957385 is its 58-study local gate. Its public numbers are 0.939 and
+  0.941.** The slug carries the local figure. This is E122's lesson arriving
+  from the outside: a number printed next to a pipeline is not a board score
+  until something says which board it came from, and titles are the least
+  reliable place it can appear.
+
+  So the public fork plateau is still **0.941** — a title in the same listing
+  names it outright, `rsna-knee-why-public-forks-stop-at-0-941` — and **our
+  0.944 is above it.**
+
+**AND THE PART THAT SHOULD CHANGE HOW WE READ OUR OWN POSITION.** That 0.941
+recipe is a **four-stage** stack:
+
+| stage | what it is | do we have it |
+|---|---|---|
+| 1 | **20 DINOv2/v3 slot-attention members** — base ranking | no |
+| 2 | **five A5 attention-pooling folds**, 45% against stage 1 | no |
+| 3 | **RadImageNet ResNet-50**, E10/E13/E11 heads | no |
+| 4 | four Raptor CoAtNet views + residual CoAtNet | **this is all we run** |
+
+  **Our entire pipeline is their stage 4, plus ten resnets they do not have —
+  and it scores higher than their four stages together.** 0.944 against 0.941.
+  Three whole families sit unmounted, and the stack containing them is *behind*
+  us. That is evidence about where the remaining gain is not.
+
+**SCREENED STAGE 3 IMMEDIATELY, BECAUSE IT SHIPS HONEST OOF.** Both antoinegg1
+head packages carry a 5-fold out-of-fold CSV over all **4,407** studies with a
+`fold` column and an `is_gold` flag — 58 of them gold. Scored on those 58
+against the version-5 prior (coat 4-arm + the mattiaangeli 3-pack, 0.9340):
+
+| | gold macro | ρ vs coat | added to v5's prior |
+|---|---:|---:|---|
+| e9 RadImageNet v15 | 0.8543 | 0.755 | 0.9340 → **0.9251**, −0.0089 [−0.0195, +0.0008] |
+| e11 diverse heads v20 | 0.8256 | 0.680 | 0.9340 → **0.9206**, −0.0134 [−0.0233, −0.0039] |
+
+  **Both rejected on the quality axis, and not narrowly** — 0.07 and 0.10 behind
+  our coat arm alone.
+
+**THE STANDING TALLY, WHICH IS NOW A PATTERN RATHER THAN A RULE ASSERTED ONCE:**
+
+| accepted | gold | | rejected | gold |
+|---|---:|---|---|---:|
+| global96 | 0.9305 | | starkhushi V2–V7 (E127) | 0.8918 |
+| d4 | 0.9302 | | e9 RadImageNet | 0.8543 |
+| resgated | 0.9093 | | e11 diverse heads | 0.8256 |
+| | | | nekkon b3 (E125) | 0.6278 |
+
+  **Seven assets screened, and the split is clean at ~0.90.** Everything at or
+  above 0.909 paid; everything at or below 0.892 cost. Correlation ranged
+  0.317–0.890 across both groups and **did not separate them**. E125 said
+  quality *and* independence; six more measurements say quality is the binding
+  one, and independence only matters among members that clear the bar.
+
+**LICENCES, read 2026-09-26 from the metadata endpoint** (the list endpoint
+returns none for all seven, and the metadata endpoint nests them under `info` —
+the earlier `licenses: None` readings in this session were that, not an absence):
+
+| asset | licence |
+|---|---|
+| `pilkwang/rsna-knee-weights` | **CC0-1.0** |
+| `pilkwang/rsna-knee-llm-labels` | **CC0-1.0** |
+| `mattiaangeli/knee-mri-fold-weights` | **CC0-1.0** |
+| `antoinegg1/rsna-knee-e9-radimagenet-heads-v15` | CC-BY-NC-SA-4.0 |
+| `antoinegg1/rsna-knee-e11-diverse-heads-v20` | CC-BY-NC-SA-4.0 |
+| `marwanmath/resnet-50-radimagenet-marwan` | CC-BY-NC-SA-4.0 |
+| `prvsiyan/rsna-knee-v52-radimagenet-heads-20260812` | **other**, unspecified — E043 tier 3, avoid |
+
+  The NC ones are **not excluded** — E088 caught that error in three standing
+  documents, and NC matches the competition's own winner licence. It is moot
+  here anyway: both were rejected on measurement before the licence mattered.
+
+**ONE CHEAP LEVER FOUND AND NOT TAKEN YET.** The two highest-scoring public
+notebooks give MaxSpan forward/reverse **0.60/0.10** where we use **0.55/0.15**;
+Native384 Dense 0.10 and Native384 0.20 are the same as ours. No new asset, no
+licence, no training — a constant in the manifest. It goes behind the two
+pending board readings because arm-weight changes have measured 0.000 twice
+here, and because two unread submissions already have first claim on the
+comparison.

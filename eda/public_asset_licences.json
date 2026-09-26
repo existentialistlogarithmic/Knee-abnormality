@@ -3,8 +3,8 @@
  "_meta": {
   "note": "A licence is a fact with a date on it. Re-read before shipping.",
   "read_utc": "2026-09-08",
-  "reread_note": "global96 added after E123; read from the datasets metadata endpoint, which returns licences the list endpoint omits. | E127: starkhushi/rsna-knee-58study-member-preds re-read and screened; licence unchanged (CC0).",
-  "reread_utc": "2026-09-25",
+  "reread_note": "global96 added after E123; read from the datasets metadata endpoint, which returns licences the list endpoint omits. | E127: starkhushi/rsna-knee-58study-member-preds re-read and screened; licence unchanged (CC0). | E130: seven assets under the top public recipe re-read from the metadata endpoint (which nests them under 'info'); the list endpoint returns none.",
+  "reread_utc": "2026-09-26",
   "scope": "every dataset mounted by any of the 626 public notebooks",
   "source": "kaggle dataset_list license_name"
  },

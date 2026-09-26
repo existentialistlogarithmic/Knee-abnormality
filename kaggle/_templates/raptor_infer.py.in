@@ -1036,7 +1036,23 @@ def main():
         _groups.setdefault(_fa_group.get(_nm, _nm), []).append((_nm, _r))
     _votes = [sum(r for _, r in g) / len(g) for g in _groups.values()]
     _total = _n_prior + len(_votes)
-    ranks = (_n_prior * rankpct(ranks) + sum(_votes)) / _total
+    # NO `rankpct` ON THE PRIOR. E127 measured what that one call costs.
+    #
+    # `ranks` here is already a MEAN of `_n_prior` rank columns, so its
+    # variance is reduced by exactly the averaging that makes two pipelines
+    # count as two. Re-ranking it puts that variance back to full uniform, and
+    # then weighting it by `_n_prior` over-counts it: on independent uniform
+    # inputs, measured at n = 20,000, the newcomer lands at 1/sqrt(5) = 0.446
+    # influence where one vote of three is 1/sqrt(3) = 0.578.
+    #
+    # E124 saw the right defect -- a newcomer rank-meaned 50/50 against an
+    # already-blended composite takes half the ensemble, 1/sqrt(2) = 0.707 --
+    # and overshot the correction. Dropping the call lands it exactly.
+    #
+    # It matters here more than the size suggests: E128 measured d4 at 0.9302
+    # and global96 at 0.9305 on gold-58, each ABOVE our own four-arm CoAtNet
+    # composite at 0.9223. The arm being discounted is the strongest one.
+    ranks = (_n_prior * ranks + sum(_votes)) / _total
     for _gname, _members in _groups.items():
         print(f"[{_gname}] 1/{_total} of the vote, shared by "
               f"{[n for n, _ in _members]}", flush=True)

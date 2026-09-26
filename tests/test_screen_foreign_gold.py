@@ -34,16 +34,12 @@ def test_auc_is_nan_for_a_single_class_column_and_macro_skips_it():
     assert m == 1.0
 
 
-def test_add_as_vote_reproduces_the_shipped_kernel_including_its_overcorrection():
-    """E127. This asserts what the KERNEL does, which is not what it claims.
+def test_add_as_vote_gives_one_vote_each_and_names_both_forms_that_did_not():
+    """E127, now shipped. The screen must mirror the kernel exactly.
 
-    E124 caught the newcomer being given half the blend and weighted the prior
-    by how many pipelines it carries. That is the right idea implemented one
-    call too far: `rankpct(prior)` RE-UNIFORMISES an average of ranks, undoing
-    the variance reduction that made two members count as two. With independent
-    uniform inputs the newcomer ends up at 1/sqrt(5) influence where one vote of
-    three is 1/sqrt(3). The screen has to carry the same distortion or it would
-    be scoring a blend the kernel does not compute.
+    Three forms have been in this codebase. Only the third is one vote each,
+    and the other two are asserted here so a regression is loud rather than a
+    quiet reweighting nobody can see in a log.
     """
     rng = np.random.default_rng(0)
     n = 20000
@@ -51,13 +47,14 @@ def test_add_as_vote_reproduces_the_shipped_kernel_including_its_overcorrection(
     prior = (a + b) / 2.0
     rho = lambda v: float(np.corrcoef(v.ravel(), c.ravel())[0, 1])  # noqa: E731
 
+    # the target: one vote of three
     assert rho((a + b + c) / 3.0) == pytest.approx(1 / np.sqrt(3), abs=0.01)
-    assert rho(add_as_vote(prior, c, n_prior=2)) == pytest.approx(1 / np.sqrt(5), abs=0.01)
-    # the pre-E124 form, for the record: the newcomer at half the ensemble
+    assert rho(add_as_vote(prior, c, n_prior=2)) == pytest.approx(1 / np.sqrt(3), abs=0.01)
+
+    # pre-E124: the newcomer took half the ensemble
     assert rho((rankpct(prior) + c) / 2.0) == pytest.approx(1 / np.sqrt(2), abs=0.01)
-    # and the one-line correction, which is NOT shipped yet -- it waits for the
-    # pending three-package board reading so that it stays a single variable
-    assert rho((2 * prior + c) / 3.0) == pytest.approx(1 / np.sqrt(3), abs=0.01)
+    # E124's fix, which overshot: re-ranking the prior cost the newcomer a third
+    assert rho((2 * rankpct(prior) + c) / 3.0) == pytest.approx(1 / np.sqrt(5), abs=0.01)
 
 
 def test_add_as_vote_is_an_exact_mean_when_the_prior_carries_one_pipeline():

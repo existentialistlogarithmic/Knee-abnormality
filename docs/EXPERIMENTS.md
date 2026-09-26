@@ -8801,3 +8801,72 @@ licence, no training — a constant in the manifest. It goes behind the two
 pending board readings because arm-weight changes have measured 0.000 twice
 here, and because two unread submissions already have first claim on the
 comparison.
+
+### E131 — v5 scored 0.945: inside the floor, and the arithmetic fix is now unblocked
+- **date**: 2026-09-26. Board result + one shipped correction.
+
+**RESULT: BOARD 0.945.** Against the banked 0.944, E124 pre-registered **≥0.947**
+pays, **0.942–0.946 inside the floor**, ≤0.941 dilutes. **0.945 is inside the
+floor.** New best, banked, and *not resolved*.
+
+| submission | v1 members | pipelines | offline gain on gold-58 | board |
+|---|---:|---:|---|---:|
+| E105 | 5 | 2 | — | 0.938 |
+| E111 | 6 | 2 | — | 0.940 |
+| E119 | 8 | 2 | — | 0.942 |
+| E123 | 8 | 3 (resgated) | +0.0060, CI spans zero | 0.944 |
+| **E131** | 8 | **3-pack** | **+0.0116, CI [+0.0012, +0.0217]** | **0.945** |
+
+**THIS IS THE CLEANEST INSTANCE OF E083 THIS LOG HAS.** The offline instrument
+said separated-from-zero for the first time ever, and the board moved +0.001 —
+a third of what every previous addition bought, and inside its own noise. Gold-58
+saw a gain 1,300 studies cannot confirm. **The ladder of four consecutive +0.002
+steps has broken**, and it broke on the addition with the *best* offline evidence.
+
+  What that does NOT license is discarding the arm: 0.945 is the best number on
+  the board and the arm is in it. What it does license is scepticism about
+  gold-58 as a forecaster of board movement, which is E083's original finding
+  arriving with a sharper example.
+
+**THE CORRECTION IS SHIPPED, AND v5's NUMBER IS WHAT UNBLOCKED IT.** E127 held
+the vote fix back so that v5 stayed a single variable. That reading is in, so
+the one-line change lands now — `kaggle/_templates/raptor_infer.py.in`:
+
+```python
+-    ranks = (_n_prior * rankpct(ranks) + sum(_votes)) / _total
++    ranks = (_n_prior * ranks + sum(_votes)) / _total
+```
+
+  **Why this is the right next variable rather than a tidy-up.** E128 measured
+  d4 at 0.9302 and global96 at 0.9305 on gold-58, each **above our own four-arm
+  CoAtNet composite at 0.9223**. E127 measured the arm carrying them at
+  **1/√5 = 0.446** influence where one vote of three is **1/√3 = 0.578**. So the
+  strongest component in the blend has been the most discounted one, and the
+  flat board reading above is exactly what an under-weighted good arm looks
+  like. **That is a mechanism, not a hope** — which is the standard E064 set for
+  believing an addition before the board speaks.
+
+**PRE-REGISTERED against v5's 0.945**, board unseen, same bracket E127 wrote
+before the number was known: **≥0.948** the under-weighting was costing and the
+foreign pipelines deserve their full vote; **0.943–0.947** inside the floor and
+the shipped form stays, because a change with no measured effect is churn;
+**≤0.942** the over-weighted prior was accidentally right and the arithmetic
+stays as it was, with this entry as its reason.
+
+**THE THREE REJECTIONS WERE RE-SCREENED UNDER THE CORRECTED ARITHMETIC**, because
+E127's own rule is that the screen must mirror the kernel or it scores a blend
+nobody runs. All three used `n_prior=2` and all three hold:
+
+| candidate | under the old form | under the corrected form |
+|---|---|---|
+| starkhushi V2–V7 | −0.0059 | **−0.0060** |
+| e9 RadImageNet | −0.0089 | **−0.0074** |
+| e11 diverse heads | −0.0134 | **−0.0132** |
+
+  Shifts of ≤0.002, no sign flips, no conclusion changed. **E128's headline
+  +0.0116 is untouched** — it was measured at `n_prior=1`, where there is
+  nothing to re-uniformise and the two forms are identical.
+
+**STILL UNREAD:** `knee-infer-raptorv1` version 8, ten members against E119's
+0.942. It was built and verified on 25 September and has not been clicked. Its
+bracket is unchanged and it costs nothing but a slot.

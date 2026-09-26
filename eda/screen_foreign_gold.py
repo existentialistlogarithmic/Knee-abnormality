@@ -85,8 +85,17 @@ def paired_bootstrap(y, base, cand, n_boot=N_BOOT, seed=BOOT_SEED):
 def add_as_vote(composite_rank, candidate, n_prior):
     """One vote each, which is what the inference template does.
 
-    `composite_rank` already carries `n_prior` pipelines, so re-rank-meaning it
-    50/50 with a newcomer would silently give the newcomer half the blend. This
-    is the same arithmetic the raptor template uses and the same bug E124 fixed.
+    `composite_rank` already carries `n_prior` pipelines. Two wrong forms were
+    shipped before this one, and both are worth naming because the screen has
+    to mirror the kernel or it scores a blend nobody runs:
+
+    * `(rankpct(prior) + c) / 2` gives the newcomer HALF the ensemble --
+      1/sqrt(2) influence on independent uniforms. E124 caught it.
+    * `(n * rankpct(prior) + c) / (n + 1)` re-uniformises the prior, undoing
+      the averaging that made n pipelines count as n, and lands the newcomer at
+      1/sqrt(n + 3) instead. E124's own fix; E127 measured the overshoot.
+
+    Leaving the prior un-re-ranked is the one that gives 1/sqrt(n + 1), which
+    is one vote each.
     """
-    return (n_prior * rankpct(composite_rank) + rankpct(candidate)) / (n_prior + 1)
+    return (n_prior * composite_rank + rankpct(candidate)) / (n_prior + 1)

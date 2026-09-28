@@ -9042,3 +9042,63 @@ it is **ours to earn in our own models**, not available to borrow. Two of those
 four findings look label-limited and two look signal-limited, and telling those
 apart properly needs an instrument better than 58 studies with 11 positives in
 the worst column.
+
+### E134 — v6 0.945 and v8 0.944: three levers in a row inside the floor
+- **date**: 2026-09-28. Two board results.
+
+| submission | change | baseline | board | bracket |
+|---|---|---:|---:|---|
+| **v6** | vote fix: foreign arm 1/√5 → 1/√3 | v5's 0.945 | **0.945** | 0.943–0.947, inside |
+| **v8** | eight v1 members → ten | E119's 0.942 | **0.944** | 0.940–0.944, inside |
+
+**THE VOTE CORRECTION MOVED NOTHING.** E128 measured the arm it un-discounts at
+0.9315 on gold against our coat's 0.9224, E127 measured the discount at 0.446
+where one vote is 0.578, and the board returned **+0.000**. The mechanism was
+real and the effect is not measurable on 390 public studies.
+
+**MY PRE-REGISTRATION WAS AMBIGUOUS AND THAT IS A METHOD FAILURE, NOT A
+DETAIL.** E127 wrote "the shipped form stays" when the shipped form was the
+*old* arithmetic; E131 reused the identical phrase after the fix had shipped.
+At 0.945 those two sentences point opposite ways, which is exactly the freedom
+pre-registration exists to remove. **The fix is kept on correctness grounds
+alone** — the code's own comment claims one vote each and the old arithmetic
+did not deliver it — **and the board is recorded as having said nothing.** A
+future entry must not cite 0.945 as support for the change.
+
+**TEN MEMBERS IS +0.002 OVER ITS BASELINE, WHICH IS EXACTLY THE HISTORICAL STEP
+SIZE, AND IT STILL COUNTS AS SATURATED.** Both are true and neither should be
+dropped. +0.002 is what every previous addition bought; +0.002 is also
+indistinguishable from zero at a ±0.003 floor; and E126 pre-registered ≥0.945
+because **two families at once should have moved more than one step if the
+lever were live.** By the rule written before the number, the member lever has
+saturated.
+
+**THE LADDER, COMPLETE:**
+
+| | members | pipelines | board |
+|---|---:|---:|---:|
+| E105 | 5 | 2 | 0.938 |
+| E111 | 6 | 2 | 0.940 |
+| E119 | 8 | 2 | 0.942 |
+| E123 | 8 | 3 (resgated) | 0.944 |
+| E131 (v5) | 8 | 3-pack | 0.945 |
+| **E134 (v6)** | 8 | 3-pack, vote fixed | **0.945** |
+| **E134 (v8)** | **10** | 2 | **0.944** |
+
+  **Four +0.002 steps, then +0.001, then +0.000.** The curve has flattened and
+  three different levers — a third pipeline, corrected vote arithmetic, two new
+  families — have now each returned less than the one before.
+
+**THE ONE CONFIGURATION NEVER SUBMITTED IS THEIR UNION.** v6 carries three
+pipelines at eight members; v8 carries ten members at two pipelines. Ten
+members *and* three pipelines has never run. It is built here as
+`knee-infer-raptor4` version 7 — one variable against v6's 0.945, the same two
+members v8 tested against a different baseline.
+
+**PRE-REGISTERED, unambiguously this time, against v6's 0.945:** **≥0.948** the
+two changes compose and the levers were additive all along; **0.943–0.947**
+inside the floor — the union buys nothing the parts did not, and *no
+combination of currently-held assets reaches 0.950*; **≤0.942** they interfere
+and the union comes out. **If this lands inside the floor, the borrowing
+strategy is finished** and the only routes left are our own models and a better
+instrument than 58 studies.

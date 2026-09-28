@@ -2878,7 +2878,12 @@ EXTRAS = [
         depends=["knee-train-v1pubfull", "knee-train-v1pubfull-s4",
                  "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
                  "knee-train-v1pubfull-s7", "knee-train-v1pubfull-r50",
-                 "knee-train-v1pubfull-rx50", "knee-train-v1pubfull-regnet"],
+                 "knee-train-v1pubfull-rx50", "knee-train-v1pubfull-regnet",
+                 # E134. Both tested changes in one kernel at last: v6 had
+                 # three pipelines at eight members (0.945) and v8 ten
+                 # members at one pipeline-set (0.944). Their union has
+                 # never been submitted.
+                 "knee-train-v1pubfull-wrn50", "knee-train-v1pubfull-r101"],
         constants={
             "MEMBERS_EXPECTED": 4,
             "ARMS": RAPTOR_ARMS,
@@ -2888,7 +2893,7 @@ EXTRAS = [
             "DECODE_AHEAD": 32,
             "EVAL_SPLIT": "test",
             "GOLD_EXPECTED": 58,
-            "V1_MEMBERS": 8,
+            "V1_MEMBERS": 10,
             "V1_BLEND_W": 0.50,
             "V1_BATCH_STUDIES": V1.infer_batch,
             "V1_SLICE_SUBSAMPLE": None,

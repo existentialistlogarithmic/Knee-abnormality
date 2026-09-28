@@ -9102,3 +9102,69 @@ combination of currently-held assets reaches 0.950*; **≤0.942** they interfere
 and the union comes out. **If this lands inside the floor, the borrowing
 strategy is finished** and the only routes left are our own models and a better
 instrument than 58 studies.
+
+### E135 — trees, and the scanner signal that is already in the scores
+- **date**: 2026-09-28. No GPU, no submission. n = 4,349, which makes this the
+  best-powered negative in this log.
+
+**THE QUESTION WAS WHETHER A LEARNED COMBINER BEATS THE RANK-MEAN.** Every
+submission this project has made blends by equal-weight rank-mean. E106 fitted
+per-finding weights and E116 shipped them; the board returned the identical
+number. A gradient-boosted stacker is the same question with more capacity, so
+it needed the same test — but on a real instrument, not 58 studies.
+
+**THE INSTRUMENT.** DINOv2 ×20's pooled held-out predictions (E132) cover all
+4,349 report-labelled studies honestly out-of-fold, and the DICOM header scan
+supplies scanner, field strength, sex, echo/repetition time, geometry and
+series count. That is somebody else's image model, which is the point: it lets
+the *combiner* be tested without our own members' full-fit contamination.
+
+| | macro AUC |
+|---|---:|
+| **image scores alone, rank-mean, no model** | **0.8635** |
+| GBM, image scores only, random 5-fold | 0.8598 |
+| GBM + scanner/metadata, random 5-fold | 0.8636 |
+| GBM, image scores only, scanner-grouped 5-fold | 0.8561 |
+| GBM + scanner/metadata, scanner-grouped 5-fold | 0.8583 |
+
+  **Doing nothing wins.** The GBM on the scores alone *loses* 0.0037 against the
+  rank-mean; adding all the metadata recovers 0.0038 and lands back where it
+  started, +0.0001. **Trees have to learn monotonicity from data that a
+  rank-mean assumes for free, and the metadata is worth about what that costs.**
+
+**AND A GENUINE SURPRISE THAT CAME FIRST AND POINTS THE OTHER WAY.** The obvious
+prior move — normalise scores within scanner to remove site effects — was tested
+and it is **actively harmful**:
+
+| | macro AUC |
+|---|---:|
+| as-is | 0.8635 |
+| rank-normalised within scanner (51 groups) | **0.8426**, −0.0209 |
+| **control: same group sizes, scanner labels shuffled** | 0.8607, **−0.0028** |
+
+  The control is what makes it readable: chopping the cohort into groups of
+  those sizes and re-ranking costs 0.003, so **−0.021 is specific to real
+  scanner identity.** Site is not a nuisance variable here — prevalence differs
+  by scanner and the model's score level already encodes it. Removing it throws
+  away signal.
+
+  **That is why the GBM's metadata gain is real but small: the scores already
+  carry the scanner information, so supplying it again is nearly redundant.** It
+  also retroactively explains the training template's own rule that random
+  K-fold inflates macro AUC by 0.087 — scanner identity leaks label information,
+  and both measurements are the same fact seen from opposite ends.
+
+**SCOPE, STATED HONESTLY.** This stacks DINOv2's twelve score columns, not our
+own ten members × twelve, because we have no honest out-of-fold matrix for our
+members — they are full fits. A stacker over our members might behave
+differently. But E106 and E116 already tested fitted weights on exactly those
+members and found nothing, the mechanism here (trees paying to relearn
+monotonicity) is not specific to whose scores they are, and **fitting a stacker
+on gold-58 with eleven positives in its worst column is E106's failure with
+more parameters.**
+
+**kNN was not run and here is the reason rather than a shrug.** It needs an
+embedding space we have honest access to, and the only one available is inside
+checkpoints whose own predictions we already use directly. Retrieval over 4,349
+studies against twelve noisy labels is a weaker estimator than the CNN that
+produced the embedding, with no mechanism suggesting otherwise.

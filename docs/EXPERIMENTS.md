@@ -8870,3 +8870,94 @@ nobody runs. All three used `n_prior=2` and all three hold:
 **STILL UNREAD:** `knee-infer-raptorv1` version 8, ten members against E119's
 0.942. It was built and verified on 25 September and has not been clicked. Its
 bracket is unchanged and it costs nothing but a slot.
+
+### E132 — the DINOv2 stage is the public recipe's largest component and it is the weakest thing measured this month
+- **date**: 2026-09-28. No GPU, no submission. 20 checkpoints harvested, one screen.
+
+**THIS WAS MEANT TO BE THE ROUTE TO 0.950 AND IT IS CLOSED.** E130 found our
+pipeline is stage 4 of a four-stage public recipe, and stage 1 — **20
+DINOv2-small slot-attention members**, the base ranking everything else blends
+*against* — was the largest thing we had never mounted. It is now measured.
+
+**THE CHECKPOINTS SCREEN THEMSELVES, WHICH IS WHY THIS COST NO GPU.** Each of
+`pilkwang/rsna-knee-weights`' 20 files carries a `config`, a `fingerprint`, and
+an **`oof` payload**: the study ids and predictions for the fold that member
+held out. Downloaded one at a time, `oof` extracted, checkpoint deleted — peak
+disk ~90 MB against 1.8 GB for the set.
+
+  **Pooled, the 20 holdouts cover all 58 gold studies, each held out by exactly
+  4 members.** That is an honestly out-of-sample DINOv2 prediction on our own
+  evaluation set, which is a better instrument than anything the notebook itself
+  reports.
+
+| | gold macro | ρ vs our v5 prior |
+|---|---:|---:|
+| our coat 4-arm | 0.9224 | — |
+| mattiaangeli 3 grouped | 0.9315 | — |
+| **v5 prior (coat + 3-pack)** | **0.9334** | — |
+| **DINOv2 ×20, pooled held-out** | **0.8381** | 0.830 |
+
+  **Added as a vote: 0.9334 → 0.9164, −0.0171, CI [−0.0278, −0.0074],
+  P(better) 0.000.** Their own reported OOF macro against report labels ranges
+  0.7356–0.9164, mean 0.8375 — consistent with what we measure on gold.
+
+**THE OBVIOUS OBJECTION, ANSWERED WITH A MEASUREMENT RATHER THAN AN ARGUMENT.**
+The deployed stage averages **20** members over every study; our honest pool
+averages **4**, because a study is only out-of-fold for 4 of them. So is 0.8381
+unfairly pessimistic? The scaling curve says no:
+
+| members averaged per study | gold macro (200 random subsets) |
+|---:|---:|
+| 1 | 0.8319 |
+| 2 | 0.8353 |
+| 3 | 0.8366 |
+| 4 | 0.8381 |
+
+  **+0.0062 from 1 to 4, and visibly saturating** — the increments are +0.0034,
+  +0.0013, +0.0015. Extrapolating 4 → 20 buys single-digit thousandths. **The
+  gap to the ~0.90 bar is 0.062.** Ensembling cannot close it, and no amount of
+  the deployed configuration's extra members changes the verdict.
+
+**WHAT THIS EXPLAINS.** The four-stage public stack scores **0.943**; our
+stage-4-only pipeline plus ten resnets scores **0.945**. E130 recorded that as a
+curiosity. It is now a mechanism: **stages 1–3 are each far weaker than stage 4,
+and blending them in costs.** We are ahead of that recipe *because* we never
+had the other three stages, not in spite of it.
+
+**THE TALLY, EIGHT ASSETS, AND THE SPLIT IS STILL CLEAN AT ~0.90:**
+
+| accepted | gold | | rejected | gold |
+|---|---:|---|---|---:|
+| global96 | 0.9305 | | starkhushi (E127) | 0.8918 |
+| d4 | 0.9302 | | e9 RadImageNet (E130) | 0.8543 |
+| resgated | 0.9093 | | **DINOv2 ×20** | **0.8381** |
+| | | | e11 diverse heads (E130) | 0.8256 |
+| | | | nekkon b3 (E125) | 0.6278 |
+
+  Everything ≥0.909 paid, everything ≤0.892 cost, and ρ ran 0.317–0.890 across
+  **both** groups without separating them. **Quality is the binding axis and
+  this is the eighth measurement saying so.**
+
+**LICENCES, read 2026-09-28 from `tonylica/rsna-knee-bend-dinov3-0917-repro-assets`'s
+`SOURCE_AND_LICENSES.md`** — a careful component-by-component disclosure, and
+worth recording because it settles several open questions at once:
+
+| component | declared |
+|---|---|
+| 20 DINOv2-small members (`pilkwang/rsna-knee-weights`) | **CC0-1.0** |
+| DINOv2-small backbone (`metaresearch/dinov2`) | **Apache-2.0** |
+| 5 DINOv3-small members (`mattiaangeli/knee-mri-fold-weights`) | CC0-1.0 dataset declaration, **"underlying model terms also apply"** |
+| RadImageNet encoder + 5 Rad heads | CC-BY-NC-SA-4.0 |
+| E13 heads (`sofiaanjenje/rsna-knee-e13-train`) | **"No separate redistribution license recorded"** — E043 tier 3 |
+
+  So the stage we screened was the **clean** one — CC0 weights on an Apache-2.0
+  backbone — and it failed on measurement, not on licence. **The licence gate
+  never had to be argued.**
+
+**WHAT IS LEFT, STATED HONESTLY.** The 5 DINOv3 members are the one unscreened
+component, and their checkpoint carries the same self-describing `cfg`
+(`vit_small_patch16_dinov3.lvd1689m`, 336 px, 16 slices, `xcodex` pooling) — but
+**no `oof` payload**, so screening them costs a GPU run rather than a download,
+and their dataset's own declaration says Meta's DINOv3 model terms still apply.
+Given stage 1's result and the ≥0.909 pattern across eight assets, **the prior
+on it paying is low**, and it is not the next thing to spend a day on.

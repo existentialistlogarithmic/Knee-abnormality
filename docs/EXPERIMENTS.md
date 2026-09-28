@@ -8961,3 +8961,84 @@ component, and their checkpoint carries the same self-describing `cfg`
 and their dataset's own declaration says Meta's DINOv3 model terms still apply.
 Given stage 1's result and the ≥0.909 pattern across eight assets, **the prior
 on it paying is low**, and it is not the next thing to spend a day on.
+
+### E133 — where the headroom actually is, and why the medial/lateral gap is not a bug
+- **date**: 2026-09-28. No GPU, no submission. Four screens, two hypotheses killed.
+
+**MACRO-AUC MAKES THE TARGET ARITHMETIC, SO IT WAS COMPUTED.** +0.005 of macro
+is **+0.060 summed across twelve findings** — one finding moved 0.060, or four
+moved 0.015 each. Our v5 prior on gold-58, worst first:
+
+| finding | ours | DINOv2 ×20 | e9 Rad | n_pos | gap to 0.95 |
+|---|---:|---:|---:|---:|---:|
+| Lateral OA | **0.8375** | 0.7041 | 0.7911 | 11 | +0.113 |
+| Synovitis | **0.8483** | 0.7407 | 0.8100 | 27 | +0.102 |
+| PF OA | **0.8610** | 0.8095 | 0.8314 | 21 | +0.089 |
+| Lateral Meniscus | **0.8845** | 0.6472 | 0.7776 | 23 | +0.066 |
+| the other eight | 0.943–0.994 | — | — | — | +0.012 total |
+
+  **Four findings hold 0.370 of the 0.380 available.** And **no foreign asset
+  beats us on a single finding, weak ones included** — which closes the obvious
+  follow-up to E132 (that a rejected asset might still be worth a per-finding
+  vote) without needing to invoke E106's selection trap.
+
+**HYPOTHESIS 1, KILLED: THE CROP.** Medial OA 0.9829 against Lateral OA 0.8375,
+and Medial Meniscus 0.9712 against Lateral Meniscus 0.8845 — same direction,
+both pairs, large. A 140 mm crop biased toward the medial compartment would do
+exactly that. **It is not the crop.** All ten arms E117 screened show the gap,
+across four different fields of view, and the *widest* one is the worst:
+
+| arm | Med OA − Lat OA | Med Men − Lat Men |
+|---|---:|---:|
+| `cand-fullspan-v7` | **+0.191** | +0.090 |
+| `cand-widefov-v6` | +0.139 | +0.095 |
+| `cand-widedense-v4` | +0.135 | +0.106 |
+| `maxspan-v5` (ours) | +0.124 | +0.087 |
+| `cand-cnv2b336` | +0.078 | +0.089 |
+
+  Widening the field of view does not close it. Whatever this is, it is not
+  coverage.
+
+**HYPOTHESIS 2, PARTLY SUPPORTED AND MOSTLY NOT: THE LABELS.** Our own report
+labels cover the 4,349 and **not** the 58 gold — they are disjoint, which is
+good for leakage and useless for this question. Two public labellers do cover
+gold, so they were scored against radiologist truth:
+
+| finding | pilkwang v2 | lixin73 sol56 | **our model** |
+|---|---:|---:|---:|
+| Synovitis | 0.6938 | 0.6762 | **0.8483** |
+| Lateral OA | 0.7885 | 0.8240 | **0.8375** |
+| Lateral Meniscus | 0.8414 | 0.8665 | **0.8845** |
+| Medial OA | 0.9079 | 0.8915 | **0.9829** |
+| Effusion | 0.8299 | 0.6957 | **0.9938** |
+
+  **Spearman(label quality, model quality) across the twelve = +0.566.** Real
+  but modest, and with n = 12 it is not separated from zero. **The labels carry
+  the same medial/lateral asymmetry the models do** — 0.9079 vs 0.7885 on OA,
+  0.9429 vs 0.8414 on meniscus — which is the closest thing to a mechanism this
+  entry found.
+
+  **But the ceiling reading is wrong, and the numbers say so loudly.** The model
+  beats its own supervision on almost every finding, often hugely: Synovitis by
+  **+0.155**, Effusion by +0.164, Contusion by +0.131, Medial OA by +0.075.
+  Label noise is being averaged out, not inherited.
+
+  **The exception is the interesting part.** On **Lateral OA** the model leads
+  the best label by +0.014 and on **Lateral Meniscus** by +0.018 — barely. Those
+  two look label-limited. Synovitis and PF OA, where the model is far past the
+  label, do not: they are limited by something in the images.
+
+**AND NAIVE LABEL FUSION DOES NOT WORK.** Rank-meaning the two labellers gives
+mean 0.8737 against the better one's 0.8700 — **+0.0037, and worse on seven of
+twelve findings**, including −0.080 on Fracture. Combining labellers is not free
+lunch; a fusion that helps would have to be per-finding and fitted, which on 58
+studies is E106 again.
+
+**WHAT THIS MEANS FOR +0.005, STATED PLAINLY.** Every external route is now
+measured and closed: eight assets screened, three accepted and worth +0.001 on
+the board between them, five rejected, and none beating us on any individual
+finding. The headroom is real (0.380 summed, concentrated in four findings) but
+it is **ours to earn in our own models**, not available to borrow. Two of those
+four findings look label-limited and two look signal-limited, and telling those
+apart properly needs an instrument better than 58 studies with 11 positives in
+the worst column.

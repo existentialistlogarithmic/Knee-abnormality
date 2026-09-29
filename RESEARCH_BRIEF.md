@@ -1,129 +1,199 @@
 # RSNA Knee Abnormality Detection — research brief
 
-**Written 2026-09-21. Everything here is measured in this project unless marked
-as someone else's self-report. Numbers have dates because several decay.**
-
-We are stuck at **0.940** and our last attempt scored **0.921 / 0.923**. We want
-ideas that survive the constraints in §4 — not a list of standard Kaggle advice,
-most of which we have already measured and closed (§3).
+**Rewritten 2026-09-29.** Every number below is measured in this project unless
+marked as someone else's self-report. Paste this whole file into Claude Research
+and ask the questions in §6.
 
 ---
 
-## 1. The task and the numbers
+## 1. The task
 
-- RSNA knee MRI, **12 binary findings**, metric **macro ROC-AUC** (threshold-free).
-- **Code competition**: notebook-only submission, hidden test ~1,300 studies,
-  9 h runtime cap, no internet at inference, 5 submissions/day.
-- **Our board: 0.940.** Top of board **0.957**. ~3,800 teams.
-- Public forks of the public baseline cluster at **0.936–0.939**, so our
-  independently built system is roughly at the level of the free public notebook.
-- **The wall**: ~837 teams at ≥0.938, ~706 at ≥0.940, but only **81 at ≥0.945**.
-  The cliff is around 0.943.
+Kaggle **code competition**: submissions run as notebooks, 9 h cap, 2×T4, five
+submissions a day. Input is knee MRI **DICOM studies** (multiple series per
+study — sagittal / coronal / axial, fluid-sensitive and T1, with and without fat
+suppression). Output is **12 binary findings** per study:
 
-## 2. What we ship
+ACL, MCL, Medial Meniscus, Lateral Meniscus, Medial OA, Lateral OA, PF OA,
+Effusion, Synovitis, Baker's cyst, Contusion, Fracture.
 
-A rank-mean blend of two arms, 50/50:
+Metric: **macro ROC-AUC** — the plain mean of twelve per-finding AUCs, so the
+weakest findings dominate the headroom.
 
-| arm | what it is | board alone |
-|---|---|---:|
-| CoAtNet | 4 arms from **3 distinct public CC0 checkpoints** (`coatnet_rmlp_2_rw_384`), at the authors' published weights 0.55/0.20/0.15/0.10, 336–384 px, 44–64 slices | **0.932** |
-| v1 (ours) | full-fit 2.5D resnet34s, 3 planes × 20 slices at 192 px / 0.6 mm, per-finding attention pooling | **0.926** |
+Hidden test ≈1,300 studies. The **public leaderboard is only ~390 of them
+(~30%)**; the rest decide the final standing. Deadline 22 October.
 
-Blended: **0.940**. The blend gain (+0.008) comes from **disagreement**: the two
-arms correlate **0.542**, while the four CoAtNet arms correlate 0.905–0.986 with
-each other.
+## 2. Where we are
 
-## 3. THE ANOMALY WE MOST WANT EXPLAINED
+**Public LB 0.945.** The best public *notebook* in the field self-reports
+**0.943**, so we lead the shared recipes. Ladder, all measured:
 
-We added two new v1 members from new backbone families (`resnext50_32x4d`,
-`regnet_y_3_2gf`) to the five resnet34s and one resnet50, giving **8 v1 members**,
-changing nothing else. The board returned **0.921 and 0.923**.
+| config | board |
+|---|---:|
+| 5 own members + 4 CoAtNet arms | 0.938 |
+| 6 members | 0.940 |
+| 8 members | 0.942 |
+| 8 members + 1 foreign pipeline | 0.944 |
+| 8 members + 3 foreign pipelines | **0.945** |
+| same + corrected vote arithmetic | 0.945 (+0.000) |
+| 10 members, no foreign pipelines | 0.944 |
 
-**That is below BOTH constituent arms** (v1 alone 0.926, CoAtNet alone 0.932).
-A rank-mean blend of two arms scoring below the worse of them is not "weak new
-members" — it is the signature of something broken. **−0.017 against a ±0.003
-reseed floor.**
+**Four +0.002 steps, then +0.001, then +0.000.** The curve has flattened.
 
-Facts around it, all verified in the stub log:
-- `v1 members 8 | distinct weight fingerprints 8` — eight distinct checkpoints
-  actually loaded, not one file counted eight times.
-- `fallbacks 0/3` on every arm; `submission.csv rows=3`; runtime 2.62 h of 9 h.
-- The v1 arm rank-averages its members **uniformly**, then the two arms are
-  rank-meaned 50/50.
-- The two new members trained to completion, export at epoch 20, loss decreasing
-  monotonically. Their training AUCs are **memorisation** (full fit on all 4,407
-  studies including our 58 expert-labelled ones), so they carry no information
-  about generalisation.
-- **Open question we cannot resolve from the API**: the two low submissions carry
-  **no version description**, while our 0.940 reads `Notebook
-  knee-infer-raptorv1 | Version 6`. We are not certain the 8-member version is
-  what was scored.
+**What we actually run:** four CoAtNet "Raptor" arms (someone else's CC0
+checkpoints) + three foreign CoAtNet packages from a second author + **ten of
+our own 2.5D CNN members** (resnet34 ×5 seeds, resnet50, resnext50_32x4d,
+regnet_y_3_2gf, wide_resnet50_2, resnet101 — a 2D backbone over slices with
+attention pooling to a study). Everything combined by **equal-weight rank-mean**.
 
-**Questions we want answered**: what mechanism makes a uniform rank-average of 8
-members score below the same arm with 6? Is uniform member averaging the wrong
-aggregation once members differ in quality? Should a member be weighted by
-anything measurable when we have no honest validation set for full-fit models?
+## 3. The instruments, and why this is the core problem
 
-## 4. THE CONSTRAINT THAT KILLS MOST ADVICE: we have no trustworthy validation
-
-This is the crux. Three instruments, each defective:
-
-| instrument | size | defect |
+| instrument | n | usable resolution |
 |---|---:|---|
-| gold-58 (expert labels) | 58 | ±0.0153 absolute, ±0.006 paired. Cannot fit 12 parameters. Fitting anything on it and reporting on it is circular — this destroyed one of our experiments. |
-| report labels | 4,349 | **The CoAtNet checkpoints were trained on these studies**, so their predictions here are in-sample. Anything fitted against this arbiter reads memorisation. |
-| the board | ~1,300 | ±0.003 reseed floor, 5/day. The only honest judge, and low-resolution. |
+| public leaderboard | ~390 studies | **±0.003** |
+| "gold" radiologist labels | **58 studies** | ±0.0153 absolute, ±0.006 paired |
+| LLM-extracted report labels | 4,349 studies | noisy; disjoint from the gold 58 |
 
-**Our full-fit members train on all 58 gold studies, so they cannot be scored
-offline at all.** Any proposal requiring a validation signal must say which of
-these three it uses and why that one is not fatal.
+**We have no honest out-of-fold predictions from our own models** — every member
+is a full fit over all 4,407 studies, so it memorises the gold 58 (each reads
+0.99+ there, which we use only as a load-integrity check). Gold-58 has as few as
+**9–11 positives** in its weakest columns.
 
-## 5. CLOSED ON MEASUREMENT — please do not propose these
+So: we cannot measure anything smaller than roughly ±0.015 offline, and the
+board's floor is ±0.003. Several routes below were closed by measurements whose
+intervals span zero, and that is the honest limit of what we know.
 
-| route | result |
-|---|---|
-| Higher resolution (288 px/0.40 mm vs 192 px/0.60) | **−0.088** on 881 held-out studies, same fold/teacher. Worse with a *better* teacher, which kills the "label noise punished capacity" explanation. |
-| Per-finding blend weights | Derived leakage-free, +0.0023 on held-out gold, P(better) 0.897 → board returned **exactly the same 0.940**. |
-| Blend mixing weight (coat vs v1) | 0.40 vs 0.50 → **0.938 both times**. Inert. |
-| Re-mixing the 4 CoAtNet arm weights | closed |
-| 6 more public CC0 checkpoints from the same author | All scored **below** every incumbent on gold-58 (0.906→0.884 vs 0.912–0.920). Both parameter-free weightings **lost**. |
-| TTA (slice reversal, span jitter) | closed |
-| Public label sets | Three of four newer sets were literal answer keys (gold macro 1.0000). Ours is the best admissible. |
-| Synovitis specifically | **Label ceiling**: our labels score 0.790 on it, our model 0.779. Control: fracture labels 0.793, model 0.885. |
-| A second seed of an existing member | **+0.000** on the board |
-| AutoML / hyperparameter search | Rejected on §4: no trustworthy signal to search against. |
+## 4. Per-finding position — this is where the remaining headroom is
 
-**What HAS moved the board**: adding *members* — resnet34→resnet50 (a depth
-change) gave **+0.002**, reproduced at two different blend weights. And mounting
-the public CoAtNet checkpoints at all (0.926 → 0.932 → 0.938).
+Our composite on the 58 gold studies, worst first:
 
-## 6. Operational facts that bound any proposal
+| finding | ours | n_pos |
+|---|---:|---:|
+| **Lateral OA** | **0.8375** | 11 |
+| **Synovitis** | **0.8483** | 27 |
+| **PF OA** | **0.8610** | 21 |
+| **Lateral Meniscus** | **0.8845** | 23 |
+| Fracture | 0.9431 | 18 |
+| Contusion | 0.9453 | 19 |
+| Baker's | 0.9710 | 12 |
+| Medial Meniscus | 0.9712 | 26 |
+| ACL | 0.9755 | 24 |
+| Medial OA | 0.9829 | 15 |
+| MCL | 0.9864 | 9 |
+| Effusion | 0.9938 | 35 |
 
-- **~30 GPU-h/week** on 2×T4 (16 GB). One resnet34 full fit ≈ 1.5 h; resnet50 ≈
-  3.5 h. **20.3 h left this week.**
-- **Inference budget is NOT the constraint**: we use 2.62 h of a 9 h cap. ~6.4 h
-  idle. Anything that spends inference rather than training is cheap for us.
-- **Three depthwise-separable architectures have host-OOM-killed** at our
-  geometry (`convnext_tiny`, `tf_efficientnet_b0`, `shufflenet_v2_x1_0`), while
-  four dense/grouped ones trained fine (resnet34/50, resnext50, regnet_y_3_2gf).
-  Correlation over seven runs, **no mechanism established**. Host RAM, not CUDA.
-- Everything mounted must be **CC0 or otherwise licence-clear**; we audit this.
-- Final submission **2026-10-22**.
+**Four findings hold 0.370 of the 0.380 total gap to 0.95.** Because the metric
+is a plain mean of twelve, **+0.005 of macro = +0.060 summed** — one finding
+moved 0.060, or four moved 0.015 each.
 
-## 7. What we are asking for
+**A strong structural signal: medial ≫ lateral on both paired findings.**
 
-1. **A mechanism for §3.** Why would 8 uniformly-averaged members underperform 6?
-2. **Aggregation alternatives** to uniform rank-mean that need no fitted
-   parameters and no validation set — we can only afford rules that are arguments
-   rather than knobs.
-3. **Anything that converts our ~6.4 idle inference hours into score**, given
-   that more public checkpoints are closed (§5).
-4. **How teams reach 0.957** on this task — specifically what the top of a
-   12-label MRI leaderboard typically does that a 2-arm blend does not.
-5. Honest assessment of whether **0.945 is reachable at all** from 0.940 with
-   ~20 GPU-h/week and one month, or whether the remaining gap is compute.
+| | medial | lateral | gap |
+|---|---:|---:|---:|
+| OA | 0.9829 | 0.8375 | **0.145** |
+| Meniscus | 0.9712 | 0.8845 | **0.087** |
 
-Please distinguish clearly between (a) things that need a validation set we do
-not have, (b) things testable directly on the board at 5 clicks/day, and (c)
-things testable offline on 58 studies without circularity. Only (b) and (c) are
-actionable for us.
+**We tested and killed the obvious explanation (field of view).** All ten
+independently-trained arms we have access to show the same gap, across four
+different crops, and the *widest* field of view has the *largest* gap
+(+0.191 on OA). It is not coverage.
+
+**Partial explanation — the labels carry the same asymmetry.** Two public
+LLM report-labellers scored against radiologist truth on the 58:
+
+| finding | labeller A | labeller B | our model |
+|---|---:|---:|---:|
+| Synovitis | 0.6938 | 0.6762 | **0.8483** |
+| Lateral OA | 0.7885 | 0.8240 | **0.8375** |
+| Lateral Meniscus | 0.8414 | 0.8665 | **0.8845** |
+| Medial OA | 0.9079 | 0.8915 | **0.9829** |
+| Effusion | 0.8299 | 0.6957 | **0.9938** |
+
+Spearman(label quality, model quality) over the twelve = **+0.566** (n=12, not
+separated from zero). **But the models beat their own supervision nearly
+everywhere** — Synovitis by +0.155, Effusion by +0.164 — so label noise is being
+averaged out, not inherited. **The exceptions are exactly the lateral pair:**
+Lateral OA beats its best label by only +0.014 and Lateral Meniscus by +0.018.
+Those two look label-limited; Synovitis and PF OA do not.
+
+## 5. Routes already closed, with numbers — please do not re-suggest these
+
+- **More resolution** — −0.088. Closed.
+- **Per-finding blend weights** (fitted, leakage-free) — board returned the
+  identical number to a flat 0.5. Closed.
+- **Blend weight tuning** generally — 0.000.
+- **More own members / more families** — 10 members vs 8 gave +0.002, inside the
+  floor; two new families at once should have moved more if the lever were live.
+- **Reseeding** — +0.000 measured explicitly.
+- **AutoML** — no trustworthy validation signal to select on.
+- **Gradient-boosted stacker over member scores** (n=4,349, honest OOF): plain
+  rank-mean **0.8635**, GBM on scores **0.8598**, GBM + scanner/metadata
+  **0.8636**. Doing nothing wins.
+- **Per-scanner score normalisation** — **−0.0209**, against a shuffled-group
+  control of −0.0028. Scanner identity is *signal* here (prevalence varies by
+  site); removing it destroys information.
+- **Eight borrowed model families screened on gold-58.** Clean split at ~0.90:
+  everything ≥0.909 paid, everything ≤0.892 cost. Rejected: DINOv2×20 slot
+  attention (0.8381, costs −0.0171), RadImageNet heads (0.8543 and 0.8256),
+  another team's member set (0.8918), an EfficientNet-B3 MIL (0.6278).
+  Correlation with our composite ran 0.317–0.890 across **both** groups and did
+  not separate them — **quality is the binding axis, not independence.**
+- **Notably: no foreign asset beats us on a single finding**, weak ones included.
+  Borrowing is exhausted.
+
+**Also closed for us:** synovitis-via-effusion surrogate (effusion head 0.7975 vs
+synovitis 0.8094 on the target); left-right flip augmentation (knees are
+pre-mirrored and four targets are medial/lateral-specific); slice reversal
+(model is permutation-invariant to 2.4e-7).
+
+## 6. What we want researched
+
+Please prioritise **clinical/imaging-literature answers** over generic ML advice.
+Anything in §5 is already measured and closed.
+
+1. **The medial/lateral asymmetry.** Is a large, consistent medial ≫ lateral
+   performance gap a known phenomenon in knee-MRI machine learning or in
+   radiology reporting itself? Candidate causes we have not ruled out:
+   lateral-compartment pathology being rarer and subtler; reporting conventions
+   that mention medial findings more consistently; the lateral meniscus's
+   popliteal hiatus being a known false-positive source. **Which is best
+   supported, and does anything in the literature actually close the gap?**
+
+2. **Synovitis specifically.** Our model reads 0.848 and beats its report label
+   by +0.155, so this is signal-limited rather than label-limited. What MRI
+   sequences and findings do radiologists actually use to call synovitis
+   (effusion-synovitis complex on fluid-sensitive sequences? Hoffa-synovitis?
+   post-contrast only?), and **is non-contrast synovitis grading known to have a
+   performance ceiling?**
+
+3. **Sequence routing per finding.** We feed 3-plane triplets at 336–384 px,
+   12–20 slices. Is there evidence that specific findings are decisively better
+   read from specific sequences — e.g. PD-FS sagittal for meniscal tears, axial
+   for patellofemoral OA, coronal for MCL — strongly enough to justify
+   **per-finding specialist models** rather than one 12-output head?
+
+4. **Training with noisy LLM-extracted labels.** Our labels come from radiology
+   reports via an LLM and are measurably worse than the models trained on them.
+   Beyond plain BCE, what actually works: noise-robust losses (GCE, symmetric
+   CE), co-teaching, per-finding label smoothing calibrated to per-finding label
+   quality, or loss re-weighting by estimated label reliability? **Is there
+   evidence any of these beats plain BCE at this noise level (label-vs-truth AUC
+   0.69–0.99 depending on finding)?**
+
+5. **Submission selection under a small public leaderboard.** ~390 public
+   studies with a ±0.003 floor, 1,300 total, two final submissions to choose.
+   What is the defensible selection strategy to protect *private* rank — and
+   what is the evidence on how often public-LB-chasing at this sample size loses
+   places on the private split?
+
+6. **Is +0.005 even distinguishable?** Given macro-AUC over 12 findings on ~390
+   studies with the positive counts above, what is the actual standard error of
+   the public score, and is a 0.945 → 0.950 difference measurable or noise?
+
+## 7. What we can act on
+
+We have GPU quota and ~3 weeks. We can train new models, change architectures,
+change losses, change sequence handling, and rebuild the preprocessing cache. We
+cannot get more labelled data, and we cannot use non-CC0/non-permissive assets
+without checking the licence first. **Answers that imply "train something
+different, here is why it should help the four weak findings" are the most
+useful thing you can give us.**

@@ -1231,6 +1231,256 @@ EXTRAS = [
              "tuned on 58 studies (E048).",
     ),
     Kernel(
+        slug="knee-train-v1pubcv-f0",
+        directory="106_train_v1pubcv_f0",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": 0,
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                 lr=6e-4, seed=3).constants()},
+        note="E137, FOLD 0 OF FIVE. THE INSTRUMENT, NOT A SUBMISSION MEMBER.\n"
+             "\n"
+             "Byte-identical to `knee-train-v1pubfull` except RUN_FOLD, which\n"
+             "is 0 here and -1 there. Same backbone, same geometry, same\n"
+             "epochs, same seed, same cache.\n"
+             "\n"
+             "WHY THIS EXISTS. Every member this project ships is a FULL FIT,\n"
+             "so none of them has an honest out-of-fold prediction and the\n"
+             "only clean instrument is 58 gold studies -- with 9 positives in\n"
+             "its thinnest column and a per-finding standard error of +/-0.05\n"
+             "to +/-0.08 (E136). That cannot rank two variants that differ by\n"
+             "less than it, which is every variant this project now tries.\n"
+             "\n"
+             "Pooled, these five folds give one out-of-fold prediction for\n"
+             "EVERY study in the cohort -- about 75x the rows -- plus a clean\n"
+             "gold read, because GroupKFold holds out roughly 12 gold studies\n"
+             "per fold and no fold model ever sees the ones it is scored on.\n"
+             "\n"
+             "WHAT IT IS AND IS NOT GOOD FOR. Report labels are noisy, so the\n"
+             "absolute numbers mean little. For RANKING they are sound:\n"
+             "under class-conditional noise, AUC against noisy labels is an\n"
+             "affine, rank-preserving function of clean AUC. The exception is\n"
+             "the LATERAL PAIR, where the noise is instance-dependent --\n"
+             "posterior-horn tears go unreported rather than reported wrongly\n"
+             "(E136's literature) -- so gold stays the judge for those two.\n"
+             "\n"
+             "FOLDS ARE SCANNER-GROUPED, which is not optional: random K-fold\n"
+             "inflates macro AUC by 0.087 on this data, and E135 measured why\n"
+             "-- scanner identity carries real label signal, so a random split\n"
+             "leaks it across the boundary.\n"
+             "\n"
+             "This member MAY also join the blend later, but that is not the\n"
+             "point of it and must be a separate pre-registered test.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
+        slug="knee-train-v1pubcv-f1",
+        directory="106_train_v1pubcv_f1",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": 1,
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                 lr=6e-4, seed=3).constants()},
+        note="E137, FOLD 1 OF FIVE. THE INSTRUMENT, NOT A SUBMISSION MEMBER.\n"
+             "\n"
+             "Byte-identical to `knee-train-v1pubfull` except RUN_FOLD, which\n"
+             "is 1 here and -1 there. Same backbone, same geometry, same\n"
+             "epochs, same seed, same cache.\n"
+             "\n"
+             "WHY THIS EXISTS. Every member this project ships is a FULL FIT,\n"
+             "so none of them has an honest out-of-fold prediction and the\n"
+             "only clean instrument is 58 gold studies -- with 9 positives in\n"
+             "its thinnest column and a per-finding standard error of +/-0.05\n"
+             "to +/-0.08 (E136). That cannot rank two variants that differ by\n"
+             "less than it, which is every variant this project now tries.\n"
+             "\n"
+             "Pooled, these five folds give one out-of-fold prediction for\n"
+             "EVERY study in the cohort -- about 75x the rows -- plus a clean\n"
+             "gold read, because GroupKFold holds out roughly 12 gold studies\n"
+             "per fold and no fold model ever sees the ones it is scored on.\n"
+             "\n"
+             "WHAT IT IS AND IS NOT GOOD FOR. Report labels are noisy, so the\n"
+             "absolute numbers mean little. For RANKING they are sound:\n"
+             "under class-conditional noise, AUC against noisy labels is an\n"
+             "affine, rank-preserving function of clean AUC. The exception is\n"
+             "the LATERAL PAIR, where the noise is instance-dependent --\n"
+             "posterior-horn tears go unreported rather than reported wrongly\n"
+             "(E136's literature) -- so gold stays the judge for those two.\n"
+             "\n"
+             "FOLDS ARE SCANNER-GROUPED, which is not optional: random K-fold\n"
+             "inflates macro AUC by 0.087 on this data, and E135 measured why\n"
+             "-- scanner identity carries real label signal, so a random split\n"
+             "leaks it across the boundary.\n"
+             "\n"
+             "This member MAY also join the blend later, but that is not the\n"
+             "point of it and must be a separate pre-registered test.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
+        slug="knee-train-v1pubcv-f2",
+        directory="106_train_v1pubcv_f2",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": 2,
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                 lr=6e-4, seed=3).constants()},
+        note="E137, FOLD 2 OF FIVE. THE INSTRUMENT, NOT A SUBMISSION MEMBER.\n"
+             "\n"
+             "Byte-identical to `knee-train-v1pubfull` except RUN_FOLD, which\n"
+             "is 2 here and -1 there. Same backbone, same geometry, same\n"
+             "epochs, same seed, same cache.\n"
+             "\n"
+             "WHY THIS EXISTS. Every member this project ships is a FULL FIT,\n"
+             "so none of them has an honest out-of-fold prediction and the\n"
+             "only clean instrument is 58 gold studies -- with 9 positives in\n"
+             "its thinnest column and a per-finding standard error of +/-0.05\n"
+             "to +/-0.08 (E136). That cannot rank two variants that differ by\n"
+             "less than it, which is every variant this project now tries.\n"
+             "\n"
+             "Pooled, these five folds give one out-of-fold prediction for\n"
+             "EVERY study in the cohort -- about 75x the rows -- plus a clean\n"
+             "gold read, because GroupKFold holds out roughly 12 gold studies\n"
+             "per fold and no fold model ever sees the ones it is scored on.\n"
+             "\n"
+             "WHAT IT IS AND IS NOT GOOD FOR. Report labels are noisy, so the\n"
+             "absolute numbers mean little. For RANKING they are sound:\n"
+             "under class-conditional noise, AUC against noisy labels is an\n"
+             "affine, rank-preserving function of clean AUC. The exception is\n"
+             "the LATERAL PAIR, where the noise is instance-dependent --\n"
+             "posterior-horn tears go unreported rather than reported wrongly\n"
+             "(E136's literature) -- so gold stays the judge for those two.\n"
+             "\n"
+             "FOLDS ARE SCANNER-GROUPED, which is not optional: random K-fold\n"
+             "inflates macro AUC by 0.087 on this data, and E135 measured why\n"
+             "-- scanner identity carries real label signal, so a random split\n"
+             "leaks it across the boundary.\n"
+             "\n"
+             "This member MAY also join the blend later, but that is not the\n"
+             "point of it and must be a separate pre-registered test.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
+        slug="knee-train-v1pubcv-f3",
+        directory="106_train_v1pubcv_f3",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": 3,
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                 lr=6e-4, seed=3).constants()},
+        note="E137, FOLD 3 OF FIVE. THE INSTRUMENT, NOT A SUBMISSION MEMBER.\n"
+             "\n"
+             "Byte-identical to `knee-train-v1pubfull` except RUN_FOLD, which\n"
+             "is 3 here and -1 there. Same backbone, same geometry, same\n"
+             "epochs, same seed, same cache.\n"
+             "\n"
+             "WHY THIS EXISTS. Every member this project ships is a FULL FIT,\n"
+             "so none of them has an honest out-of-fold prediction and the\n"
+             "only clean instrument is 58 gold studies -- with 9 positives in\n"
+             "its thinnest column and a per-finding standard error of +/-0.05\n"
+             "to +/-0.08 (E136). That cannot rank two variants that differ by\n"
+             "less than it, which is every variant this project now tries.\n"
+             "\n"
+             "Pooled, these five folds give one out-of-fold prediction for\n"
+             "EVERY study in the cohort -- about 75x the rows -- plus a clean\n"
+             "gold read, because GroupKFold holds out roughly 12 gold studies\n"
+             "per fold and no fold model ever sees the ones it is scored on.\n"
+             "\n"
+             "WHAT IT IS AND IS NOT GOOD FOR. Report labels are noisy, so the\n"
+             "absolute numbers mean little. For RANKING they are sound:\n"
+             "under class-conditional noise, AUC against noisy labels is an\n"
+             "affine, rank-preserving function of clean AUC. The exception is\n"
+             "the LATERAL PAIR, where the noise is instance-dependent --\n"
+             "posterior-horn tears go unreported rather than reported wrongly\n"
+             "(E136's literature) -- so gold stays the judge for those two.\n"
+             "\n"
+             "FOLDS ARE SCANNER-GROUPED, which is not optional: random K-fold\n"
+             "inflates macro AUC by 0.087 on this data, and E135 measured why\n"
+             "-- scanner identity carries real label signal, so a random split\n"
+             "leaks it across the boundary.\n"
+             "\n"
+             "This member MAY also join the blend later, but that is not the\n"
+             "point of it and must be a separate pre-registered test.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
+        slug="knee-train-v1pubcv-f4",
+        directory="106_train_v1pubcv_f4",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": 4,
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                 lr=6e-4, seed=3).constants()},
+        note="E137, FOLD 4 OF FIVE. THE INSTRUMENT, NOT A SUBMISSION MEMBER.\n"
+             "\n"
+             "Byte-identical to `knee-train-v1pubfull` except RUN_FOLD, which\n"
+             "is 4 here and -1 there. Same backbone, same geometry, same\n"
+             "epochs, same seed, same cache.\n"
+             "\n"
+             "WHY THIS EXISTS. Every member this project ships is a FULL FIT,\n"
+             "so none of them has an honest out-of-fold prediction and the\n"
+             "only clean instrument is 58 gold studies -- with 9 positives in\n"
+             "its thinnest column and a per-finding standard error of +/-0.05\n"
+             "to +/-0.08 (E136). That cannot rank two variants that differ by\n"
+             "less than it, which is every variant this project now tries.\n"
+             "\n"
+             "Pooled, these five folds give one out-of-fold prediction for\n"
+             "EVERY study in the cohort -- about 75x the rows -- plus a clean\n"
+             "gold read, because GroupKFold holds out roughly 12 gold studies\n"
+             "per fold and no fold model ever sees the ones it is scored on.\n"
+             "\n"
+             "WHAT IT IS AND IS NOT GOOD FOR. Report labels are noisy, so the\n"
+             "absolute numbers mean little. For RANKING they are sound:\n"
+             "under class-conditional noise, AUC against noisy labels is an\n"
+             "affine, rank-preserving function of clean AUC. The exception is\n"
+             "the LATERAL PAIR, where the noise is instance-dependent --\n"
+             "posterior-horn tears go unreported rather than reported wrongly\n"
+             "(E136's literature) -- so gold stays the judge for those two.\n"
+             "\n"
+             "FOLDS ARE SCANNER-GROUPED, which is not optional: random K-fold\n"
+             "inflates macro AUC by 0.087 on this data, and E135 measured why\n"
+             "-- scanner identity carries real label signal, so a random split\n"
+             "leaks it across the boundary.\n"
+             "\n"
+             "This member MAY also join the blend later, but that is not the\n"
+             "point of it and must be a separate pre-registered test.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
         slug="knee-train-v1pubfull",
         directory="57_train_v1pubfull",
         template="train",

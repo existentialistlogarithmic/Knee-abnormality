@@ -931,6 +931,36 @@ def main() -> int:
                 "expert": truths[g].round(5).tolist(),
             }, indent=2))
 
+        # THE WHOLE VALIDATION FOLD, not just its gold rows. E136 is the
+        # reason: gold-58 carries as few as 9-11 positives in its weakest
+        # columns, so its per-finding standard error is +/-0.05 to +/-0.08 and
+        # it cannot rank two variants that differ by less than that. Pooled
+        # over five folds these files are an out-of-fold prediction for every
+        # study in the cohort -- roughly 75x the rows -- scored against the
+        # report labels.
+        #
+        # Report labels are noisy, and that is tolerable for RANKING rather
+        # than for absolute scores: under class-conditional noise, AUC against
+        # noisy labels is an affine, rank-preserving function of clean AUC. It
+        # is NOT tolerable for the lateral pair, where the noise is
+        # instance-dependent -- lateral posterior-horn tears go unreported
+        # rather than reported wrongly -- so gold stays the judge there.
+        #
+        # Written only at the best epoch and only off a real holdout, so a
+        # full fit produces nothing here however it is invoked.
+        if best_epoch == epoch and not full_fit:
+            import pandas as _pd
+            _oof = _pd.DataFrame({"StudyInstanceUID": val_studies})
+            for _j, _f in enumerate(FINDINGS):
+                _oof[_f] = predictions[:, _j].round(5)
+            for _j, _f in enumerate(FINDINGS):
+                _oof[f"y_{_f}"] = truths[:, _j].round(5)
+            _oof.insert(1, "fold", args.fold)
+            _oof.to_csv(out_dir / f"oof_fold{args.fold}.csv.gz",
+                        index=False, compression="gzip")
+            print(f"wrote oof_fold{args.fold}.csv.gz: {len(_oof)} studies "
+                  f"x {len(FINDINGS)} findings, epoch {epoch}")
+
         if time.time() - started > args.time_budget:
             print("time budget reached; checkpoint saved, re-run to resume")
             break

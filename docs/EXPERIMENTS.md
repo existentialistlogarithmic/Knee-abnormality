@@ -9283,3 +9283,41 @@ function of clean AUC — so **honest out-of-fold predictions scored against the
 for the lateral pair where the noise is instance-dependent. That is the
 instrument, it is buildable with the `Trainer`/`Lineage` machinery already in
 this manifest, and it is the next build.
+
+### E138 — the public arm weights are worth nothing here, and fold 0 hints the export epoch is late
+- **date**: 2026-10-01. No GPU for the first part, two fold runs for the second.
+
+**THE LAST CHEAP BORROWABLE LEVER IS CLOSED, FOR FREE.** E130 found the two
+highest-scoring public notebooks give MaxSpan forward/reverse **0.60/0.10**
+where we use **0.55/0.15** (Native384 Dense and Native384 agree at 0.10/0.20).
+That is not a weight we would be fitting on 58 studies — two independent
+authors chose it — so checking it against gold-58 is reading someone else's
+hyperparameter, not selecting our own.
+
+| | gold macro | public minus ours |
+|---|---:|---|
+| coat 4-arm, ours 0.55/0.15 | 0.9224 | — |
+| coat 4-arm, public 0.60/0.10 | 0.9232 | +0.0009, CI [−0.0006, +0.0028], P 0.864 |
+| **+ the 3-pack, ours** | **0.9334** | — |
+| **+ the 3-pack, public** | **0.9334** | **+0.0000, CI [−0.0005, +0.0005], P 0.531** |
+
+  **It is worth +0.0009 on the arm alone and exactly nothing in the
+  configuration we actually ship.** The 3-pack dominates the blend enough that
+  reweighting the CoAtNet arms inside it is invisible. **No slot spent**, and
+  this is the third weight-tuning result in this log to return zero (E106,
+  E116, now this).
+
+**FOLDS 0 AND 1 COMPLETE, AND THE DUMP WORKS.** `oof_fold0.csv.gz`: 882
+studies × 12 findings plus 12 target columns, no duplicate studies, 12 gold
+studies held out, written at the best epoch. Fold 0 trained 24 epochs with
+**best val macro 0.8485 at epoch 17** (gold 0.8338 at the same epoch).
+
+**AND AN OBSERVATION WORTH ONE SENTENCE AND NO ACTION YET.** Fold 0's val curve
+peaks at **epoch 17** and declines monotonically to 0.8443 by epoch 23. Every
+full-fit member this project ships exports at **epoch 20**, which the manifest
+justifies as measured "across the five v1public folds". If the other four folds
+agree with fold 0, the export epoch is three past the peak and every shipped
+member is slightly over-trained. **One fold is not evidence** — the gap is 0.0042
+on 882 studies — but this is precisely the class of question the instrument was
+built to answer, and it will be answered when all five land rather than argued
+now.

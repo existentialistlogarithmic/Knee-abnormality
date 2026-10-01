@@ -9168,3 +9168,118 @@ embedding space we have honest access to, and the only one available is inside
 checkpoints whose own predictions we already use directly. Retrieval over 4,349
 studies against twelve noisy labels is a weaker estimator than the CNN that
 produced the embedding, with no mechanism suggesting otherwise.
+
+### E136 — external research, and the two of its challenges that landed
+- **date**: 2026-10-01. No GPU. A commissioned literature review, plus two
+  checks it prompted on our own claims.
+
+**THE HEADLINE ANSWER, AND IT REFRAMES THE WHOLE TARGET.** On ~390 public
+studies the standard error of a *single* macro-AUC is **±0.0046 if the twelve
+findings' errors were independent, and ±0.006–0.008 at realistic positive
+correlation** — the twelve AUCs share the same studies and the findings
+co-occur. So **0.945 and 0.950 are not distinguishable as standalone numbers.**
+
+  But a **paired** comparison of two near-identical ensembles is roughly 4×
+  sharper: Var(Δ) = 2σ²(1 − r), and ensembles differing by a member or two sit
+  at r ≈ 0.95–0.99, giving **SE_Δ ≈ 0.0006–0.0015**. A structurally new
+  component (r ≈ 0.85–0.90) gives SE_Δ ≈ 0.002–0.0025.
+
+  **This does not retire E092's ±0.003 floor — the two measure different
+  things.** E092 reseeded a model, so the predictions themselves changed; that
+  is model variance plus estimation variance. The paired SE above holds
+  predictions fixed and resamples studies. Both are real and the reseed figure
+  is the larger, which is why it stays the bar for "did this change anything".
+
+  **What it does settle, under our own ladder:** four +0.002 steps at ~1–2
+  paired SE each are individually weak but consistently signed; the cumulative
+  0.938 → 0.945 is **3–5 SE and almost certainly real**; and v5's +0.001 and
+  v6's +0.000 carry no information, which is what E131 and E134 already
+  concluded from the pre-registered brackets. Rounding adds its own ±0.0004,
+  and a displayed "+0.001" is compatible with anything from 0 to 0.002.
+
+  **Selection bias, quantified:** trying k variants and keeping the best public
+  one inflates by ≈ SE_Δ × E[max of k normals] — about **+0.0015–0.003 at
+  k = 10.** Part of our "flattening" is that bias being removed as the real
+  gains shrank.
+
+**CHALLENGE 1, AND IT PARTLY LANDS: THE MEDIAL/LATERAL GAP IS UNDERPOWERED.**
+The review pointed out that 11 Lateral OA positives give an SE near ±0.078, and
+that ten arms "all showing the gap" is not ten pieces of evidence because they
+are scored on the same 11 cases. Bootstrapped properly, within-study paired,
+on the v5/v6 prior (coat + 3-pack, **no v1 members, so no gold memorisation** —
+the review asked us to confirm that and it is confirmed):
+
+| pair | gap | 95% CI | P(gap ≤ 0) |
+|---|---:|---|---:|
+| Medial vs Lateral **OA** | +0.1469 | [+0.0125, +0.3170] | **0.014** |
+| Medial vs Lateral **Meniscus** | +0.0879 | [−0.0095, +0.2021] | 0.041 |
+
+  **The OA gap survives; the meniscus gap does not separate from zero.** E133
+  called both "structural, not noise" on the strength of direction and
+  magnitude. That was right for OA and overstated for meniscus. Both intervals
+  are far too wide to size a fix against — "somewhere between +0.01 and +0.32"
+  does not tell you what a lateral specialist could win.
+
+**AND THE EXTERNAL EVIDENCE IS WORTH MORE THAN OUR OWN HERE.** The review found
+the asymmetry is a documented property of knee MRI, not an artefact of our
+pipeline:
+
+- A 2026 *Radiology* meta-analysis (75 studies, 8,507 patients): radiologist
+  sensitivity **91.0% medial vs 78.5% lateral** for meniscal tears, with
+  specificity reversed.
+- Fritz et al., *Skeletal Radiology* 2020 (100 arthroscopy-verified patients,
+  DCNN trained on >18,500 exams): **AUC 0.882 medial vs 0.781 lateral.**
+- Failures cluster in the **posterior horn**, in tears involving only a third of
+  the meniscus, and in ACL-injured knees; the popliteus recess and Wrisberg
+  variant produce documented **pseudotears**.
+- Lateral OA is also less prevalent (isolated lateral patterns ~15% of OA knees).
+- **Nothing in the literature closes the gap for a classifier.** What narrows it
+  for human readers is explicit two-slice criteria — surfacing signal on ≥2
+  *consecutive* slices plus distortion — which is a **slice-density and
+  localisation** argument, distinct from the resolution route we closed at
+  −0.088 and the field-of-view route E133 closed.
+
+**CHALLENGE 2, WHICH DOES NOT LAND: PRETRAINED-WEIGHT LICENCES.** The review
+flagged that torchvision weights "may have their own licenses" and that SWAG
+weights are CC-BY-NC. **Checked, and we are clear:** all six of our backbones
+resolve to torchvision's own ImageNet recipes —
+
+| backbone | DEFAULT resolves to |
+|---|---|
+| resnet34 | IMAGENET1K_V1 |
+| resnet50, resnet101, resnext50_32x4d, wide_resnet50_2, regnet_y_3_2gf | IMAGENET1K_V2 |
+
+  **None is `IMAGENET1K_SWAG_E2E_V1`**, which is the CC-BY-NC one. Recorded
+  because this is code already submitted, and "probably fine" was not an answer.
+
+**SYNOVITIS: THE CEILING HYPOTHESIS IS SUPPORTED, AND IT DOWNGRADES THE
+FINDING.** Contrast-enhanced MRI is the reference standard; on non-contrast
+studies radiologists read *surrogates* — effusion-synovitis and Hoffa-synovitis
+— and non-contrast MRI "is unable to distinguish synovitis from effusion, since
+they both appear as hyperintense on fluid-sensitive sequences". In the original
+MOAKS reliability exercise (Hunter et al., *Osteoarthritis Cartilage* 2011),
+Hoffa-synovitis had **intra-rater weighted κ 0.42 (95% CI 0.14–0.70) and 55%
+agreement** — the weakest in the instrument. Our 0.848 may be near the
+achievable ceiling. **Combined with E121's closed effusion surrogate, synovitis
+is now the lowest-expected-return of the four weak findings**, which inverts
+where this project has repeatedly wanted to spend effort.
+
+**WHAT THE REVIEW CONFIRMS THAT WE ALREADY BELIEVED.** Noise-robust losses
+(GCE, SCE, co-teaching) show gains mainly under *synthetic* symmetric noise; a
+2026 real-world medical benchmark found co-teaching-type methods
+**underperforming plain CE in most classes**. Our noise is instance-dependent
+(subtle posterior-horn tears go unreported), which is exactly where that theory
+offers least. **Keep BCE.** The supported lever is reliability-weighted soft
+labels, specifically softening "not mentioned = 0" negatives for the lateral
+pair, where underreporting is the documented failure mode. E133's naive
+two-labeller fusion (+0.0037, worse on 7 of 12) is consistent: unweighted
+fusion is not the same thing.
+
+**THE ONE THING THAT CHANGES WHAT WE DO NEXT.** Every route in this log has been
+gated on an instrument that cannot resolve what we are now chasing. Under
+class-conditional noise, AUC against noisy labels is an affine, rank-preserving
+function of clean AUC — so **honest out-of-fold predictions scored against the
+4,349 LLM labels can rank variants with far more power than gold-58**, except
+for the lateral pair where the noise is instance-dependent. That is the
+instrument, it is buildable with the `Trainer`/`Lineage` machinery already in
+this manifest, and it is the next build.

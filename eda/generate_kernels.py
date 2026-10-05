@@ -190,6 +190,36 @@ def main() -> int:
                 written += 1
 
     kernels = all_kernels()
+
+    # ORPHANS: a directory under kaggle/ that no kernel declares. The check
+    # above walks manifest -> tree and is blind in the other direction, so
+    # DELETING a kernel from the manifest left its directory on disk and this
+    # printed "tree matches the manifest". That is how a live submission
+    # kernel was silently dropped from the manifest while preflight passed
+    # (E140). A stale directory is also pushable, so it is not cosmetic: the
+    # slug still exists on Kaggle and `kaggle kernels push -p` on it would
+    # upload code the manifest no longer describes.
+    # These six predate the manifest and are kept as history. They are listed
+    # by name rather than matched by a pattern so that a NEW orphan still
+    # fails: an allowlist that grows silently is not a check.
+    RETIRED = {"00_dicom_header_scan", "01_submission_baseline",
+               "02_metadata_submission", "05_infer", "05_infer_cpu",
+               "09_infer_ensemble"}
+    declared = {path.parent.resolve()
+                for kernel in kernels for path in outputs(kernel)}
+    orphans = sorted(d.relative_to(ROOT) for d in (ROOT / "kaggle").iterdir()
+                     if d.is_dir() and not d.name.startswith("_")
+                     and d.name not in RETIRED
+                     and d.resolve() not in declared)
+    if orphans:
+        print(f"{len(orphans)} directory(ies) under kaggle/ that no kernel declares:")
+        for d in orphans:
+            print(f"  {d}")
+        print("Either the manifest lost a kernel, or the directory should be "
+              "removed.\nThis is not a formatting difference; do not push from "
+              "an undeclared directory.")
+        return 1
+
     print(f"{len(kernels)} kernels, {len(kernels) * 2} files")
     if not changed:
         print("tree matches the manifest")

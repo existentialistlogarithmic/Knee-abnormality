@@ -9393,3 +9393,64 @@ finding** after sitting second-best on gold-58. E133's list is not safe.
   reads MCL at 0.9024 on gold and the composite reads 0.9864, so the composite
   really is much stronger there. **What this licenses is "MCL belongs on the
   candidate list and never was", not "the composite is weak on MCL".**
+
+### E140 — our own arm is the weakest in the blend, and the drift check could not see a deleted kernel
+- **date**: 2026-10-05. No new GPU for the measurement; one new kernel; one guard added.
+
+**FOR THE FIRST TIME THERE IS AN HONEST NUMBER FOR OUR OWN ARM.** Every shipped
+v1 member is a full fit and reads 0.99+ on gold by memorisation, so what the v1
+arm actually contributes has never been measurable. The cross-validation folds
+fix that: each gold study is predicted by the fold model that **held it out**.
+
+| arm, same 49 gold studies | macro |
+|---|---:|
+| **v1 (one resnet34, honest)** | **0.8716** |
+| coat 4-arm | 0.9173 |
+| mattiaangeli 3-pack | 0.9275 |
+
+  **Our arm is the weakest component in the blend by 0.046, and it sits below
+  the ~0.90 bar this project used to reject five foreign assets** (E125, E127,
+  E130, E132). Under our own screening rule, our own members would not have
+  been accepted.
+
+**AND REMOVING IT IS NOT SUPPORTED, WHICH IS THE PART TO HOLD ON TO.**
+
+| configuration, honest throughout | macro |
+|---|---:|
+| shipped shape: (coat + v1)/2, then + 3-pack | 0.9262 |
+| **v1 removed: coat + 3-pack** | **0.9300** |
+| v1 at w=0.4 / 0.3 / 0.2 instead of 0.5 | 0.9275 / 0.9264 / 0.9264 |
+
+  Removing v1: **+0.0038, CI [−0.0052, +0.0135], P(better) 0.788.** Not
+  separated. Down-weighting buys nothing at any value tried.
+
+  **The test is biased toward removal and the bias is not small.** Its v1 proxy
+  is ONE resnet34 trained on 80% of the cohort; the shipped arm is **TEN full
+  fits on 100%**. E132 measured 1→4 member ensembling at +0.0062 for a
+  comparable family, and the extra fifth of the data is unmodelled on top.
+  Both push the same way. **So this is not a recommendation to drop v1** — it
+  is the measurement saying the question was never asked.
+
+**IT IS WORTH ONE SLOT BECAUSE BOTH ANSWERS ARE INFORMATIVE.** Every submission
+since E105 has carried the v1 arm and none has priced it. `knee-infer-raptor-nov1`
+is four CoAtNet arms plus the 3-pack, nothing else. **Pre-registered against
+v6's 0.945: ≥0.948** the arm was diluting and comes out; **0.943–0.947** inside
+the floor and it stays, because the incumbent wins a tie; **≤0.942** it
+contributes and the ensembling the offline test could not model is real.
+
+**AND A GUARD, BECAUSE THIS ENTRY NEARLY SHIPPED A SILENT DELETION.** Building
+the kernel above, a scripted edit **replaced** `knee-infer-raptor4` in the
+manifest instead of inserting beside it. The kernel vanished from the manifest,
+its directory stayed on disk, and **`preflight` printed "tree matches the
+manifest" and passed.** The drift check walked manifest → tree only and was
+blind in the other direction.
+
+  That is not cosmetic. `knee-infer-raptor4` version 7 is the kernel currently
+  queued for submission, the stale directory is still pushable, and nothing in
+  the repo would have said the manifest no longer described it.
+
+  `eda/generate_kernels.py` now fails on any directory under `kaggle/` that no
+  kernel declares. Six genuinely retired directories predate the manifest and
+  are **named individually** rather than matched by a pattern — an allowlist
+  that grows silently is not a check — and a test asserts both the detection
+  and that the allowlist stays literal.

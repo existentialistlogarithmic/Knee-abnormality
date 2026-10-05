@@ -55,3 +55,20 @@ def test_full_fit_members_cannot_emit_an_oof_file():
         s = _src(p)
         i = s.index("oof_fold{args.fold}.csv.gz")
         assert "not full_fit" in s[s.rindex("if ", 0, i):i]
+
+
+def test_the_drift_check_catches_a_kernel_dropped_from_the_manifest(tmp_path):
+    """E140: the check walked manifest -> tree only, so deleting a kernel from
+    the manifest left its directory on disk and preflight printed 'tree matches
+    the manifest'. A live submission kernel was silently dropped that way."""
+    import subprocess
+    import sys
+    src = Path("eda/generate_kernels.py").read_text()
+    assert "that no kernel declares" in src, "orphan detection is gone"
+    assert "RETIRED" in src, "the allowlist is gone, so it will fail on history"
+    # and the allowlist is a literal set, not a pattern that would swallow new ones
+    assert "startswith" not in src.split("RETIRED")[1].split("}")[0]
+    r = subprocess.run([sys.executable, "eda/generate_kernels.py"],
+                       capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "tree matches the manifest" in r.stdout

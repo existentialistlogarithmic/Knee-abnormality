@@ -1,0 +1,25 @@
+{
+  "id": "achelijndiamantidis/knee-infer-raptor-nov1",
+  "title": "knee-infer-raptor-nov1",
+  "code_file": "run.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "dreaddevelopment/raptor-knee-maxspan",
+    "dreaddevelopment/raptor-knee-native384",
+    "dreaddevelopment/raptor-knee-native384dense",
+    "mattiaangeli/rsna-knee-coat-resgated-ep10-top3",
+    "mattiaangeli/rsna-knee-coatnet-d4-depthzone-swa3-b2",
+    "mattiaangeli/rsna-knee-coatnet-global96-top3"
+  ],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [],
+  "model_sources": []
+}

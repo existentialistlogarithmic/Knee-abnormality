@@ -3218,6 +3218,109 @@ EXTRAS = [
              "CC0-1.0.",
     ),
     Kernel(
+        slug="knee-infer-raptor-nov1",
+        directory="107_infer_raptor_nov1",
+        template="raptor_infer",
+        gpu=True,
+        internet=False,
+        datasets=["dreaddevelopment/raptor-knee-maxspan",
+                  "dreaddevelopment/raptor-knee-native384",
+                  "dreaddevelopment/raptor-knee-native384dense",
+                  # E121/E123's foreign pipelines. Both CC0-1.0, both from a
+                  # DIFFERENT author than the four CoAtNet arms above.
+                  "mattiaangeli/rsna-knee-coat-resgated-ep10-top3",
+                  "mattiaangeli/rsna-knee-coatnet-d4-depthzone-swa3-b2",
+                  # Also the source of timm-1.0.22-py3-none-any.whl, which the
+                  # pinned packages need and which no other mount carries.
+                  "mattiaangeli/rsna-knee-coatnet-global96-top3"],
+        depends=[],
+        constants={
+            "MEMBERS_EXPECTED": 4,
+            "ARMS": RAPTOR_ARMS,
+            "CROP_MM": 140.0,
+            "LAB": RAPTOR_LAB,
+            "FALLBACK_LIMIT": 0.02,
+            "DECODE_AHEAD": 32,
+            "EVAL_SPLIT": "test",
+            "GOLD_EXPECTED": 58,
+            "V1_MEMBERS": None,
+            "V1_BLEND_W": 0.50,
+            "V1_BATCH_STUDIES": V1.infer_batch,
+            "V1_SLICE_SUBSAMPLE": None,
+            "V1_INPUT_NORM": False,
+            "CHECKPOINT_GLOB": "checkpoint_fold*.pt",
+            "SKIP_DIRECTORIES": Raw('{"train_series", "test_series"}'),
+            # Each entry is the module name of that package's own inference
+            # script. The template finds its directory, isolates the import,
+            # drives its run_submission and purges its modules afterwards --
+            # both packages ship a `cnx_dicom_geometry.py` and the first import
+            # would otherwise win for both.
+            # THREE PACKAGES, ONE SHARED VOTE. All one author's lineage, and
+            # two of them correlate 0.938 with each other, so they average into
+            # one arm rather than voting separately -- members that agree that
+            # closely are not independent pipelines.
+            #
+            # `timm` marks a package that asserts an exact version and refuses to
+            # load otherwise. d4 does it through its parent, which reads the
+            # version from a manifest. Those run in a SUBPROCESS with the wheel
+            # their own dataset ships installed to a private directory, so the
+            # downgrade never touches the four CoAtNet arms or the eight v1
+            # members, which are verified at the serving version.
+            #
+            # `dataset` pins each arm to its own mount: these packages ship each
+            # other's scripts -- d4's dataset holds four `*_inference.py` files --
+            # so matching on filename alone loaded the wrong one.
+            "FOREIGN_ARMS": (
+                {"name": "resgated", "group": "mattiaangeli",
+                 "dataset": "rsna-knee-coat-resgated-ep10-top3",
+                 "entry": "coatnet_resgated_ep10_top3_inference"},
+                {"name": "d4", "group": "mattiaangeli", "timm": "1.0.22",
+                 "dataset": "rsna-knee-coatnet-d4-depthzone-swa3-b2",
+                 "entry": "coatnet_d4_depthzone_swa_inference"},
+                {"name": "global96", "group": "mattiaangeli", "timm": "1.0.22",
+                 "dataset": "rsna-knee-coatnet-global96-top3",
+                 "entry": "coatnet_global96_baseline_top3_inference"},
+            ),
+            **V1.constants(),
+            "PLANES": ("Sagittal", "Coronal", "Axial"),
+        },
+        note="E140. THE ONE ARM NEVER TESTED: OURS.\n"
+             "\n"
+             "Four CoAtNet arms and the mattiaangeli 3-pack, with the v1\n"
+             "members REMOVED. Every submission since E105 has carried them\n"
+             "and not one has measured what they contribute.\n"
+             "\n"
+             "WHY NOW AND NOT BEFORE. Until the cross-validation folds landed\n"
+             "there was no honest number for our own arm: every shipped\n"
+             "member is a full fit and reads 0.99+ on gold by memorisation.\n"
+             "Scored properly - each gold study predicted by the fold model\n"
+             "that held it OUT - our arm reads 0.8716 against the coat arm\'s\n"
+             "0.9173 and the 3-pack\'s 0.9275 on the same 49 studies. It is\n"
+             "the WEAKEST component in the blend, and it sits below the ~0.90\n"
+             "bar this project used to reject five foreign assets.\n"
+             "\n"
+             "WHAT THE OFFLINE TEST SAYS AND WHY IT IS NOT ENOUGH. Removing\n"
+             "v1 scores +0.0038 on those 49, CI [-0.0052, +0.0135], not\n"
+             "separated. And the test is BIASED TOWARD REMOVAL: its v1 proxy\n"
+             "is ONE resnet34 trained on 80% of the data, while the shipped\n"
+             "arm is TEN full fits on 100%. Ensembling and the extra data\n"
+             "both narrow the gap and neither is modelled. This is not a\n"
+             "recommendation to drop v1; it is the measurement saying the\n"
+             "question has never been asked.\n"
+             "\n"
+             "EITHER ANSWER IS WORTH THE SLOT. If this beats 0.945, ten\n"
+             "members have been diluting the blend. If it loses, our own\n"
+             "models carry real weight despite being the weakest arm - the\n"
+             "first evidence of that in this log.\n"
+             "\n"
+             "PRE-REGISTERED against v6\'s 0.945: >=0.948 the v1 arm was\n"
+             "diluting and comes out; 0.943-0.947 inside the floor and it\n"
+             "stays, because the incumbent wins a tie; <=0.942 it contributes\n"
+             "and the ensembling the offline test could not model is real.\n"
+             "\n"
+             "ATTRIBUTION: as `knee-infer-raptor4`."
+    ),
+    Kernel(
         slug="knee-infer-raptorv1",
         directory="86_infer_raptorv1",
         template="raptor_infer",

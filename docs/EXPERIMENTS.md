@@ -9499,3 +9499,65 @@ convenience would have committed per-study model predictions keyed by
 preflight check that exists for exactly this was about to be the only thing
 standing in the way. They live in the scratchpad and are regenerable from the
 kernels; nothing derived from patient data belongs in the tree.
+
+### E143 — the CoAtNet probes: a real bug, then a host kill, and two explanations that disagree
+- **date**: 2026-10-05. Three failed GPU sessions, one fixed defect, one open question.
+
+**THE FIRST FAILURE WAS OURS, NOT THE ARCHITECTURE'S.** Both probes died with
+
+```
+RuntimeError: The expanded size of the tensor (144) must match the existing
+size (196) at non-singleton dimension 3
+```
+
+  CoAtNet's relative-position bias is baked for 224 px (14×14 = 196 tokens) and
+  V1's geometry is 192 (12×12 = 144). `build_model` tried
+  `dynamic_img_size=True`, which the MaxxVit family rejects with **TypeError**,
+  caught that in the **same handler as a failed weights download**, and fell
+  through to a plain build — silently pinning the backbone to its native 224 so
+  it died an epoch in. **Two sessions for one conflated `except`.**
+
+  Fixed: size is resolved first and against the backbone's own signature
+  (`dynamic_img_size` → `img_size=TARGET_SIZE` → default), `TypeError` is
+  distinguished from a download failure, a forward pass at `TARGET_SIZE` is
+  attempted before any build is kept, and an unbuildable backbone raises
+  instead of training wrong. Verified locally on four backbones, pretrained.
+
+  **The diagnosis also improved the experiment.** The resolution-flexible
+  `rmlp` variants are what the foreign arms used all along — their checkpoints
+  declare `coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k`. Probe 2 is now
+  `coatnet_rmlp_2_rw_224.sw_in12k_ft_in1k`: **same architecture, same
+  pretraining** as the arms scoring 0.9067–0.9214, differing only in input
+  resolution.
+
+**THE SECOND FAILURE WAS A HOST KILL, AND IT IS NOT YET EXPLAINED.** With the
+shape bug fixed, `coatnet_rmlp_nano` built, loaded the cache, cut the fold,
+printed `gold studies held out in this fold: 12` — and then:
+
+```
+Killed
+```
+
+  **Two explanations fit, and they make opposite predictions.**
+
+| | says | predicts |
+|---|---|---|
+| **E124's correlation** | depthwise-separable dies here (3/3 before this), dense/grouped lives (6/6). CoAtNet's early stages are MBConv. | every CoAtNet dies, whatever the batch |
+| **host RAM scales with batch** | nano died at **batch 4**; `coatnet_rmlp_2`, nearly **5× the parameters**, is still running at **batch 2** | nano survives at batch 2 |
+
+  **The size ordering is the problem for the architecture explanation**: if the
+  family were the cause, the 72.9M model should have died before the 14.6M one.
+  It did not. **I asserted "four for four on depthwise-separable dying" before
+  noticing that, and withdraw it** — the evidence does not yet separate the two.
+
+  `coat0` is repushed at **batch 2 / accum 8**, one variable off its own
+  failure. **If it now survives, batch size was the cause and E124's
+  correlation is weakened again** (it already lost `shufflenet_v2_x1_0`, which
+  is torchvision-routed and died anyway). **If it dies at batch 2 while
+  `coatnet_rmlp_2` completes at batch 2, neither explanation survives** and the
+  difference is something else in those two configs.
+
+**WHAT THIS DOES NOT CHANGE.** The pre-registration stands: ≥0.859 on fold 0's
+882 held-out studies earns a five-fold run, 0.839–0.858 is inside what 882
+studies resolve, ≤0.838 closes the family question for our own arm. The control
+remains `knee-train-v1pubcv-f0` at **0.8485**, already run, no GPU spent on it.

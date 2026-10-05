@@ -1241,7 +1241,7 @@ EXTRAS = [
         datasets=[PUBLIC_DATASET],
         constants={"RUN_FOLD": 0,
                    **V1.constants(),
-                   **TrainConfig(backbone="coatnet_rmlp_nano_rw_224.sw_in1k", epochs=24, batch=4, accum=4,
+                   **TrainConfig(backbone="coatnet_rmlp_nano_rw_224.sw_in1k", epochs=24, batch=2, accum=8,
                                  lr=6e-4, input_norm=False, seed=3).constants()},
         note="E142 PROBE. FOLD 0 ONLY, AND THE CONTROL ALREADY EXISTS.\n"
              "\n"
@@ -1271,7 +1271,7 @@ EXTRAS = [
              "probe and not a five-fold commitment: the answer costs ~80\n"
              "minutes either way, and a host kill is itself worth knowing.\n"
              "\n"
-             "BATCH 4 WITH ACCUM 4 rather than v1's 16: attention over\n"
+             "BATCH 2 WITH ACCUM 8 rather than v1's 16: attention over\n"
              "3 planes x 20 slices is far heavier per study than resnet34's\n"
              "convolutions. Effective batch stays 16, so the optimiser sees the\n"
              "same thing; BatchNorm statistics differ, which costs nothing\n"
@@ -1328,7 +1328,7 @@ EXTRAS = [
              "probe and not a five-fold commitment: the answer costs ~80\n"
              "minutes either way, and a host kill is itself worth knowing.\n"
              "\n"
-             "BATCH 4 WITH ACCUM 4 rather than v1's 16: attention over\n"
+             "BATCH 2 WITH ACCUM 8 rather than v1's 16: attention over\n"
              "3 planes x 20 slices is far heavier per study than resnet34's\n"
              "convolutions. Effective batch stays 16, so the optimiser sees the\n"
              "same thing; BatchNorm statistics differ, which costs nothing\n"
@@ -1385,7 +1385,7 @@ EXTRAS = [
              "probe and not a five-fold commitment: the answer costs ~80\n"
              "minutes either way, and a host kill is itself worth knowing.\n"
              "\n"
-             "BATCH 4 WITH ACCUM 4 rather than v1's 16: attention over\n"
+             "BATCH 2 WITH ACCUM 8 rather than v1's 16: attention over\n"
              "3 planes x 20 slices is far heavier per study than resnet34's\n"
              "convolutions. Effective batch stays 16, so the optimiser sees the\n"
              "same thing; BatchNorm statistics differ, which costs nothing\n"

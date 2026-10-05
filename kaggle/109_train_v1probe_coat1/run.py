@@ -77,7 +77,7 @@ import pandas as pd
 # probe and not a five-fold commitment: the answer costs ~80
 # minutes either way, and a host kill is itself worth knowing.
 #
-# BATCH 4 WITH ACCUM 4 rather than v1's 16: attention over
+# BATCH 2 WITH ACCUM 8 rather than v1's 16: attention over
 # 3 planes x 20 slices is far heavier per study than resnet34's
 # convolutions. Effective batch stays 16, so the optimiser sees the
 # same thing; BatchNorm statistics differ, which costs nothing

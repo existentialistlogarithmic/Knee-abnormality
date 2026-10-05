@@ -9321,3 +9321,75 @@ member is slightly over-trained. **One fold is not evidence** — the gap is 0.0
 on 882 studies — but this is precisely the class of question the instrument was
 built to answer, and it will be answered when all five land rather than argued
 now.
+
+### E139 — the instrument's first reading disagrees with gold-58 about which findings are weak
+- **date**: 2026-10-05. Four of five folds complete; fold 4 running.
+
+**E138's EPOCH LEAD IS DEAD, KILLED BY THE OTHER THREE FOLDS.** Fold 0 peaked at
+epoch 17 and I wrote that every shipped member might be three epochs
+over-trained. It was one fold:
+
+| fold | best epoch | best val | val@20 | cost of exporting at 20 |
+|---:|---:|---:|---:|---:|
+| 0 | 17 | 0.8485 | 0.8469 | −0.0016 |
+| 1 | **20** | 0.8439 | 0.8439 | +0.0000 |
+| 2 | 21 | 0.8709 | 0.8706 | −0.0003 |
+| 3 | 21 | 0.8242 | 0.8241 | −0.0001 |
+
+  Mean best epoch **19.8**, mean cost of exporting at 20 **−0.0005**. The
+  manifest's FULL_FIT_EPOCH was right and fold 0 was the outlier. **Recorded
+  because the lead was published in E138 before the data existed to judge it**,
+  and the only reason it cost nothing is that it was explicitly not acted on.
+
+**THE INSTRUMENT WORKS.** Four folds pool to **3,526 studies, each exactly
+once** — the partition check passes. Per-finding AUC against report labels,
+worst first: MCL 0.7858, PF OA 0.8026, Lateral OA 0.8077, Synovitis 0.8168,
+Effusion 0.8341, ACL 0.8374, Contusion 0.8464, Lateral Meniscus 0.8533,
+Fracture 0.8645, Medial OA 0.8681, Medial Meniscus 0.8959, Baker's 0.8997.
+
+**AND IT DISAGREES WITH GOLD-58 ABOUT WHICH FINDINGS ARE HARD.** The comparison
+below removes the model confound entirely: these are **the same four fold
+models**, scored on their own gold holdout and their own report holdout.
+
+| finding | gold AUC | n_pos | report AUC | n_pos | gold − report |
+|---|---:|---:|---:|---:|---:|
+| ACL | 0.9638 | 20 | 0.8374 | 707 | **+0.1264** |
+| Effusion | 0.9561 | 30 | 0.8341 | 2069 | **+0.1220** |
+| MCL | 0.9024 | 8 | 0.7858 | 504 | **+0.1166** |
+| Contusion | 0.9299 | 16 | 0.8464 | 608 | +0.0836 |
+| Medial OA | 0.9505 | 12 | 0.8681 | 1281 | +0.0824 |
+| Baker's | 0.9361 | 9 | 0.8997 | 845 | +0.0364 |
+| Medial Meniscus | 0.9018 | 19 | 0.8959 | 1410 | +0.0059 |
+| Lateral Meniscus | 0.8517 | 20 | 0.8533 | 532 | −0.0016 |
+| Fracture | 0.8542 | 16 | 0.8645 | 255 | −0.0103 |
+| PF OA | 0.7574 | 17 | 0.8026 | 1600 | −0.0452 |
+| Lateral OA | 0.7278 | 9 | 0.8077 | 935 | −0.0799 |
+| Synovitis | 0.7274 | 23 | 0.8168 | 454 | −0.0894 |
+
+  **Spearman between the two rankings: +0.350.** Two honest evaluations of the
+  same models, and they barely agree about which findings are hard.
+
+**TWO CAUSES, AND THEY PULL IN OPPOSITE DIRECTIONS.** The top of the table —
+ACL, Effusion, MCL with 20, 30 and **8** gold positives — is gold-58 being
+noisy: a per-finding AUC on 8 positives has a standard error near ±0.09 (E136),
+so 0.9024 and 0.7858 are not even in conflict. The bottom — Synovitis, Lateral
+OA, PF OA — is the opposite and is **not** noise: those are the findings where
+E133 measured the report label itself to be a poor proxy for radiologist truth
+(Synovitis labeller 0.69 against gold). A model trained on report labels
+naturally scores *better* against report labels than against gold there. **One
+end of this table is sampling error and the other is a real label mismatch, and
+reading either as the other would be a mistake.**
+
+**WHAT THIS DOES TO E133.** That entry named four weak findings — Lateral OA,
+Synovitis, PF OA, Lateral Meniscus — from the composite's gold-58 numbers and
+built the whole headroom argument on them. Measured properly on 3,526 studies,
+**our own members' weak list is MCL, PF OA, Lateral OA, Synovitis**: three
+overlap, Lateral Meniscus drops out, and **MCL enters as the single worst
+finding** after sitting second-best on gold-58. E133's list is not safe.
+
+  **The honest limit on that.** The OOF numbers are for one resnet34 fold
+  model, not for the shipped composite — the CoAtNet arms are foreign and
+  in-sample on the 4,349, so no honest OOF exists for them. The same model
+  reads MCL at 0.9024 on gold and the composite reads 0.9864, so the composite
+  really is much stronger there. **What this licenses is "MCL belongs on the
+  candidate list and never was", not "the composite is weak on MCL".**

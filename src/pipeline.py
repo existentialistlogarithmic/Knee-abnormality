@@ -1231,6 +1231,177 @@ EXTRAS = [
              "tuned on 58 studies (E048).",
     ),
     Kernel(
+        slug="knee-train-v1probe-coat0",
+        directory="108_train_v1probe_coat0",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": 0,
+                   **V1.constants(),
+                   **TrainConfig(backbone="coatnet_0_rw_224.sw_in1k", epochs=24, batch=4, accum=4,
+                                 lr=6e-4, input_norm=False, seed=3).constants()},
+        note="E142 PROBE. FOLD 0 ONLY, AND THE CONTROL ALREADY EXISTS.\n"
+             "\n"
+             "coatnet_0_rw_224: the SMALLEST CoAtNet with ImageNet weights, chosen\nfirst because if the family host-kills at this geometry it kills\ncheapest here, and because 27M parameters is the closest match to the\nresnet34 control's capacity of any CoAtNet available.\n"
+             "\n"
+             "THE PATTERN THIS TESTS. Every component of the shipped blend\n"
+             "that scores >= 0.909 on gold is a CoAtNet: the four Raptor arms,\n"
+             "resgated 0.9093, d4 0.9302, global96 0.9305. Every component\n"
+             "below 0.90 is something else. Our own stable is TEN resnet-family\n"
+             "CNNs and zero CoAtNets, and measured honestly it reads 0.8716\n"
+             "(E140) - the weakest arm in the blend, below the ~0.90 bar this\n"
+             "project used to reject five foreign assets. We have never trained\n"
+             "the one family that demonstrably works on this data.\n"
+             "\n"
+             "THE CONTROL IS knee-train-v1pubcv-f0, ALREADY RUN: identical\n"
+             "cache, geometry, epochs, seed and fold, resnet34, best val macro\n"
+             "0.8485 at epoch 17. Only the backbone differs, so this is a\n"
+             "one-variable comparison against a number already in hand - no\n"
+             "control run is spent.\n"
+             "\n"
+             "WHY IT MIGHT SIMPLY DIE, STATED BEFORE IT RUNS. Three timm or\n"
+             "depthwise-separable architectures have host-OOM-killed at this\n"
+             "geometry (convnext_tiny, tf_efficientnet_b0, shufflenet_v2_x1_0)\n"
+             "while six dense or grouped ones trained clean. CoAtNet's early\n"
+             "stages are MBConv, which IS depthwise-separable, so E124's\n"
+             "correlation predicts a kill. That is exactly why this is a fold-0\n"
+             "probe and not a five-fold commitment: the answer costs ~80\n"
+             "minutes either way, and a host kill is itself worth knowing.\n"
+             "\n"
+             "BATCH 4 WITH ACCUM 4 rather than v1's 16: attention over\n"
+             "3 planes x 20 slices is far heavier per study than resnet34's\n"
+             "convolutions. Effective batch stays 16, so the optimiser sees the\n"
+             "same thing; BatchNorm statistics differ, which costs nothing\n"
+             "readable in a probe and would not be acceptable in a controlled\n"
+             "comparison of two trainings that shared a backbone.\n"
+             "\n"
+             "PRE-REGISTERED, on fold 0's 882 held-out studies against the\n"
+             "resnet34 control's 0.8485: >= 0.859 the family transfers and\n"
+             "earns a five-fold run; 0.839-0.858 inside what 882 studies can\n"
+             "resolve, so no further GPU; <= 0.838 it is worse here than a\n"
+             "resnet34 and the family question is closed for our own arm.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
+        slug="knee-train-v1probe-coat1",
+        directory="109_train_v1probe_coat1",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": 0,
+                   **V1.constants(),
+                   **TrainConfig(backbone="coatnet_1_rw_224.sw_in1k", epochs=24, batch=4, accum=4,
+                                 lr=6e-4, input_norm=False, seed=3).constants()},
+        note="E142 PROBE. FOLD 0 ONLY, AND THE CONTROL ALREADY EXISTS.\n"
+             "\n"
+             "coatnet_1_rw_224: one size up, 42M parameters. Run only as the second\nprobe because capacity is the axis most likely to matter if coatnet_0\ntrains but does not clear the bar.\n"
+             "\n"
+             "THE PATTERN THIS TESTS. Every component of the shipped blend\n"
+             "that scores >= 0.909 on gold is a CoAtNet: the four Raptor arms,\n"
+             "resgated 0.9093, d4 0.9302, global96 0.9305. Every component\n"
+             "below 0.90 is something else. Our own stable is TEN resnet-family\n"
+             "CNNs and zero CoAtNets, and measured honestly it reads 0.8716\n"
+             "(E140) - the weakest arm in the blend, below the ~0.90 bar this\n"
+             "project used to reject five foreign assets. We have never trained\n"
+             "the one family that demonstrably works on this data.\n"
+             "\n"
+             "THE CONTROL IS knee-train-v1pubcv-f0, ALREADY RUN: identical\n"
+             "cache, geometry, epochs, seed and fold, resnet34, best val macro\n"
+             "0.8485 at epoch 17. Only the backbone differs, so this is a\n"
+             "one-variable comparison against a number already in hand - no\n"
+             "control run is spent.\n"
+             "\n"
+             "WHY IT MIGHT SIMPLY DIE, STATED BEFORE IT RUNS. Three timm or\n"
+             "depthwise-separable architectures have host-OOM-killed at this\n"
+             "geometry (convnext_tiny, tf_efficientnet_b0, shufflenet_v2_x1_0)\n"
+             "while six dense or grouped ones trained clean. CoAtNet's early\n"
+             "stages are MBConv, which IS depthwise-separable, so E124's\n"
+             "correlation predicts a kill. That is exactly why this is a fold-0\n"
+             "probe and not a five-fold commitment: the answer costs ~80\n"
+             "minutes either way, and a host kill is itself worth knowing.\n"
+             "\n"
+             "BATCH 4 WITH ACCUM 4 rather than v1's 16: attention over\n"
+             "3 planes x 20 slices is far heavier per study than resnet34's\n"
+             "convolutions. Effective batch stays 16, so the optimiser sees the\n"
+             "same thing; BatchNorm statistics differ, which costs nothing\n"
+             "readable in a probe and would not be acceptable in a controlled\n"
+             "comparison of two trainings that shared a backbone.\n"
+             "\n"
+             "PRE-REGISTERED, on fold 0's 882 held-out studies against the\n"
+             "resnet34 control's 0.8485: >= 0.859 the family transfers and\n"
+             "earns a five-fold run; 0.839-0.858 inside what 882 studies can\n"
+             "resolve, so no further GPU; <= 0.838 it is worse here than a\n"
+             "resnet34 and the family question is closed for our own arm.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
+        slug="knee-train-v1probe-maxvit",
+        directory="110_train_v1probe_maxvit",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": 0,
+                   **V1.constants(),
+                   **TrainConfig(backbone="maxvit_tiny_rw_224.sw_in1k", epochs=24, batch=4, accum=4,
+                                 lr=6e-4, input_norm=False, seed=3).constants()},
+        note="E142 PROBE. FOLD 0 ONLY, AND THE CONTROL ALREADY EXISTS.\n"
+             "\n"
+             "maxvit_tiny_rw_224: a DIFFERENT conv-transformer hybrid, not a CoAtNet.\nIt separates 'CoAtNet specifically' from 'hybrid attention generally' -\nif both work the family claim is broad, if only CoAtNet works the\npattern is about that architecture and not about attention.\n"
+             "\n"
+             "THE PATTERN THIS TESTS. Every component of the shipped blend\n"
+             "that scores >= 0.909 on gold is a CoAtNet: the four Raptor arms,\n"
+             "resgated 0.9093, d4 0.9302, global96 0.9305. Every component\n"
+             "below 0.90 is something else. Our own stable is TEN resnet-family\n"
+             "CNNs and zero CoAtNets, and measured honestly it reads 0.8716\n"
+             "(E140) - the weakest arm in the blend, below the ~0.90 bar this\n"
+             "project used to reject five foreign assets. We have never trained\n"
+             "the one family that demonstrably works on this data.\n"
+             "\n"
+             "THE CONTROL IS knee-train-v1pubcv-f0, ALREADY RUN: identical\n"
+             "cache, geometry, epochs, seed and fold, resnet34, best val macro\n"
+             "0.8485 at epoch 17. Only the backbone differs, so this is a\n"
+             "one-variable comparison against a number already in hand - no\n"
+             "control run is spent.\n"
+             "\n"
+             "WHY IT MIGHT SIMPLY DIE, STATED BEFORE IT RUNS. Three timm or\n"
+             "depthwise-separable architectures have host-OOM-killed at this\n"
+             "geometry (convnext_tiny, tf_efficientnet_b0, shufflenet_v2_x1_0)\n"
+             "while six dense or grouped ones trained clean. CoAtNet's early\n"
+             "stages are MBConv, which IS depthwise-separable, so E124's\n"
+             "correlation predicts a kill. That is exactly why this is a fold-0\n"
+             "probe and not a five-fold commitment: the answer costs ~80\n"
+             "minutes either way, and a host kill is itself worth knowing.\n"
+             "\n"
+             "BATCH 4 WITH ACCUM 4 rather than v1's 16: attention over\n"
+             "3 planes x 20 slices is far heavier per study than resnet34's\n"
+             "convolutions. Effective batch stays 16, so the optimiser sees the\n"
+             "same thing; BatchNorm statistics differ, which costs nothing\n"
+             "readable in a probe and would not be acceptable in a controlled\n"
+             "comparison of two trainings that shared a backbone.\n"
+             "\n"
+             "PRE-REGISTERED, on fold 0's 882 held-out studies against the\n"
+             "resnet34 control's 0.8485: >= 0.859 the family transfers and\n"
+             "earns a five-fold run; 0.839-0.858 inside what 882 studies can\n"
+             "resolve, so no further GPU; <= 0.838 it is worse here than a\n"
+             "resnet34 and the family question is closed for our own arm.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
         slug="knee-train-v1pubcv-f0",
         directory="106_train_v1pubcv_f0",
         template="train",

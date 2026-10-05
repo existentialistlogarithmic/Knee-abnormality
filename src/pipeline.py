@@ -1241,11 +1241,11 @@ EXTRAS = [
         datasets=[PUBLIC_DATASET],
         constants={"RUN_FOLD": 0,
                    **V1.constants(),
-                   **TrainConfig(backbone="coatnet_0_rw_224.sw_in1k", epochs=24, batch=4, accum=4,
+                   **TrainConfig(backbone="coatnet_rmlp_nano_rw_224.sw_in1k", epochs=24, batch=4, accum=4,
                                  lr=6e-4, input_norm=False, seed=3).constants()},
         note="E142 PROBE. FOLD 0 ONLY, AND THE CONTROL ALREADY EXISTS.\n"
              "\n"
-             "coatnet_0_rw_224: the SMALLEST CoAtNet with ImageNet weights, chosen\nfirst because if the family host-kills at this geometry it kills\ncheapest here, and because 27M parameters is the closest match to the\nresnet34 control's capacity of any CoAtNet available.\n"
+             "coatnet_rmlp_nano_rw_224: the SMALLEST CoAtNet with ImageNet weights,\nchosen\nfirst because if the family fails at this geometry it fails cheapest\nhere. 14.6M parameters, the closest CoAtNet to the resnet34 control.\n"
              "\n"
              "THE PATTERN THIS TESTS. Every component of the shipped blend\n"
              "that scores >= 0.909 on gold is a CoAtNet: the four Raptor arms,\n"
@@ -1298,11 +1298,11 @@ EXTRAS = [
         datasets=[PUBLIC_DATASET],
         constants={"RUN_FOLD": 0,
                    **V1.constants(),
-                   **TrainConfig(backbone="coatnet_1_rw_224.sw_in1k", epochs=24, batch=4, accum=4,
+                   **TrainConfig(backbone="coatnet_rmlp_2_rw_224.sw_in12k_ft_in1k", epochs=24, batch=2, accum=8,
                                  lr=6e-4, input_norm=False, seed=3).constants()},
         note="E142 PROBE. FOLD 0 ONLY, AND THE CONTROL ALREADY EXISTS.\n"
              "\n"
-             "coatnet_1_rw_224: one size up, 42M parameters. Run only as the second\nprobe because capacity is the axis most likely to matter if coatnet_0\ntrains but does not clear the bar.\n"
+             "coatnet_rmlp_2_rw_224.sw_in12k_ft_in1k: THE SAME ARCHITECTURE AND THE\nSAME PRETRAINING as the four Raptor arms, whose checkpoints declare\ncoatnet_rmlp_2_rw_384.sw_in12k_ft_in1k and which score 0.9067-0.9214\non gold. Only the input resolution differs, because our cache is 192px\nand theirs is 384. 72.9M parameters, so batch 2 with accum 8.\n"
              "\n"
              "THE PATTERN THIS TESTS. Every component of the shipped blend\n"
              "that scores >= 0.909 on gold is a CoAtNet: the four Raptor arms,\n"
@@ -1355,11 +1355,11 @@ EXTRAS = [
         datasets=[PUBLIC_DATASET],
         constants={"RUN_FOLD": 0,
                    **V1.constants(),
-                   **TrainConfig(backbone="maxvit_tiny_rw_224.sw_in1k", epochs=24, batch=4, accum=4,
+                   **TrainConfig(backbone="maxvit_rmlp_tiny_rw_256.sw_in1k", epochs=24, batch=4, accum=4,
                                  lr=6e-4, input_norm=False, seed=3).constants()},
         note="E142 PROBE. FOLD 0 ONLY, AND THE CONTROL ALREADY EXISTS.\n"
              "\n"
-             "maxvit_tiny_rw_224: a DIFFERENT conv-transformer hybrid, not a CoAtNet.\nIt separates 'CoAtNet specifically' from 'hybrid attention generally' -\nif both work the family claim is broad, if only CoAtNet works the\npattern is about that architecture and not about attention.\n"
+             "maxvit_rmlp_tiny_rw_256: a DIFFERENT conv-transformer hybrid, not a\nCoAtNet.\nIt separates 'CoAtNet specifically' from 'hybrid attention generally' -\nif both work the family claim is broad, if only CoAtNet works the\npattern is about that architecture and not about attention.\n"
              "\n"
              "THE PATTERN THIS TESTS. Every component of the shipped blend\n"
              "that scores >= 0.909 on gold is a CoAtNet: the four Raptor arms,\n"

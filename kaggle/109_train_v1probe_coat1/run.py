@@ -47,9 +47,11 @@ import pandas as pd
 # --------------------------------------------------------------------------- #
 # E142 PROBE. FOLD 0 ONLY, AND THE CONTROL ALREADY EXISTS.
 #
-# coatnet_1_rw_224: one size up, 42M parameters. Run only as the second
-# probe because capacity is the axis most likely to matter if coatnet_0
-# trains but does not clear the bar.
+# coatnet_rmlp_2_rw_224.sw_in12k_ft_in1k: THE SAME ARCHITECTURE AND THE
+# SAME PRETRAINING as the four Raptor arms, whose checkpoints declare
+# coatnet_rmlp_2_rw_384.sw_in12k_ft_in1k and which score 0.9067-0.9214
+# on gold. Only the input resolution differs, because our cache is 192px
+# and theirs is 384. 72.9M parameters, so batch 2 with accum 8.
 #
 # THE PATTERN THIS TESTS. Every component of the shipped blend
 # that scores >= 0.909 on gold is a CoAtNet: the four Raptor arms,
@@ -96,10 +98,10 @@ TARGET_MM_PER_PIXEL  = 0.6
 TARGET_SIZE          = 192
 SLICES_PER_PLANE     = 20
 RUN_EPOCHS           = 24
-RUN_BATCH            = 4
-ACCUM_STEPS          = 4
+RUN_BATCH            = 2
+ACCUM_STEPS          = 8
 RUN_LR               = 0.0006
-RUN_BACKBONE         = "coatnet_1_rw_224.sw_in1k"
+RUN_BACKBONE         = "coatnet_rmlp_2_rw_224.sw_in12k_ft_in1k"
 SLICE_SUBSAMPLE      = None
 INPUT_NORM           = False
 PER_FINDING_POOL     = False
@@ -347,17 +349,52 @@ def build_model(backbone: str, n_planes: int, n_out: int, normalise_input: bool,
     if "." in backbone or backbone.startswith(("vit_", "convnext", "tf_efficientnet")):
         import timm
 
-        try:
-            net = timm.create_model(backbone, pretrained=True, num_classes=0,
-                                    dynamic_img_size=True)
-        except Exception:  # noqa: BLE001 - offline, or no dynamic_img_size support
-            try:
-                net = timm.create_model(backbone, pretrained=True, num_classes=0)
-            except Exception:  # noqa: BLE001 - internet off (inference kernels)
-                print("no pretrained download (internet off) — random init; "
-                      "at inference the checkpoint replaces all of it")
-                net = timm.create_model(backbone, pretrained=False, num_classes=0,
-                                        dynamic_img_size=True)
+        # TWO INDEPENDENT THINGS CAN FAIL HERE and the first version of this
+        # conflated them, which cost two GPU sessions (E142).
+        #
+        # 1. HOW THE BACKBONE IS TOLD ITS INPUT SIZE. ViTs take
+        #    `dynamic_img_size`; the MaxxVit family (CoAtNet, MaxViT) rejects
+        #    that keyword outright and takes `img_size` instead. The old code
+        #    tried `dynamic_img_size`, caught the TypeError, and fell through
+        #    to a PLAIN build — which silently pinned a CoAtNet to its native
+        #    224 and then died mid-training with a shape error, because its
+        #    relative-position bias is 14x14=196 tokens and TARGET_SIZE=192
+        #    gives 12x12=144.
+        # 2. WHETHER PRETRAINED WEIGHTS CAN BE DOWNLOADED. Inference kernels
+        #    run offline and must fall back to random init, which is correct
+        #    there because the checkpoint replaces every weight.
+        #
+        # So size is resolved FIRST, against the backbone's own signature, and
+        # only then is the download allowed to fail.
+        size_kwargs = [{"dynamic_img_size": True}, {"img_size": TARGET_SIZE}, {}]
+        net = None
+        for pretrained in (True, False):
+            for kwargs in size_kwargs:
+                try:
+                    net = timm.create_model(backbone, pretrained=pretrained,
+                                            num_classes=0, **kwargs)
+                except TypeError:
+                    continue            # this backbone does not take that keyword
+                except Exception:       # noqa: BLE001 - download failed
+                    break               # retry the same keywords un-pretrained
+                # A build that cannot take TARGET_SIZE is not usable, and
+                # finding that out now beats finding out an epoch in.
+                try:
+                    with torch.no_grad():
+                        net(torch.zeros(1, 3, TARGET_SIZE, TARGET_SIZE))
+                except Exception:       # noqa: BLE001 - wrong size for this config
+                    net = None
+                    continue
+                break
+            if net is not None:
+                break
+        if net is None:
+            raise RuntimeError(
+                f"{backbone} could not be built at {TARGET_SIZE}px by any of "
+                f"dynamic_img_size, img_size or the default config")
+        if not pretrained:
+            print("no pretrained download (internet off) — random init; "
+                  "at inference the checkpoint replaces all of it")
         features = net.num_features
     else:
         import torchvision

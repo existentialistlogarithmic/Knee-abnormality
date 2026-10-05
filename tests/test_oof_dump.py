@@ -118,3 +118,22 @@ def test_the_or_directive_keeps_a_region_for_either_constant():
     assert "shared-helper" not in render(A=None, B=None)
     for out in (render(A=1, B=None), render(A=None, B=None)):
         assert "keep-always" in out and "tail" in out
+
+
+def test_build_model_resolves_input_size_before_it_resolves_pretrained():
+    """E142 cost two GPU sessions to this ordering.
+
+    `dynamic_img_size` and `img_size` are accepted by different timm families:
+    ViTs take the first, the MaxxVit family (CoAtNet, MaxViT) rejects it with
+    TypeError and takes the second. The old code tried `dynamic_img_size`,
+    caught the TypeError alongside download failures, and fell through to a
+    plain build — silently pinning a CoAtNet to its native 224 so that it died
+    mid-training on a 196-vs-144 token shape error.
+    """
+    src = Path("kaggle/_templates/_shared/model.py").read_text()
+    assert '"img_size": TARGET_SIZE' in src, "the img_size path is gone"
+    assert "except TypeError:" in src, "TypeError must not be caught with downloads"
+    # a forward pass at TARGET_SIZE must be attempted before the model is kept
+    i = src.index('size_kwargs')
+    assert "TARGET_SIZE, TARGET_SIZE" in src[i:], "no size check before returning"
+    assert "could not be built at" in src[i:], "silent failure is still possible"

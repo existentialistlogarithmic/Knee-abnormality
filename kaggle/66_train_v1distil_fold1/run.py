@@ -305,17 +305,52 @@ def build_model(backbone: str, n_planes: int, n_out: int, normalise_input: bool,
     if "." in backbone or backbone.startswith(("vit_", "convnext", "tf_efficientnet")):
         import timm
 
-        try:
-            net = timm.create_model(backbone, pretrained=True, num_classes=0,
-                                    dynamic_img_size=True)
-        except Exception:  # noqa: BLE001 - offline, or no dynamic_img_size support
-            try:
-                net = timm.create_model(backbone, pretrained=True, num_classes=0)
-            except Exception:  # noqa: BLE001 - internet off (inference kernels)
-                print("no pretrained download (internet off) — random init; "
-                      "at inference the checkpoint replaces all of it")
-                net = timm.create_model(backbone, pretrained=False, num_classes=0,
-                                        dynamic_img_size=True)
+        # TWO INDEPENDENT THINGS CAN FAIL HERE and the first version of this
+        # conflated them, which cost two GPU sessions (E142).
+        #
+        # 1. HOW THE BACKBONE IS TOLD ITS INPUT SIZE. ViTs take
+        #    `dynamic_img_size`; the MaxxVit family (CoAtNet, MaxViT) rejects
+        #    that keyword outright and takes `img_size` instead. The old code
+        #    tried `dynamic_img_size`, caught the TypeError, and fell through
+        #    to a PLAIN build — which silently pinned a CoAtNet to its native
+        #    224 and then died mid-training with a shape error, because its
+        #    relative-position bias is 14x14=196 tokens and TARGET_SIZE=192
+        #    gives 12x12=144.
+        # 2. WHETHER PRETRAINED WEIGHTS CAN BE DOWNLOADED. Inference kernels
+        #    run offline and must fall back to random init, which is correct
+        #    there because the checkpoint replaces every weight.
+        #
+        # So size is resolved FIRST, against the backbone's own signature, and
+        # only then is the download allowed to fail.
+        size_kwargs = [{"dynamic_img_size": True}, {"img_size": TARGET_SIZE}, {}]
+        net = None
+        for pretrained in (True, False):
+            for kwargs in size_kwargs:
+                try:
+                    net = timm.create_model(backbone, pretrained=pretrained,
+                                            num_classes=0, **kwargs)
+                except TypeError:
+                    continue            # this backbone does not take that keyword
+                except Exception:       # noqa: BLE001 - download failed
+                    break               # retry the same keywords un-pretrained
+                # A build that cannot take TARGET_SIZE is not usable, and
+                # finding that out now beats finding out an epoch in.
+                try:
+                    with torch.no_grad():
+                        net(torch.zeros(1, 3, TARGET_SIZE, TARGET_SIZE))
+                except Exception:       # noqa: BLE001 - wrong size for this config
+                    net = None
+                    continue
+                break
+            if net is not None:
+                break
+        if net is None:
+            raise RuntimeError(
+                f"{backbone} could not be built at {TARGET_SIZE}px by any of "
+                f"dynamic_img_size, img_size or the default config")
+        if not pretrained:
+            print("no pretrained download (internet off) — random init; "
+                  "at inference the checkpoint replaces all of it")
         features = net.num_features
     else:
         import torchvision

@@ -72,3 +72,49 @@ def test_the_drift_check_catches_a_kernel_dropped_from_the_manifest(tmp_path):
                        capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "tree matches the manifest" in r.stdout
+
+
+def test_every_kernel_defines_the_helpers_it_calls():
+    """E140 lost a GPU session to this.
+
+    `find_all_markers` lived inside the template's `@@IF V1_MEMBERS@@` region
+    while FOREIGN_ARMS also called it, so a kernel with foreign arms and
+    V1_MEMBERS=None generated code that imported fine, ran the entire CoAtNet
+    pass, and only then died with NameError. A helper shared by two optional
+    regions cannot be gated on one of them, and nothing checked that.
+    """
+    helpers = ("find_all_markers", "find_marker", "rankpct", "build_model")
+    for p in KERNELS:
+        s = _src(p)
+        for h in helpers:
+            called = re.search(rf"[^.\w]{h}\s*\(", s)
+            defined = re.search(rf"^\s*def {h}\s*\(", s, re.M)
+            if called and not defined:
+                raise AssertionError(
+                    f"{p.parent.name} calls {h}() but never defines it — the "
+                    f"include is probably gated on a region this kernel "
+                    f"switched off")
+
+
+def test_the_or_directive_keeps_a_region_for_either_constant():
+    """E140's repair. `@@IF A|B@@` must keep the region when either is set,
+    and drop it only when both are off — otherwise the fix either reintroduces
+    the NameError or spills the v1 machinery into CoAtNet-only kernels."""
+    import sys
+    sys.path.insert(0, ".")
+    from eda.generate_kernels import strip_regions
+    from src.pipeline import Kernel
+
+    tpl = ("keep-always\n@@IF A|B@@\nshared-helper\n@@ENDIF A|B@@\ntail\n")
+
+    def render(**consts):
+        k = Kernel(slug="t", directory="t", template="raptor_infer",
+                   constants=consts)
+        return strip_regions(tpl, k)
+
+    assert "shared-helper" in render(A=1, B=None)
+    assert "shared-helper" in render(A=None, B=1)
+    assert "shared-helper" in render(A=1, B=1)
+    assert "shared-helper" not in render(A=None, B=None)
+    for out in (render(A=1, B=None), render(A=None, B=None)):
+        assert "keep-always" in out and "tail" in out

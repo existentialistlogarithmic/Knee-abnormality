@@ -129,24 +129,13 @@ TARGET_SIZE         = 192
 SLICES_PER_PLANE    = 20
 PLANES              = ('Sagittal', 'Coronal', 'Axial')
 
-# ---------------------------------------------------------------------------
-# THE SECOND ARCHITECTURE, and why it lives in this file rather than beside it.
-#
-# E101 measured the only union out of eight candidates with an interior optimum:
-# this project's own resnet34 2.5D at 192 px against the CoAtNet arms. Blending
-# them needs BOTH models' predictions on the hidden set in ONE kernel run --
-# `rank_blend`'s own comment records why the obvious alternative cannot work, and
-# the check that enforces it: a mounted kernel supplies its LAST SAVED output,
-# frozen at the 3-study visible run, so a CSV-chained blend submits three rows.
-#
-# So the v1 path is spliced in from the same `_shared` fragments every v1 kernel
-# has always used -- not reimplemented. A second copy of the preprocessing is
-# exactly the silent train/inference skew that E088 caught in this file's first
-# draft, and copying it here to save an include would have reintroduced it.
-#
-# Everything below is INERT unless a kernel declares V1_MEMBERS. Kernels 81, 82
-# and 83 set it to None and run the CoAtNet arms alone.
-# ---------------------------------------------------------------------------
+# `find_all_markers` is OUTSIDE the V1_MEMBERS region below, and that placement
+# is the whole point. It used to live inside it, which was correct while only
+# the v1 path called it -- but FOREIGN_ARMS calls it too, and a kernel that
+# declares foreign arms with V1_MEMBERS=None then had the include stripped and
+# died at runtime with `NameError: find_all_markers` after paying for the full
+# CoAtNet pass. E140 lost a session to exactly that. A helper shared by two
+# optional regions cannot be gated on one of them.
 
 # --------------------------------------------------------------------------- #
 # from kaggle/_templates/_shared/discovery.py
@@ -176,6 +165,25 @@ def find_all_markers(pattern: str, max_depth: int = 4) -> list[Path]:
                 frontier.append((entry, depth + 1))
     return found
 
+
+# ---------------------------------------------------------------------------
+# THE SECOND ARCHITECTURE, and why it lives in this file rather than beside it.
+#
+# E101 measured the only union out of eight candidates with an interior optimum:
+# this project's own resnet34 2.5D at 192 px against the CoAtNet arms. Blending
+# them needs BOTH models' predictions on the hidden set in ONE kernel run --
+# `rank_blend`'s own comment records why the obvious alternative cannot work, and
+# the check that enforces it: a mounted kernel supplies its LAST SAVED output,
+# frozen at the 3-study visible run, so a CSV-chained blend submits three rows.
+#
+# So the v1 path is spliced in from the same `_shared` fragments every v1 kernel
+# has always used -- not reimplemented. A second copy of the preprocessing is
+# exactly the silent train/inference skew that E088 caught in this file's first
+# draft, and copying it here to save an include would have reintroduced it.
+#
+# Everything below is INERT unless a kernel declares V1_MEMBERS. Kernels 81, 82
+# and 83 set it to None and run the CoAtNet arms alone.
+# ---------------------------------------------------------------------------
 
 # --------------------------------------------------------------------------- #
 # from kaggle/_templates/_shared/volume.py

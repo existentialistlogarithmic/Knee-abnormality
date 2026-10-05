@@ -91,6 +91,14 @@ EVAL_SPLIT       = "trainall"
 GOLD_EXPECTED    = 58
 V1_MEMBERS       = None
 
+# `find_all_markers` is OUTSIDE the V1_MEMBERS region below, and that placement
+# is the whole point. It used to live inside it, which was correct while only
+# the v1 path called it -- but FOREIGN_ARMS calls it too, and a kernel that
+# declares foreign arms with V1_MEMBERS=None then had the include stripped and
+# died at runtime with `NameError: find_all_markers` after paying for the full
+# CoAtNet pass. E140 lost a session to exactly that. A helper shared by two
+# optional regions cannot be gated on one of them.
+
 
 torch.backends.cudnn.benchmark = True
 torch.backends.cuda.matmul.allow_tf32 = True

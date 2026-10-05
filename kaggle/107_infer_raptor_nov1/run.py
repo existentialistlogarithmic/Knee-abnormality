@@ -114,6 +114,42 @@ TARGET_SIZE         = 192
 SLICES_PER_PLANE    = 20
 PLANES              = ('Sagittal', 'Coronal', 'Axial')
 
+# `find_all_markers` is OUTSIDE the V1_MEMBERS region below, and that placement
+# is the whole point. It used to live inside it, which was correct while only
+# the v1 path called it -- but FOREIGN_ARMS calls it too, and a kernel that
+# declares foreign arms with V1_MEMBERS=None then had the include stripped and
+# died at runtime with `NameError: find_all_markers` after paying for the full
+# CoAtNet pass. E140 lost a session to exactly that. A helper shared by two
+# optional regions cannot be gated on one of them.
+
+# --------------------------------------------------------------------------- #
+# from kaggle/_templates/_shared/discovery.py
+# --------------------------------------------------------------------------- #
+def find_all_markers(pattern: str, max_depth: int = 4) -> list[Path]:
+    """Every mounted directory containing a file matching `pattern`.
+
+    The cache is built as four shard kernels and mounted as four separate
+    inputs. Finding only the first would silently train on a quarter of the
+    data at full apparent success — the worst kind of bug, because the loss
+    curve would look fine.
+    """
+    found = []
+    frontier = [(Path("/kaggle/input"), 0)]
+    while frontier:
+        directory, depth = frontier.pop(0)
+        if depth > max_depth:
+            continue
+        try:
+            entries = sorted(directory.iterdir())
+        except (FileNotFoundError, PermissionError):
+            continue
+        if any(e.is_file() and e.match(pattern) for e in entries):
+            found.append(directory)
+        for entry in entries:
+            if entry.is_dir() and entry.name not in SKIP_DIRECTORIES:
+                frontier.append((entry, depth + 1))
+    return found
+
 
 torch.backends.cudnn.benchmark = True
 torch.backends.cuda.matmul.allow_tf32 = True

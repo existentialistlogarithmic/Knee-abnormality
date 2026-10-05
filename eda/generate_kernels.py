@@ -95,6 +95,16 @@ def shared_body(name: str, wanted: list[str] | None = None) -> str:
 def strip_regions(template: str, kernel: Kernel) -> str:
     """Drop every `@@IF NAME@@ ... @@ENDIF NAME@@` whose constant is off.
 
+    `@@IF A|B@@` keeps the region when EITHER constant is set. That exists for
+    helpers shared by two optional regions: `find_all_markers` was gated on
+    V1_MEMBERS alone while FOREIGN_ARMS also called it, so a kernel with
+    foreign arms and no v1 members generated code that parsed, ran the whole
+    CoAtNet pass, and then died with NameError (E140). Splicing such a helper
+    in unconditionally is the wrong repair — it puts the second
+    architecture's machinery into CoAtNet-only kernels, which
+    `test_the_coatnet_only_kernels_carry_none_of_the_second_architecture`
+    exists to forbid.
+
     Unbalanced markers raise rather than silently keeping or dropping code: a
     region that swallowed the rest of a template would still generate a file
     that parses.
@@ -104,7 +114,9 @@ def strip_regions(template: str, kernel: Kernel) -> str:
         stripped = line.strip()
         if stripped.startswith("@@IF ") and stripped.endswith("@@"):
             name = stripped[len("@@IF "):-2].strip()
-            if skipping is None and not kernel.constants.get(name):
+            on = any(kernel.constants.get(part.strip())
+                     for part in name.split("|"))
+            if skipping is None and not on:
                 skipping = name
             elif skipping is not None:
                 depth += 1

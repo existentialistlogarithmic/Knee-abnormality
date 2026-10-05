@@ -9454,3 +9454,48 @@ blind in the other direction.
   are **named individually** rather than matched by a pattern — an allowlist
   that grows silently is not a check — and a test asserts both the detection
   and that the allowlist stays literal.
+
+### E141 — the instrument is complete: 4,407 studies, each exactly once
+- **date**: 2026-10-05. Fold 4 landed; the partition closes.
+
+**ALL FIVE FOLDS POOL TO THE WHOLE COHORT.** `pool_oof.py` confirms **4,407
+studies, each exactly once** — the partition check passes, so no study is
+averaged between a model that held it out and one that trained on it. This is
+the first honest out-of-fold matrix this project has ever had, against 58
+studies with 9 positives in the thinnest column.
+
+| finding | OOF AUC | n_pos | | finding | OOF AUC | n_pos |
+|---|---:|---:|---|---|---:|---:|
+| **MCL** | **0.7825** | 669 | | Contusion | 0.8405 | 763 |
+| **PF OA** | **0.8056** | 2012 | | Lateral Meniscus* | 0.8573 | 691 |
+| Lateral OA* | 0.8108 | 1195 | | Fracture | 0.8573 | 314 |
+| **Synovitis** | **0.8226** | 567 | | Medial OA | 0.8680 | 1632 |
+| Effusion | 0.8379 | 2618 | | Baker's | 0.8956 | 1085 |
+| ACL | 0.8383 | 913 | | Medial Meniscus | 0.9012 | 1778 |
+
+  \* held out of the headline macro by default: E136 established the
+  report-label noise is instance-dependent for the lateral pair, so the
+  rank-preservation argument does not hold there and gold stays their judge.
+  **Macro over the other ten: 0.8450.**
+
+  The four-fold reading (E139) was 0.8451 on 3,526 studies; the fifth fold
+  moves it by **0.0001**. The instrument is stable.
+
+**WHAT IT IS NOW GOOD FOR.** Every ranking decision in this log was made on 58
+studies at ±0.05 to ±0.08 per finding. This gives 669–2,618 positives per
+column. A paired test between two variants of our own members is now worth
+running; before, it was not.
+
+**AND WHAT IT IS STILL NOT GOOD FOR, which has not changed.** It covers our own
+v1 members only. The four CoAtNet arms and the three mattiaangeli packages are
+foreign checkpoints, in-sample on the 4,349 report-labelled studies, and no
+honest out-of-fold prediction for them can be constructed from assets we hold.
+**So this instrument can rank changes to our arm, and cannot score the shipped
+composite.** Confusing those two is the single most likely way to misuse it.
+
+**A NEAR MISS WORTH RECORDING.** Staging the five dumps into `artifacts/` for
+convenience would have committed per-study model predictions keyed by
+`StudyInstanceUID` — competition-derived data — into a public repository. The
+preflight check that exists for exactly this was about to be the only thing
+standing in the way. They live in the scratchpad and are regenerable from the
+kernels; nothing derived from patient data belongs in the tree.

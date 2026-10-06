@@ -9743,3 +9743,39 @@ both blocks (which would augment every sample twice).
 - **≤ −0.005** → the standing magnitude is on the right side of that scale.
 If the two sides point the same way (both worse), the standing ×1.0 is near a
 local optimum and the route closes regardless.
+
+### E148 — augmentation magnitude is not a lever: ×0.5 costs, ×2 is flat
+- **date**: 2026-10-06. E147's two screens landed; read against its bands.
+
+| fold 0, seed 3, 882 studies | macro (10) | Δ vs ×1.0 | 95% CI | best epoch | final loss |
+|---|---:|---:|---|---:|---:|
+| ×1.0 (control) | 0.8493 | — | — | 17 | — |
+| **×0.5** | 0.8439 | **−0.0055** | [−0.0110, −0.0000] | **15** | 0.358 |
+| **×2.0** | 0.8496 | **+0.0002** | [−0.0052, +0.0057] | **22** | 0.434 |
+
+**READ AGAINST THE PRE-REGISTRATION.** ×0.5 lands in the **≤ −0.005** band,
+its CI just touching zero: the standing magnitude is on the right side of
+half. ×2.0 is **inside ±0.005** at +0.0002 — not a lever. **The route closes.**
+Neither earns folds 1–4.
+
+**THE TRAINING CURVES SAY THE SAME THING FROM A DIFFERENT ANGLE.** Halving the
+augmentation lowers the training loss (0.358) and moves the peak *earlier*
+(epoch 15 against 17): it overfits sooner, which is what less regularisation
+should do. Doubling raises the loss (0.434) and pushes the peak to **epoch 22
+of 24** — the val macro was still within 0.0002 of its best at the last
+epoch. That is a hint that ×2 with more epochs could keep climbing.
+**I am saying out loud that this is one run, one fold, and a curve shape, and
+I am not acting on it** — it is the same species of lead as E138's fold-0
+epoch-17 note, which folds 1–3 then contradicted.
+
+**PER FINDING, AGAINST E146's SEED SPREAD.** Most per-finding deltas sit
+inside the seed spread for that finding. Exceeding it:
+- ×0.5: ACL +0.0057 (spread 0.0021), Medial OA −0.0064 (0.0064) — both at
+  the edge of a spread measured from only three draws.
+- ×2.0: **Lateral Meniscus −0.0202** (spread 0.0088) and Baker's +0.0148
+  (0.0113). The lateral pair is judged on gold (E136), and fold 0 holds about
+  12 gold studies, so this cannot be confirmed here. Logged, not acted on.
+
+**WHAT THIS CLOSES.** Augmentation magnitude, scaled as one knob, at 24
+epochs. **Not** tested and still open: the individual components (intensity
+vs geometry vs dropout separately), and ×2 at a longer schedule.

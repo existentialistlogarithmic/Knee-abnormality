@@ -9644,3 +9644,68 @@ were held out.
 **TEST CHANGE.** `test_the_five_cross_validation_folds_exist_and_cover_0_to_4`
 counted every `v1pubcv` directory and failed on seven. It now counts the
 seed-3 set only; the reseeds still pass every dump-integrity test beside it.
+
+### E146 — the seed floor: 0.0012 on the macro, up to 0.023 on a single finding
+- **date**: 2026-10-06. E145's two reseeds landed; read against its bands.
+
+| fold 0, 882 studies | macro (10) | training-log best (12) |
+|---|---:|---:|
+| seed 3 (control) | 0.8493 | 0.8485, epoch 17 |
+| seed 4 | 0.8505 | 0.8499, epoch 18 |
+| seed 5 | 0.8503 | 0.8503, epoch 18 |
+
+| pair | Δ macro | 95% CI (study bootstrap) |
+|---|---:|---|
+| s4 − s3 | +0.0012 | [−0.0040, +0.0064] |
+| s5 − s3 | +0.0009 | [−0.0043, +0.0062] |
+| s5 − s4 | −0.0003 | [−0.0057, +0.0054] |
+
+**SEED FLOOR ON THE MACRO: 0.0012 — E145's lowest band (≤ 0.003).** One-fold
+screening is not ruined by training noise. **But the binding constraint is the
+other one:** the study-bootstrap interval on 882 studies is **±0.005 wide**,
+four times the seed floor. So the operative bar for a one-fold variant is
+**≈ +0.005**, set by the fold's size, not by its seed. Pooled over five folds
+the interval should shrink by roughly √5, to ≈ ±0.0023.
+
+**PER FINDING, THE FLOOR IS AN ORDER OF MAGNITUDE LARGER.** The macro is
+quiet because the findings move in opposite directions and cancel:
+
+| finding | s3 | s4 | s5 | max \|Δ\| | n_pos |
+|---|---:|---:|---:|---:|---:|
+| Effusion | 0.8508 | 0.8406 | 0.8274 | **0.0234** | 535 |
+| Fracture | 0.8899 | 0.8920 | 0.9109 | **0.0210** | 67 |
+| Lateral OA* | 0.8001 | 0.8113 | 0.8210 | 0.0208 | 230 |
+| MCL | 0.7970 | 0.7926 | 0.7818 | **0.0151** | 133 |
+| PF OA | 0.7798 | 0.7915 | 0.7856 | 0.0118 | 426 |
+| Baker's | 0.8982 | 0.9095 | 0.9094 | 0.0113 | 226 |
+| Lateral Meniscus* | 0.8883 | 0.8820 | 0.8794 | 0.0088 | 97 |
+| Synovitis | 0.8282 | 0.8200 | 0.8224 | 0.0082 | 138 |
+| Contusion | 0.8318 | 0.8400 | 0.8398 | 0.0081 | 166 |
+| Medial OA | 0.8507 | 0.8503 | 0.8567 | 0.0064 | 319 |
+| Medial Meniscus | 0.9075 | 0.9115 | 0.9091 | 0.0040 | 323 |
+| ACL | 0.8595 | 0.8574 | 0.8595 | 0.0021 | 143 |
+
+Effusion swings 0.023 on **535 positives** — this is not small-sample noise,
+it is the training draw. **Consequence for §6's MCL specialist:** MCL's own
+seed spread is 0.015 on fold 0, so a one-fold, one-seed MCL variant must clear
+roughly +0.015 *on MCL* to mean anything. MCL does stay among the two weakest
+findings under all three seeds (with PF OA), so E139's "MCL is weak" survives;
+any per-finding claim finer than that needs seeds, not studies.
+
+**THE FIRST SEPARATED RESULT THE INSTRUMENT HAS PRODUCED: a positive control.**
+Rank-mean of the three seeds against seed 3 alone: **0.8559, Δ +0.0066, CI
+[+0.0036, +0.0096], P = 1.000**. This is not a new lever — the shipped arm is
+already a ten-member ensemble, and E064 measured reseeding at +0.000 on the
+board once members exist — but it proves the instrument can *see* a real
+effect of +0.007 on one fold. Before this, no one had shown it could detect
+anything at all. Per-finding prediction correlation between seeds on MCL is
+only 0.89–0.92, which is where the ensemble gain comes from.
+
+**CAVEAT, UNCHANGED FROM E145.** Each dump is the best-epoch checkpoint chosen
+on these same 882 studies. Seeds share the rule, so deltas are fair; the
+ensemble's +0.0066 inherits a little of three selections' optimism and should
+be read as an upper bound on what seed-averaging is worth at one fold.
+
+**WHAT THIS BUYS NEXT.** A one-fold screen at seed 3 against 0.8493, bar
++0.005 on the macro with a CI excluding zero; anything that clears it earns
+the other four folds. Per-finding variants need ≥ 2 seeds each.

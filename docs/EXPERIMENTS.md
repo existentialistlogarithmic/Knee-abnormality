@@ -9600,3 +9600,47 @@ measured suggests CoAtNet at 192 px would clear it even if it ran.
 **THE ROUTE IS CLOSED FOR NOW.** Our own arm stays resnet-family. The finding
 that motivated the probe — every blend component ≥0.909 is a CoAtNet and ours
 is the weakest at 0.8716 — still stands, and is still unexploited.
+
+### E145 — the instrument has no seed floor yet; two reseeds of fold 0 to give it one
+- **date**: 2026-10-06. Pre-registration; the runs are in flight.
+
+**THE GAP.** `pool_oof.py --vs` resamples *studies* with both sides'
+predictions held fixed. Its interval answers "would a different 882 studies
+have given the same delta?" and nothing else. A one-fold variant also differs
+from its control by a fresh training draw, and that variance is **not in the
+interval**. E060 measured a pure reseed at −0.0284 on gold-58; nobody has
+measured it on the instrument. Until somebody does, a one-fold variant with a
+tight bootstrap CI can still be pure seed noise, and every candidate §6 of the
+handoff lists (augmentation magnitude, intensity window, an MCL specialist)
+would be read against a floor that does not exist.
+
+**THE RUNS.** `knee-train-v1pubcv-f0-s4` and `-s5`: byte-identical to
+`knee-train-v1pubcv-f0` except `RUN_SEED` (4 and 5 against 3). Verified by
+diff of the generated `run.py` — the seed line is the only non-comment change.
+
+**THE CONTROL, AND A NUMBER TO STOP CONFUSING.** Seed 3 on fold 0 reads
+**0.8493** on the instrument's 10-finding macro (lateral pair excluded) and
+**0.8485** on all twelve. The 0.8485 quoted since E138 is the twelve-finding
+training-log number. They are the same predictions. The pre-registration
+below uses the 10-finding figure, because that is what `pool_oof.py` prints.
+
+**PRE-REGISTERED.** Three draws give three pairwise deltas on the same 882
+held-out studies. Call the largest |Δ| the **seed floor**.
+- floor **≤ 0.003**: one-fold screening works. A variant must beat seed 3 by
+  more than the floor *and* have a bootstrap CI excluding zero before it earns
+  a five-fold run.
+- floor **0.003–0.008**: one fold cannot screen anything this project expects
+  to find. Variants go straight to five folds, or are paired across seeds.
+- floor **> 0.008**: the instrument ranks seeds, not ideas, at one fold; even
+  five-fold comparisons need seed replication.
+
+**A KNOWN OPTIMISM, NOT A NEW ONE.** Each dump is written at the epoch whose
+validation macro was best, on the same studies the dump is scored on. Every
+instrument number is therefore slightly optimistic. The reseeds share the
+selection rule, so it largely cancels in the deltas; it does not cancel in
+absolute terms, and no absolute instrument number should be quoted as if it
+were held out.
+
+**TEST CHANGE.** `test_the_five_cross_validation_folds_exist_and_cover_0_to_4`
+counted every `v1pubcv` directory and failed on seven. It now counts the
+seed-3 set only; the reseeds still pass every dump-integrity test beside it.

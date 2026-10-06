@@ -21,10 +21,17 @@ def _src(p):
     return p.read_text()
 
 
+def _const(p, name):
+    return re.search(rf"^{name}\s*=\s*(-?\d+)", _src(p), re.M).group(1)
+
+
 def test_the_five_cross_validation_folds_exist_and_cover_0_to_4():
-    assert len(FOLD_CV) == 5, [p.parent.name for p in FOLD_CV]
-    folds = sorted(int(re.search(r"^RUN_FOLD\s*=\s*(-?\d+)", _src(p), re.M).group(1))
-                   for p in FOLD_CV)
+    # The instrument is the seed-3 set. Reseeds of one fold (E145) are extra
+    # draws beside it and must not be pooled into it: pool_oof's partition
+    # check would refuse them anyway, but the count here should not move.
+    instrument = [p for p in FOLD_CV if _const(p, "RUN_SEED") == "3"]
+    assert len(instrument) == 5, [p.parent.name for p in instrument]
+    folds = sorted(int(_const(p, "RUN_FOLD")) for p in instrument)
     assert folds == [0, 1, 2, 3, 4]
 
 

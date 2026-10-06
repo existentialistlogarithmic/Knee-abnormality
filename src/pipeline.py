@@ -1652,6 +1652,78 @@ EXTRAS = [
              "CC0-1.0, repackaged as `knee-phase1-public`.",
     ),
     Kernel(
+        slug="knee-train-v1pubcv-f0-s4",
+        directory="111_train_v1pubcv_f0_s4",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": 0,
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                 lr=6e-4, seed=4).constants()},
+        note="E145, THE INSTRUMENT'S SEED FLOOR. NOT A SUBMISSION MEMBER.\n"
+             "\n"
+             "Byte-identical to `knee-train-v1pubcv-f0` except RUN_SEED, which\n"
+             "is 4 here and 3 there. `knee-train-v1pubcv-f0-s5` is its\n"
+             "twin at seed 5.\n"
+             "\n"
+             "WHY THIS EXISTS. `pool_oof.py --vs` resamples STUDIES with the\n"
+             "predictions held fixed, so its interval measures which studies\n"
+             "were drawn and nothing else. A one-fold variant also differs\n"
+             "from the control by a fresh training draw, and that variance is\n"
+             "not in the interval. E060 put a pure reseed at -0.0284 on gold;\n"
+             "nobody has measured it on the instrument. Until somebody does,\n"
+             "no one-fold variant can be read: a +0.005 that is inside the\n"
+             "seed spread is not a result, however tight its bootstrap CI.\n"
+             "\n"
+             "WHAT IT BUYS. Three draws of fold 0 (seeds 3, 4, 5), so\n"
+             "three pairwise deltas on the same 882 held-out studies. The\n"
+             "largest |delta| among them is the bar a one-fold variant must\n"
+             "clear before it earns a five-fold run.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
+        slug="knee-train-v1pubcv-f0-s5",
+        directory="111_train_v1pubcv_f0_s5",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": 0,
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                 lr=6e-4, seed=5).constants()},
+        note="E145, THE INSTRUMENT'S SEED FLOOR. NOT A SUBMISSION MEMBER.\n"
+             "\n"
+             "Byte-identical to `knee-train-v1pubcv-f0` except RUN_SEED, which\n"
+             "is 5 here and 3 there. `knee-train-v1pubcv-f0-s4` is its\n"
+             "twin at seed 4.\n"
+             "\n"
+             "WHY THIS EXISTS. `pool_oof.py --vs` resamples STUDIES with the\n"
+             "predictions held fixed, so its interval measures which studies\n"
+             "were drawn and nothing else. A one-fold variant also differs\n"
+             "from the control by a fresh training draw, and that variance is\n"
+             "not in the interval. E060 put a pure reseed at -0.0284 on gold;\n"
+             "nobody has measured it on the instrument. Until somebody does,\n"
+             "no one-fold variant can be read: a +0.005 that is inside the\n"
+             "seed spread is not a result, however tight its bootstrap CI.\n"
+             "\n"
+             "WHAT IT BUYS. Three draws of fold 0 (seeds 3, 4, 5), so\n"
+             "three pairwise deltas on the same 882 held-out studies. The\n"
+             "largest |delta| among them is the bar a one-fold variant must\n"
+             "clear before it earns a five-fold run.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
         slug="knee-train-v1pubfull",
         directory="57_train_v1pubfull",
         template="train",

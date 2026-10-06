@@ -9561,3 +9561,42 @@ Killed
 882 held-out studies earns a five-fold run, 0.839–0.858 is inside what 882
 studies resolve, ≤0.838 closes the family question for our own arm. The control
 remains `knee-train-v1pubcv-f0` at **0.8485**, already run, no GPU spent on it.
+
+### E144 — batch size was not it: five for five on depthwise-separable dying
+- **date**: 2026-10-06. E143's open question, closed.
+
+| run | params | batch | result |
+|---|---:|---:|---|
+| `coatnet_rmlp_nano` | 14.6M | 4 | **Killed** |
+| `coatnet_rmlp_nano` | 14.6M | **2** | **Killed** |
+| `coatnet_rmlp_2` | 72.9M | 2 | **Killed** |
+
+**The batch-size explanation is dead.** E143 offered it because nano died at
+batch 4 while the 5× larger model was still running at batch 2; that model has
+since died too, at the same batch the small one also dies at. Halving the batch
+changes nothing.
+
+**E124's correlation survives and is now 5/5 against 6/6.** Depthwise-separable
+dies here — convnext_tiny, tf_efficientnet_b0, shufflenet_v2_x1_0,
+coatnet_rmlp_nano, coatnet_rmlp_2. Dense or grouped lives — resnet34,
+resnet50, resnet101, resnext50_32x4d, regnet_y_3_2gf, wide_resnet50_2.
+**Eleven runs, no exceptions in either direction, and still no mechanism.**
+
+**WHAT IS ACTUALLY KNOWN ABOUT THE KILL, AND WHAT IS NOT.** `Killed` is the
+Linux OOM killer, so this is **host** RAM, not GPU — a CUDA OOM would say so.
+It fires **before epoch 0**, immediately after `gold studies held out in this
+fold: 12`, so it is in model setup or the first forward, not in the training
+loop. That is as far as the evidence goes. **Why a 14.6M-parameter model needs
+more host RAM than a 69M wide_resnet50_2 is unexplained**, and the honest
+position is that the correlation predicts the outcome without explaining it.
+
+**THE CHEAPEST NEXT DIAGNOSTIC, IF ANYONE SPENDS MORE ON THIS.** The log says
+`DataParallel across 2 GPUs` just before the kill. Running one probe on a
+single GPU is one variable and would localise setup-vs-replication. It is
+**not** recommended as a priority: three sessions are already spent, the
+pre-registered bar was ≥0.859 against a control of 0.8485, and nothing
+measured suggests CoAtNet at 192 px would clear it even if it ran.
+
+**THE ROUTE IS CLOSED FOR NOW.** Our own arm stays resnet-family. The finding
+that motivated the probe — every blend component ≥0.909 is a CoAtNet and ours
+is the weakest at 0.8716 — still stands, and is still unexploited.

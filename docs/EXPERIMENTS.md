@@ -9709,3 +9709,37 @@ be read as an upper bound on what seed-averaging is worth at one fold.
 **WHAT THIS BUYS NEXT.** A one-fold screen at seed 3 against 0.8493, bar
 +0.005 on the macro with a CI excluding zero; anything that clears it earns
 the other four folds. Per-finding variants need ≥ 2 seeds each.
+
+### E147 — the first one-fold screen: augmentation magnitude ×0.5 and ×2
+- **date**: 2026-10-06. Pre-registration; the runs are in flight.
+
+**WHY THIS ONE FIRST.** It is the cheapest untested knob on our own arm (§6 of
+the handoff): no cache rebuild, no new family, no per-finding head. And E146
+says a macro-level change is exactly what one fold can read; a per-finding
+change (the MCL specialist) is not, without seeds.
+
+**THE KNOB.** `AUG_SCALE` multiplies the shift reach (12 px at 192), the
+intensity gain (±0.15) and bias (±0.05), and the dropout and plane-drop
+probabilities (0.3, capped at 0.9). Blob *size* is unchanged.
+- ×0.5: shift ±6 px, gain ±0.075, bias ±0.025, p = 0.15
+- ×2.0: shift ±24 px, gain ±0.30, bias ±0.10, p = 0.60
+
+`knee-train-v1pubcv-f0-aughalf` / `-augdouble`, fold 0, **seed 3** — so the
+control is the instrument's own fold 0 at 0.8493, no extra run needed. Init
+and data order match the control; per-sample augmentation draws do not stay
+aligned (a changed probability changes which branches draw), which is why
+E146's seed floor is the relevant noise term.
+
+**HOW IT IS BUILT WITHOUT TOUCHING ANYTHING ALREADY RUN.** The generator gained
+`@@IF !NAME@@` regions. The standing augmentation sits in `!AUG_SCALE`, the
+scaled one in `AUG_SCALE`; markers never reach the output, so every other
+kernel generates byte-for-byte what it did — verified, no existing `run.py`
+changed. Two tests pin it: the negation itself, and that no kernel carries
+both blocks (which would augment every sample twice).
+
+**PRE-REGISTERED** (10-finding macro, paired on 882 studies vs seed 3):
+- **≥ +0.005 with a CI excluding zero** → earns folds 1–4 at that scale.
+- **inside ±0.005** → magnitude is not a lever at this resolution; closed.
+- **≤ −0.005** → the standing magnitude is on the right side of that scale.
+If the two sides point the same way (both worse), the standing ×1.0 is near a
+local optimum and the route closes regardless.

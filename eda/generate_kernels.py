@@ -92,10 +92,24 @@ def shared_body(name: str, wanted: list[str] | None = None) -> str:
     return "\n\n\n".join(keep)
 
 
+def _region_on(kernel: Kernel, part: str) -> bool:
+    """`NAME` is on when the constant is truthy; `!NAME` when it is not.
+
+    The negated form exists so an optional variant can REPLACE a block rather
+    than only add one, while every kernel without the constant generates
+    byte-for-byte what it did before — the markers themselves never reach the
+    output. `AUG_SCALE` (E147) is the first user.
+    """
+    if part.startswith("!"):
+        return not kernel.constants.get(part[1:].strip())
+    return bool(kernel.constants.get(part))
+
+
 def strip_regions(template: str, kernel: Kernel) -> str:
     """Drop every `@@IF NAME@@ ... @@ENDIF NAME@@` whose constant is off.
 
-    `@@IF A|B@@` keeps the region when EITHER constant is set. That exists for
+    `@@IF A|B@@` keeps the region when EITHER constant is set, and
+    `@@IF !A@@` when A is NOT set (see `_region_on`). That exists for
     helpers shared by two optional regions: `find_all_markers` was gated on
     V1_MEMBERS alone while FOREIGN_ARMS also called it, so a kernel with
     foreign arms and no v1 members generated code that parsed, ran the whole
@@ -114,8 +128,7 @@ def strip_regions(template: str, kernel: Kernel) -> str:
         stripped = line.strip()
         if stripped.startswith("@@IF ") and stripped.endswith("@@"):
             name = stripped[len("@@IF "):-2].strip()
-            on = any(kernel.constants.get(part.strip())
-                     for part in name.split("|"))
+            on = any(_region_on(kernel, part.strip()) for part in name.split("|"))
             if skipping is None and not on:
                 skipping = name
             elif skipping is not None:

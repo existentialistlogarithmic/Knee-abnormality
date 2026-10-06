@@ -114,6 +114,7 @@ class StudyDataset:
             # property this rests on. If that test ever fails, the architecture
             # has gained slice-order sensitivity and this augmentation should
             # come back with it.
+@@IF !AUG_SCALE@@
             shift = np.random.randint(-SHIFT_PIXELS, SHIFT_PIXELS + 1, size=2)
             array = np.roll(array, shift, axis=(2, 3))
             array = array * np.random.uniform(0.85, 1.15) + np.random.uniform(-0.05, 0.05)
@@ -124,6 +125,29 @@ class StudyDataset:
                 array[:, :, y:y + size, x:x + size] = 0.0
             if np.random.rand() < 0.3:                       # drop a whole plane
                 array[np.random.randint(0, array.shape[0])] = 0.0
+@@ENDIF !AUG_SCALE@@
+@@IF AUG_SCALE@@
+            # E147: every magnitude of the unscaled block times AUG_SCALE,
+            # nothing else. At a fixed seed the init and the data order match
+            # the unscaled control; the per-sample augmentation draws do NOT
+            # stay aligned, because a changed dropout probability changes
+            # which branches consume random numbers.
+            # Blob SIZE is left alone (it is bounded by the image); its and the
+            # plane drop's PROBABILITY scale, capped at 0.9.
+            reach = max(1, round(SHIFT_PIXELS * AUG_SCALE))
+            shift = np.random.randint(-reach, reach + 1, size=2)
+            array = np.roll(array, shift, axis=(2, 3))
+            gain, bias = 0.15 * AUG_SCALE, 0.05 * AUG_SCALE
+            array = array * np.random.uniform(1 - gain, 1 + gain) + np.random.uniform(-bias, bias)
+            p_drop = min(0.9, 0.3 * AUG_SCALE)
+            if np.random.rand() < p_drop:                    # coarse dropout
+                size = np.random.randint(BLOB_MIN, BLOB_MAX)
+                y = np.random.randint(0, max(1, array.shape[2] - size))
+                x = np.random.randint(0, max(1, array.shape[3] - size))
+                array[:, :, y:y + size, x:x + size] = 0.0
+            if np.random.rand() < p_drop:                    # drop a whole plane
+                array[np.random.randint(0, array.shape[0])] = 0.0
+@@ENDIF AUG_SCALE@@
             array = np.clip(array, 0.0, 1.0)
 
         return (torch.from_numpy(array),

@@ -26,10 +26,12 @@ def _const(p, name):
 
 
 def test_the_five_cross_validation_folds_exist_and_cover_0_to_4():
-    # The instrument is the seed-3 set. Reseeds of one fold (E145) are extra
-    # draws beside it and must not be pooled into it: pool_oof's partition
-    # check would refuse them anyway, but the count here should not move.
-    instrument = [p for p in FOLD_CV if _const(p, "RUN_SEED") == "3"]
+    # The instrument is the seed-3, unmodified set. Reseeds of one fold (E145)
+    # and one-fold variants such as AUG_SCALE (E147) sit beside it and must not
+    # be pooled into it: pool_oof's partition check would refuse them anyway,
+    # but the count here should not move.
+    instrument = [p for p in FOLD_CV if _const(p, "RUN_SEED") == "3"
+                  and not re.search(r"^AUG_SCALE\s*=", _src(p), re.M)]
     assert len(instrument) == 5, [p.parent.name for p in instrument]
     folds = sorted(int(_const(p, "RUN_FOLD")) for p in instrument)
     assert folds == [0, 1, 2, 3, 4]
@@ -144,3 +146,31 @@ def test_build_model_resolves_input_size_before_it_resolves_pretrained():
     i = src.index('size_kwargs')
     assert "TARGET_SIZE, TARGET_SIZE" in src[i:], "no size check before returning"
     assert "could not be built at" in src[i:], "silent failure is still possible"
+
+
+def test_aug_scale_replaces_the_augmentation_only_where_it_is_set():
+    """E147. `@@IF !AUG_SCALE@@` must leave every other kernel byte-identical
+    to what it was, and a scaled kernel must carry the scaled block alone --
+    both blocks at once would augment every sample twice."""
+    unscaled = "np.random.uniform(0.85, 1.15)"
+    scaled = "np.random.uniform(1 - gain, 1 + gain)"
+    trainers = [p for p in KERNELS if "class StudyDataset" in _src(p)]
+    assert trainers
+    for p in trainers:
+        s = _src(p)
+        assert "@@" not in s, p
+        if re.search(r"^AUG_SCALE\s*=", s, re.M):
+            assert scaled in s and unscaled not in s, p
+        else:
+            assert unscaled in s and "AUG_SCALE" not in s, p
+
+
+def test_a_negated_region_is_kept_exactly_when_its_constant_is_off():
+    from eda.generate_kernels import strip_regions
+    from src.pipeline import Kernel
+
+    template = "a\n@@IF !X@@\nplain\n@@ENDIF !X@@\n@@IF X@@\nvariant\n@@ENDIF X@@\nb"
+    off = Kernel(slug="s", directory="d", template="t", constants={"Y": 1})
+    on = Kernel(slug="s", directory="d", template="t", constants={"X": 2.0})
+    assert strip_regions(template, off) == "a\nplain\nb"
+    assert strip_regions(template, on) == "a\nvariant\nb"

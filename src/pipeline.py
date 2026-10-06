@@ -1724,6 +1724,72 @@ EXTRAS = [
              "CC0-1.0, repackaged as `knee-phase1-public`.",
     ),
     Kernel(
+        slug="knee-train-v1pubcv-f0-aughalf",
+        directory="112_train_v1pubcv_f0_aughalf",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": 0,
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                 lr=6e-4, seed=3).constants(),
+                   "AUG_SCALE": 0.5},
+        note="E147, ONE-FOLD SCREEN: AUGMENTATION MAGNITUDE x0.5.\n"
+             "\n"
+             "Identical to `knee-train-v1pubcv-f0` (seed 3) except AUG_SCALE,\n"
+             "which multiplies the shift reach, the intensity gain and bias\n"
+             "ranges, and the dropout / plane-drop probabilities (capped at\n"
+             "0.9). At seed 3 the init and data order match the control;\n"
+             "the per-sample augmentation draws do not stay aligned.\n"
+             "`knee-train-v1pubcv-f0-augdouble` is the other side.\n"
+             "\n"
+             "PRE-REGISTERED against the control's 0.8493 (10-finding macro,\n"
+             "882 studies). E146 set the bar: the study bootstrap is +/-0.005\n"
+             "and the seed floor 0.0012. >= +0.005 with a CI excluding zero:\n"
+             "earns folds 1-4. Inside +/-0.005: the magnitudes are not a\n"
+             "lever at one fold, and the route closes. <= -0.005: the\n"
+             "standing magnitude is on the right side of this one.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
+        slug="knee-train-v1pubcv-f0-augdouble",
+        directory="112_train_v1pubcv_f0_augdouble",
+        template="train",
+        gpu=True,
+        internet=True,
+        depends=["knee-cache-build-0", "knee-cache-build-1", "knee-cache-build-2",
+                 "knee-cache-build-3"],
+        datasets=[PUBLIC_DATASET],
+        constants={"RUN_FOLD": 0,
+                   **V1.constants(),
+                   **TrainConfig(backbone="resnet34", epochs=24, batch=16,
+                                 lr=6e-4, seed=3).constants(),
+                   "AUG_SCALE": 2.0},
+        note="E147, ONE-FOLD SCREEN: AUGMENTATION MAGNITUDE x2.0.\n"
+             "\n"
+             "Identical to `knee-train-v1pubcv-f0` (seed 3) except AUG_SCALE,\n"
+             "which multiplies the shift reach, the intensity gain and bias\n"
+             "ranges, and the dropout / plane-drop probabilities (capped at\n"
+             "0.9). At seed 3 the init and data order match the control;\n"
+             "the per-sample augmentation draws do not stay aligned.\n"
+             "`knee-train-v1pubcv-f0-aughalf` is the other side.\n"
+             "\n"
+             "PRE-REGISTERED against the control's 0.8493 (10-finding macro,\n"
+             "882 studies). E146 set the bar: the study bootstrap is +/-0.005\n"
+             "and the seed floor 0.0012. >= +0.005 with a CI excluding zero:\n"
+             "earns folds 1-4. Inside +/-0.005: the magnitudes are not a\n"
+             "lever at one fold, and the route closes. <= -0.005: the\n"
+             "standing magnitude is on the right side of this one.\n"
+             "\n"
+             "ATTRIBUTION: labels from `dreaddevelopment/rsna-knee-labels`,\n"
+             "CC0-1.0, repackaged as `knee-phase1-public`.",
+    ),
+    Kernel(
         slug="knee-train-v1pubfull",
         directory="57_train_v1pubfull",
         template="train",

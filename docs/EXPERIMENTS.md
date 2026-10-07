@@ -9890,3 +9890,73 @@ pre-registered against 0.945. If either fails, the route closes and no
 submission is spent. **A pass is necessary, not sufficient.** Gold-58 cannot
 resolve the +0.000 to +0.002 the author's own sweep implies, so even a pass
 does not predict a board gain.
+
+### E151 — the ConvNeXt reader fails its second gate; PatientID is per-study; the CoAtNet "kill" was mis-located
+- **date**: 2026-10-07. One 8-minute GPU run, then CPU.
+
+**E150 READ AGAINST ITS PRE-REGISTRATION.** `knee-gold-cnxtreader` decoded
+855/855 series with 0 failures. The image runs Python 3.13, for which upstream
+ships no pylibjpeg wheels, and that turned out not to matter on these files.
+
+| | gold-58 macro |
+|---|---:|
+| reader fold 0 / 1 / 2 | 0.9093 / 0.8948 / 0.9104 |
+| **reader, 3-fold mean** | **0.9105** |
+| composite (coat 4-arm + 3-pack, rebuilt here) | 0.9347 |
+| **composite + reader as one vote** | **0.9352** |
+
+  **Δ +0.0005, CI [−0.0040, +0.0050], P(better) 0.596.** Gate 1, comparable
+  quality (≥ 0.909), passes by 0.0015. **Gate 2, adds (P ≥ 0.90), fails.**
+  Route closed and no submission spent. This agrees with the author's own +0.001.
+  Its correlation with the composite is ρ 0.903, and 0.857 with the coat arm
+  alone.
+
+  The composite rebuilt here reads 0.9347 against the 0.9334–0.9340 on record.
+  The single assets reproduce exactly (global96 0.9305, d4 0.9302), so the rows
+  align and the gap is the coat-arm weighting. The test is paired, so it does
+  not matter.
+
+  **THE STRUCTURAL LESSON, AND IT IS BIGGER THAN THIS ASSET.** An independent
+  public model at 0.91 gold, a different family trained on different labels,
+  correlates 0.90 with the composite and adds +0.0005. **A new model of that
+  class does not move this blend.** That includes a ConvNeXt or CoAtNet of our
+  own, if the OOM below were fixed. To pay, a member needs either gold ≳ 0.93,
+  or real decorrelation while staying ≥ 0.91. Neither exists on any bench this
+  project can reach.
+
+  **Every model fails the same findings:** reader Synovitis 0.757 / PF OA
+  0.844 / Lateral OA 0.865, against the CoAtNet arm's 0.7575 / 0.8288 / 0.8685
+  (E093). Two independent architectures with independent labels land on the
+  same Synovitis number. That is a ceiling set by how the targets are defined,
+  not by capacity. It supports E093/E094: the remaining lever is labels, and
+  labels can only be tested blind.
+
+**PATIENTID IS PER-STUDY: FINDINGS.md Q7 ANSWERED.** I read the header scan's
+`series_headers.parquet` (24,386 series): **4,410 studies, 4,410 distinct
+pseudonyms**, and no pseudonym spans two studies. No patient recurs, so there is
+no train→test patient lookup to exploit and no patient-grouping fold problem.
+
+**THE COATNET HOST-OOM IS NOT A SETUP KILL. HANDOFF §5 AND E143/E144 MIS-LOCATED IT.**
+The logs show the last line printing seconds after `DataParallel`, followed by
+`Killed`. The timestamps tell a different story:
+
+| run | last log line | `Killed` | silent time |
+|---|---:|---:|---:|
+| `knee-train-v1probe-coat0` (14.6M) | 76 s | **1,722 s** | 27 min |
+| `knee-train-v1probe-coat1` (72.9M) | 88 s | **3,474 s** | 56 min |
+
+  The loop prints only at epoch end, so both runs **trained silently for 27 and
+  56 minutes** before the OOM killer fired. Host RAM was growing *during
+  training*. **The larger, slower model survived twice as long**, which is what
+  a per-iteration leak looks like when the slower model performs fewer
+  iterations per minute. The resnets finish 24 epochs on the same loop, so the
+  leak is per-iteration **and** specific to these ops. Nothing in the loop's own
+  Python accumulates host state: the EMA dict lives on the GPU, and
+  `history`/`predictions` grow per epoch, not per step. So the suspect sits
+  below our code (AMP + depthwise/attention kernels under `DataParallel`, or the
+  pinned-memory host allocator).
+  **The cheapest discriminating test** is a probe that logs RSS and cgroup
+  memory every N steps, toggling one factor at a time: DataParallel vs single
+  GPU, AMP on/off, workers 2/0. About 1 GPU-h. **It is not recommended for the
+  board**, given the structural lesson above. It is recorded so that nobody
+  spends another session believing the model dies at setup.

@@ -3,7 +3,7 @@
  "_meta": {
   "note": "A licence is a fact with a date on it. Re-read before shipping.",
   "read_utc": "2026-09-08",
-  "reread_note": "global96 added after E123; read from the datasets metadata endpoint, which returns licences the list endpoint omits. | E127: starkhushi/rsna-knee-58study-member-preds re-read and screened; licence unchanged (CC0). | E130: seven assets under the top public recipe re-read from the metadata endpoint (which nests them under 'info'); the list endpoint returns none. | E132: the DINO stack's components read from tonylica's SOURCE_AND_LICENSES.md, which discloses each one separately rather than relying on the dataset's own 'other'.",
+  "reread_note": "global96 added after E123; read from the datasets metadata endpoint, which returns licences the list endpoint omits. | E127: starkhushi/rsna-knee-58study-member-preds re-read and screened; licence unchanged (CC0). | E130: seven assets under the top public recipe re-read from the metadata endpoint (which nests them under 'info'); the list endpoint returns none. | E132: the DINO stack's components read from tonylica's SOURCE_AND_LICENSES.md, which discloses each one separately rather than relying on the dataset's own 'other'. | E150: goodpjw2008/rsna-knee-2-5d-convnext-reader read from the metadata endpoint 2026-10-07 (apache-2.0).",
   "reread_utc": "2026-09-28",
   "scope": "every dataset mounted by any of the 626 public notebooks",
   "source": "kaggle dataset_list license_name"
@@ -41,6 +41,7 @@
  "freshtime/rsna-knee-pseudo-labels-betta": "CC0: Public Domain",
  "giovannicr/rodilla-pseudo-labels": "CC0: Public Domain",
  "girishbose/dinov2-vits14-rsna-knee": "Apache 2.0",
+ "goodpjw2008/rsna-knee-2-5d-convnext-reader": "Apache 2.0",
  "h17ann/resnet18-imagenet-weights": "Other (specified in description)",
  "hmendonca/efficientnet-pytorch": "Unknown",
  "jezrealmomoh/rsna-knee-pseudo-labels": "Unknown",
@@ -103,5 +104,5 @@
  "yunusgmsoy/rsna-knee-llm-labels-4-source-merged": "CC0: Public Domain",
  "yuvrajbhatkariya/data-2": "Unknown",
  "yuvrajbhatkariya/rsna-data": "Unknown",
- "zubayearkhaled/timm-pretrained-weights": "Database: Open Database, Contents: \u00a9 Original Authors"
+ "zubayearkhaled/timm-pretrained-weights": "Database: Open Database, Contents: © Original Authors"
 }

@@ -9843,3 +9843,50 @@ board's current public top. The expected gain from the ConvNeXt reader is
 **+0.000 to +0.002**, inside the public floor. **No public asset gets this
 project to 0.955.** The teams above 0.950 are running weights that are not
 public.
+
+### E150 — gold-58 screen of the one new public asset: goodpjw2008's 2.5D ConvNeXt reader
+- **date**: 2026-10-07. Pre-registration; the kernel is in flight.
+
+**WHAT AND WHY.** E149 found exactly one genuinely new public weight set among
+the top 14 notebooks: `goodpjw2008/rsna-knee-2-5d-convnext-reader`. It is 3
+folds of a ConvNeXt-Tiny 2.5D reader with a study transformer and an MIL head,
+licensed Apache-2.0. Its author credits it with +0.001 over the community stack.
+Our prior for it is therefore low. It is still the last unscreened public lever,
+and gold-58 is the free first gate before any submission.
+
+**IS GOLD-58 HONEST FOR THIS MODEL? YES, BY ITS OWN CODE.**
+- Upstream `make_labels.py` sets every gold study to `fold = -1` and never
+  trains on it.
+- `train.py` saves the final-epoch EMA weights, not a checkpoint picked on gold.
+- What cannot be ruled out from here: the author may have chosen
+  hyperparameters while watching the gold score. That bias would flatter the
+  reader.
+
+**SAFETY, CHECKED OFFLINE.** All three checkpoints were disassembled with
+`pickletools` and never unpickled. Each references only `OrderedDict`,
+`FloatStorage` and `_rebuild_tensor_v2`, so the kernel loads them with
+`weights_only=True`, overriding upstream's False. Their sha256 values
+(0b64baa9…, 61696b6e…, f5cf19cf…) match the hashes pinned in the author's
+notebook.
+
+**THE KERNEL.** `knee-gold-cnxtreader` (`113_gold_cnxtreader`, new template
+`foreign_gold_cnxt`) imports upstream's `infer.py` unchanged and predicts the
+58 gold studies once per fold. Upstream's loader silently skips series it
+cannot decode, so the kernel counts decode failures in-process and **aborts
+above 5%**: a broken decoder would otherwise look like a weak model. It writes
+`gold_cnxt_reader.csv` (mean + per fold) and a summary JSON. Those are Kaggle
+outputs and are never committed.
+
+**PRE-REGISTERED.** The reader is scored offline with `eda/screen_foreign_gold.py`
+against the shipped composite's gold references (E125's rule). It must pass
+**both** gates:
+1. **Comparable:** standalone gold macro ≥ 0.909. That is the empirical split
+   in §4 of the handoff: ≥ 0.909 has paid, ≤ 0.892 has cost.
+2. **Adds:** composite + reader as one more vote beats the composite in the
+   paired bootstrap, P(better) ≥ 0.90.
+
+If both pass, a submission kernel gets built with the reader as one more arm,
+pre-registered against 0.945. If either fails, the route closes and no
+submission is spent. **A pass is necessary, not sufficient.** Gold-58 cannot
+resolve the +0.000 to +0.002 the author's own sweep implies, so even a pass
+does not predict a board gain.

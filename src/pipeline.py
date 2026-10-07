@@ -1790,6 +1790,22 @@ EXTRAS = [
              "CC0-1.0, repackaged as `knee-phase1-public`.",
     ),
     Kernel(
+        slug="knee-gold-cnxtreader",
+        directory="113_gold_cnxtreader",
+        template="foreign_gold_cnxt",
+        gpu=True,
+        internet=False,
+        datasets=["goodpjw2008/rsna-knee-2-5d-convnext-reader"],
+        constants={"EXPECTED_FOLDS": 3, "EXPECTED_GOLD": 58,
+                   "MAX_DECODE_FAIL": 0.05},
+        note="E150: gold-58 predictions from goodpjw2008's public 2.5D\n"
+             "ConvNeXt-Tiny reader (Apache-2.0), the one genuinely new public\n"
+             "asset E149's screen of the top 14 notebooks found. Upstream code\n"
+             "is imported unchanged; ours is the guard, safe loading, the\n"
+             "decode count and the output. Screened offline afterwards by\n"
+             "`eda/screen_foreign_gold.py` against the shipped composite.",
+    ),
+    Kernel(
         slug="knee-train-v1pubfull",
         directory="57_train_v1pubfull",
         template="train",

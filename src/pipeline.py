@@ -42,7 +42,7 @@ the manifest disagree, which is what keeps this file honest.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 # ACCOUNT owns the ASSETS -- the label datasets and the cache/trainer kernels that
 # everything here mounts. It is NOT "whoever is running this".
@@ -4003,6 +4003,50 @@ EXTRAS = [
              "docs/STRATEGY.md on competition Rule 4.b.",
     ),
 ]
+
+# E152: THE SEVERITY-CORRECTED TWINS. Each is its source kernel with exactly one
+# change -- the label dataset -- so the board difference between the incumbent
+# and `knee-infer-raptor4-sev` is the labels and nothing else: same seeds, same
+# families, same epochs, same cache, same inference code and blend.
+SEV_DATASET = f"{ACCOUNT}/knee-phase1-public-sev"
+SEV_SOURCES = ("knee-train-v1pubfull", "knee-train-v1pubfull-s4",
+               "knee-train-v1pubfull-s5", "knee-train-v1pubfull-s6",
+               "knee-train-v1pubfull-s7", "knee-train-v1pubfull-r50",
+               "knee-train-v1pubfull-rx50", "knee-train-v1pubfull-regnet",
+               "knee-train-v1pubfull-wrn50", "knee-train-v1pubfull-r101")
+SEV_NOTE = ("E152: SEVERITY-CORRECTED LABELS. Identical to `{source}` except\n"
+            "the label dataset: `knee-phase1-public-sev` demotes low-grade\n"
+            "report mentions (minimal ACL/MCL/menisci/OA, mild MCL/menisci,\n"
+            "minimal effusion) that experts scored positive 1/17 times on the\n"
+            "58 gold but the source labels taught at 0.54-0.83. 2,783 of\n"
+            "52,884 cells lowered, none raised, gold rows untouched.")
+
+
+def _sev_twin(source: Kernel) -> Kernel:
+    if PUBLIC_DATASET not in source.datasets:
+        raise ValueError(f"{source.slug} does not train on {PUBLIC_DATASET}")
+    return replace(
+        source, slug=f"{source.slug}-sev",
+        directory=f"115_{source.directory.split('_', 1)[1]}_sev",
+        datasets=[SEV_DATASET if d == PUBLIC_DATASET else d for d in source.datasets],
+        note=SEV_NOTE.format(source=source.slug))
+
+
+def _sev_infer(source: Kernel) -> Kernel:
+    if sorted(source.depends) != sorted(SEV_SOURCES):
+        raise ValueError(f"{source.slug} no longer mounts exactly the E152 sources")
+    return replace(
+        source, slug=f"{source.slug}-sev",
+        directory=f"115_{source.directory.split('_', 1)[1]}_sev",
+        depends=[f"{d}-sev" for d in source.depends],
+        note=("E152: `knee-infer-raptor4` with its ten v1 members swapped for\n"
+              "their severity-corrected twins. Everything else identical.\n"
+              "PRE-REGISTERED against the incumbent's board score (see E152)."))
+
+
+_BY_SLUG = {k.slug: k for k in EXTRAS}
+EXTRAS.extend(_sev_twin(_BY_SLUG[slug]) for slug in SEV_SOURCES)
+EXTRAS.append(_sev_infer(_BY_SLUG["knee-infer-raptor4"]))
 
 
 def caches() -> list[Cache]:

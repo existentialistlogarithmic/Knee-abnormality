@@ -9779,3 +9779,67 @@ inside the seed spread for that finding. Exceeding it:
 **WHAT THIS CLOSES.** Augmentation magnitude, scaled as one knob, at 24
 epochs. **Not** tested and still open: the individual components (intensity
 vs geometry vs dropout separately), and ×2 at a longer schedule.
+
+### E149 — the two handoff submissions scored, and the top public notebooks hold nothing that reaches 0.955
+- **date**: 2026-10-07.
+
+**THE TWO BUILT SUBMISSIONS (handoff §2).** Clicked 2026-10-06 08:24 and 08:25 UTC.
+
+| submission | clicked | public |
+|---|---|---:|
+| 56875398 | 08:24:31 | **0.945** (scored after ~9.5 h pending) |
+| 56875408 | 08:25:04 | **0.940** |
+
+**Which kernel is which is unconfirmed.** The click order was not recorded and
+both descriptions are blank. The long pending time fits the heavier kernel
+(`knee-infer-raptor4` v7: ten members + three pipelines). If so, v7 = 0.945,
+tying the incumbent, and `knee-infer-raptor-nov1` v2 = 0.940, which falls in
+its pre-registered **≤ 0.942 band: our arm contributes**. The reverse mapping
+would mean the union costs −0.005 and removing our arm ties. **Neither beats
+0.945 under either mapping.** Confirm the mapping before quoting E140's
+question as answered.
+
+**SCORES ARE NOW READABLE FROM THE CLI.** `kaggle competitions submissions`
+and `kaggle competitions leaderboard -d` both work for this account. Handoff §7
+said they returned 403/404; that is no longer true. Public board (5,303 teams):
+0.964 top; 0.958 ≈ rank 20; 0.950 ≈ 113; **0.945 ≈ 260 (63 teams tied)**;
+0.940 ≈ 1,977.
+
+**THE PUBLIC-NOTEBOOK SCREEN.** I sent one reader to each of the 14
+highest-scoring public notebooks. Readers pulled the code but never ran it.
+Two skeptic agents then checked each candidate. Results:
+- **Every 0.943–0.946 public notebook is the same "BTKD / Speedy Raptors"
+  community stack.** The stack is 20 pilkwang DINOv2-S members, mattiaangeli A5,
+  RadImageNet v52/e11/e13 heads, four Raptor views and the mattiaangeli CoAt
+  family. Each part is either in our blend already or on our rejected list. The
+  stack alone scores 0.943, below our 0.945.
+- **The 0.946 notebooks** (`ryokucha/...-ours10`) **and the d4-blend
+  "student fleet"** use **private** datasets (403 Forbidden). We cannot run
+  them.
+- **Repair-v1** sits in a dataset we already mount but never call. A reader
+  screened it on gold-58 without a GPU, using shipped predictions: alone
+  0.9104; added to the 3-pack it gives **−0.0012**, CI [−0.0063, +0.0039].
+  It does not pay. (This is an agent's computation and I have not
+  re-derived it.)
+- **The one genuinely new public asset:**
+  `goodpjw2008/rsna-knee-2-5d-convnext-reader`.
+  - What it is: 3 folds of a 2.5D ConvNeXt-Tiny with a 2-layer study
+    transformer and an attention MIL head, 256 px, Apache-2.0, 0.37 GB.
+  - Checks: verified by sha256 and by a pickle disassembly that never
+    unpickled it. The pickle carries benign globals only, and its keys show it
+    is not CoAtNet.
+  - Strength: the author self-reports 0.929 standalone public and ~0.91 on
+    gold-58.
+  - **What it adds is +0.001 over the 0.943 stack**, by the author's own
+    sweep: 15% and 30% weight both give 0.944, 45% gives 0.942, and identical
+    reruns scored 0.944/0.944/0.943. So the gain is inside run-to-run noise.
+  - It is the same paradigm as our ten 2.5D members and partly trained on the
+    same LLM report labels, so it is likely to correlate with our own arm.
+  - Inference is about 20 min for 3 folds. It needs pylibjpeg wheels built for
+    cp311/cp312 only.
+
+**CONCLUSION.** Borrowing is exhausted for the second time, now against the
+board's current public top. The expected gain from the ConvNeXt reader is
+**+0.000 to +0.002**, inside the public floor. **No public asset gets this
+project to 0.955.** The teams above 0.950 are running weights that are not
+public.

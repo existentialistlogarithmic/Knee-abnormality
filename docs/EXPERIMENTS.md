@@ -10012,8 +10012,8 @@ only in comments, and the metadata only in `dataset_sources`.
 `knee-infer-raptor4-sev` is `knee-infer-raptor4` with its ten `depends`
 renamed and nothing else; again `run.py` differs only in comments.
 
-**PRE-REGISTERED, against `knee-infer-raptor4` v7's board score.** The
-incumbent's click order is unconfirmed (E149), so the reading is relative:
+**PRE-REGISTERED, against `knee-infer-raptor4` v7's board score**
+(confirmed **0.945** in E153). The reading is relative:
 - **Δ ≥ +0.003** → the label fix is real. It becomes the default label set,
   and the same correction is worth porting to the instrument folds.
 - **−0.002 ≤ Δ ≤ +0.002** → inside the floor; the incumbent wins the tie.
@@ -10049,3 +10049,40 @@ build costs ~29 GPU-h, not 17**, which is probably past this week's quota once
 the week's earlier runs are counted. `eda/push_queue.sh`'s quota refusal
 handling applies. If the queue stops on it, the remainder runs after the reset,
 and the submission slips by days but stays well before 22 Oct.
+
+### E153 — the mapping is confirmed: our arm is worth +0.005 on the board, and E140's question is closed
+- **date**: 2026-10-08. From the submissions page (a screenshot from the user)
+  matched to `kaggle competitions submissions`.
+
+| kernel | submissions | public |
+|---|---|---:|
+| `knee-infer-raptor4` **v7** (ten members + three pipelines) | 56851599 (Oct 5 12:06), 56875398 (Oct 6 08:24) | **0.945, 0.945** |
+| `knee-infer-raptor-nov1` **v2** (v1 arm removed) | 56861589 (Oct 5 20:48), 56875408 (Oct 6 08:25) | **0.940, 0.940** |
+
+**CORRECTIONS.** Handoff §2 said both kernels were "never clicked", but each was
+first submitted on Oct 5 and resubmitted on Oct 6. E149 left the mapping open;
+the reading E149 called likely is the right one.
+
+**E140 ANSWERED, ON ITS OWN PRE-REGISTRATION.** Removing the v1 arm reads
+**0.940** against 0.945, which is in the **≤ 0.942 band: the arm contributes.**
+The offline test (+0.0038 for removal, CI [−0.0052, +0.0135]) pointed the wrong
+way, exactly as E140 warned it was biased to: one resnet34 on 80% of the data
+was standing in for ten full fits. **Our weakest component is worth +0.005 on
+the board**, which is about as large as any single change this project has
+measured.
+
+**THE BOARD IS DETERMINISTIC FOR A FIXED KERNEL.** Two submissions of each
+configuration returned identical scores. So the paired difference between two
+of our own configurations carries no inference noise; only the sampling of the
+~390 public studies separates public from private.
+
+**WHAT IT MEANS FOR E152.** Its baseline is now fixed: **v7 = 0.945**. The
+pre-registered bands read as written: **≥ 0.948** the label fix is real;
+**0.943–0.947** a tie, incumbent stays; **≤ 0.942** it hurts. E153 also raises
+E152's prior somewhat. An arm worth +0.005 as a whole is a channel through
+which a label improvement can actually reach the board, and the six findings
+E152 touches are exactly the ones every model is weak on.
+
+**v7 tying v6 (0.945 vs 0.945)** means the union of ten members and three
+pipelines bought nothing over eight members and three pipelines. That agrees
+with E064 and "10 vs 8 = +0.002, inside the floor".

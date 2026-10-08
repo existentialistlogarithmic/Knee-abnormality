@@ -10024,3 +10024,16 @@ against the coat arms in the first stage, then one vote among four, and it
 contributes about +0.005 in total (E149). A label fix confined to six findings
 of that arm moves the board only if it is large on those findings. The prior
 is a coin flip with a small upside: **this is not a route to 0.955.**
+
+**E152 ADDENDUM: A LOST HALF-DAY, AND THE RULE IT LEAVES.** The first two twins
+(`r101-sev`, `wrn50-sev`, v1) were pushed two minutes after
+`kaggle datasets create` returned for `knee-phase1-public-sev`. Both ended in
+`ERROR` with an **empty log (`[]`)**, meaning they never executed a line,
+because the dataset was still processing when the session tried to mount it.
+The queue check-in scheduled for 13:56 UTC then reached the session about ten
+hours late, so nothing noticed. Re-pushed as v2 at 23:55 UTC once
+`kaggle datasets status` read `ready`, both ran past setup. GPU cost of the
+failure: about zero. Wall-clock cost: about 11 h.
+**Rule: after creating or versioning a dataset, wait for
+`kaggle datasets status <ref>` to return `ready` before pushing any kernel
+that mounts it.**

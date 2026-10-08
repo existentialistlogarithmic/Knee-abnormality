@@ -10037,3 +10037,15 @@ failure: about zero. Wall-clock cost: about 11 h.
 **Rule: after creating or versioning a dataset, wait for
 `kaggle datasets status <ref>` to return `ready` before pushing any kernel
 that mounts it.**
+
+**E152 PROGRESS, 2026-10-08 11:55 UTC, AND A COST CORRECTION.** `r101-sev` and
+`wrn50-sev` finished and were verified from their logs: `labels:` names
+`knee-phase1-public-sev`, the epoch-20 full-fit export was taken, and
+`checkpoint_foldall.pt` is present. `rx50-sev` and `r50-sev` are running, and
+six more are queued. **The ~17 GPU-h estimate in the pre-registration was wrong.**
+The two finished runs took **5.2 GPU-h each**. The source members' own logs put
+rx50 at 4.2, r50 at 3.4, regnet at 3.8 and each resnet34 at ~1.5, so **the
+build costs ~29 GPU-h, not 17**, which is probably past this week's quota once
+the week's earlier runs are counted. `eda/push_queue.sh`'s quota refusal
+handling applies. If the queue stops on it, the remainder runs after the reset,
+and the submission slips by days but stays well before 22 Oct.

@@ -10086,3 +10086,12 @@ E152 touches are exactly the ones every model is weak on.
 **v7 tying v6 (0.945 vs 0.945)** means the union of ten members and three
 pipelines bought nothing over eight members and three pipelines. That agrees
 with E064 and "10 vs 8 = +0.002, inside the floor".
+
+**E152 PROGRESS, 2026-10-12 11:35 UTC.** `rx50-sev` and `r50-sev` were
+verified: `labels:` names `knee-phase1-public-sev`, the epoch-20 export was
+taken, and `checkpoint_foldall.pt` is present. That makes four of ten complete.
+`regnet-sev` and `knee-train-v1pubfull-sev` (resnet34 seed 3) are running;
+resnet34 s4–s7 are queued. **Scheduled check-ins arrived 10 h, 10 h and then 3
+d 20 h late**, so both GPU slots sat idle from about Oct 8 16:00 to Oct 12. A
+loop inside the session now pushes the queue as slots free, and the check-ins
+are no longer relied on.

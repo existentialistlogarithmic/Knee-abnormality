@@ -1,0 +1,38 @@
+{
+  "id": "achelijndiamantidis/knee-infer-raptor4-cnx",
+  "title": "knee-infer-raptor4-cnx",
+  "code_file": "run.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "dreaddevelopment/raptor-knee-maxspan",
+    "dreaddevelopment/raptor-knee-native384",
+    "dreaddevelopment/raptor-knee-native384dense",
+    "mattiaangeli/rsna-knee-coat-resgated-ep10-top3",
+    "mattiaangeli/rsna-knee-coatnet-d4-depthzone-swa3-b2",
+    "mattiaangeli/rsna-knee-coatnet-global96-top3",
+    "goodpjw2008/rsna-knee-2-5d-convnext-reader",
+    "achelijndiamantidis/knee-cnxt-runner"
+  ],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [
+    "achelijndiamantidis/knee-train-v1pubfull",
+    "achelijndiamantidis/knee-train-v1pubfull-s4",
+    "achelijndiamantidis/knee-train-v1pubfull-s5",
+    "achelijndiamantidis/knee-train-v1pubfull-s6",
+    "achelijndiamantidis/knee-train-v1pubfull-s7",
+    "achelijndiamantidis/knee-train-v1pubfull-r50",
+    "achelijndiamantidis/knee-train-v1pubfull-rx50",
+    "achelijndiamantidis/knee-train-v1pubfull-regnet",
+    "achelijndiamantidis/knee-train-v1pubfull-wrn50",
+    "achelijndiamantidis/knee-train-v1pubfull-r101"
+  ],
+  "model_sources": []
+}

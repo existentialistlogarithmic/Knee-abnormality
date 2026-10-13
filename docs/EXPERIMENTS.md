@@ -10095,3 +10095,40 @@ resnet34 s4–s7 are queued. **Scheduled check-ins arrived 10 h, 10 h and then 3
 d 20 h late**, so both GPU slots sat idle from about Oct 8 16:00 to Oct 12. A
 loop inside the session now pushes the queue as slots free, and the check-ins
 are no longer relied on.
+
+### E154 — the ConvNeXt reader goes to the board as a fourth vote, because gold-58 cannot judge it
+- **date**: 2026-10-13. One inference kernel, no training; pre-registration.
+
+**WHY THE BOARD, AFTER E151 CLOSED IT ON GOLD.** E151 read the reader at
++0.0005 on gold-58. But E153 showed that gold-58 mis-signs diverse members: it
+said removing our v1 arm would *gain* +0.0038 (+0.0051 on a full 58-study
+recompute in the E154 design workflow), and the board said −0.005. There is a
+second problem. The design workflow found that mattiaangeli's packages select
+checkpoints on gold-58 itself (repair-v1's receipt: "terminal top three
+official Gold58 macro-AUC"), and the Raptor files carry gold AUCs. So the
+composite's gold score is selection-inflated, and any member that was *not*
+tuned on gold reads worse against it than it is. **Gold-58 is contaminated as
+an add-gate, not just small.** All three independent campaign designs (E154
+workflow: diversity / own-arm / structure) ranked this reader first or second
+among no-training experiments.
+
+**THE BUILD: ONE VARIABLE.** `knee-infer-raptor4-cnx` (`117_infer_raptor4_cnx`)
+is `knee-infer-raptor4` v7 with one more FOREIGN_ARMS group, `cnxt`. It takes
+exactly 1/4 of the vote through the template's existing one-vote-per-group
+arithmetic. The generated `run.py` differs in that single constant; the
+metadata adds the two datasets and nothing else. The runner
+(`kaggle/_runners/cnxt_reader_inference.py` → dataset `knee-cnxt-runner`) is
+our code only. It runs upstream's unchanged `infer.run` in a child process
+(their `infer`/`knee`/`preprocess` module names are too generic to share a
+process), forces `weights_only=True`, and logs every DICOM decode failure to a
+file, so forked workers are counted too. It aborts above 5% failures.
+
+**PRE-REGISTERED, against v7 = 0.945** (the board is deterministic per kernel,
+E153):
+- **≥ 0.947** → the vote pays. It becomes union-eligible with any other
+  passing change.
+- **0.944–0.946** → inside the floor. Not adopted alone.
+- **≤ 0.943** → it dilutes; closed for good.
+
+The prior from the reader's own author is +0.001 over a 0.943 stack at 15–30%
+weight. Our 1/4 sits inside that range.

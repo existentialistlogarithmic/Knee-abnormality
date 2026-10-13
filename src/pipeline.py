@@ -4049,6 +4049,36 @@ EXTRAS.extend(_sev_twin(_BY_SLUG[slug]) for slug in SEV_SOURCES)
 EXTRAS.append(_sev_infer(_BY_SLUG["knee-infer-raptor4"]))
 
 
+# E154: ONE MORE VOTE, NOTHING ELSE. `knee-infer-raptor4` (v7, 0.945 twice)
+# plus goodpjw2008's public ConvNeXt reader as its own FOREIGN_ARMS group, so it
+# takes exactly 1/4 of the vote: coat+v1 carry 2/4, the mattiaangeli pack 1/4.
+# Gold-58 read it at +0.0005 (E151), but E153 showed gold-58 mis-signs diverse
+# members by ~0.010, so the board decides. The runner is our code only
+# (`kaggle/_runners/cnxt_reader_inference.py`, dataset `knee-cnxt-runner`).
+CNXT_ARM = {"name": "cnxt", "group": "cnxt", "dataset": "knee-cnxt-runner",
+            "entry": "cnxt_reader_inference"}
+
+
+def _vote_twin(source: Kernel, suffix: str, arm: dict, extra: list[str], note: str) -> Kernel:
+    arms = source.constants["FOREIGN_ARMS"]
+    if any(a["name"] == arm["name"] for a in arms):
+        raise ValueError(f"{source.slug} already carries {arm['name']}")
+    return replace(
+        source, slug=f"{source.slug}-{suffix}",
+        directory=f"117_{source.directory.split('_', 1)[1]}_{suffix}",
+        datasets=[*source.datasets, *extra],
+        constants={**source.constants, "FOREIGN_ARMS": (*arms, arm)},
+        note=note)
+
+
+EXTRAS.append(_vote_twin(
+    _BY_SLUG["knee-infer-raptor4"], "cnx", CNXT_ARM,
+    ["goodpjw2008/rsna-knee-2-5d-convnext-reader", f"{ACCOUNT}/knee-cnxt-runner"],
+    "E154: `knee-infer-raptor4` v7 plus ONE vote: goodpjw2008's public 2.5D\n"
+    "ConvNeXt reader (Apache-2.0) as its own group, 1/4 of the blend.\n"
+    "Everything else identical. PRE-REGISTERED against v7's 0.945 (E154)."))
+
+
 def caches() -> list[Cache]:
     seen, out = set(), []
     for lineage in LINEAGES:

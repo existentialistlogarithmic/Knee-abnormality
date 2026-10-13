@@ -10212,3 +10212,21 @@ wrn50, resnet34 ×5), and `wrote submission.csv rows=3`. None of the
 trainers' own `checkpoint_foldall.pt`, which were also mounted, was counted,
 so the unique glob works as designed. The cell in the dataset's README is
 ready for the user's copy of the public notebook.
+
+### E156 — both of today's one-variable changes tie v7 exactly
+- **date**: 2026-10-13. Submissions 57148550 (15:35:08) and 57148554 (15:35:25).
+
+| kernel | change vs v7 | public |
+|---|---|---:|
+| `knee-infer-raptor4-sev` (E152) | ten v1 members retrained on severity-corrected labels | **0.945** |
+| `knee-infer-raptor4-cnx` (E154) | goodpjw2008 ConvNeXt reader as a fourth vote at 1/4 | **0.945** |
+| `knee-infer-raptor4` v7 | — | 0.945 |
+
+Both scored **0.945**, so both are ties under their pre-registrations
+(0.944–0.946): neither is adopted. The two submissions were made seconds apart
+and the user did not say which notebook was which; with identical scores the
+mapping does not matter. Because the board is deterministic (E153), each true
+effect is below the 0.0005 display rounding. **E152's ~29 GPU-h label
+correction and E154's extra vote are both closed at the board.** The
+remaining lever is the public ~0.957 pipeline (E155), which the user must
+commit and submit from their own copy.

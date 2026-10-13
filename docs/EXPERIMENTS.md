@@ -10203,3 +10203,12 @@ submitted unchanged first: call its score B.
 The deterministic board (E153) makes each paired read exact on the public
 set. The selection risk is the public/private gap, so the final two picks keep
 one unblended base.
+
+**E155 ADD-ON VERIFIED, 2026-10-13 16:26 UTC.** `knee-infer-v1arm10-addon` v1
+ran clean on the stub in ~7.5 min, mostly model loading. Its log reads
+`weights: …/knee-v1arm-addon`, `checkpoints mounted: 10`, all ten
+`knee_v1arm_member_*.pt` loaded with their backbones (r101, r50, regnet, rx50,
+wrn50, resnet34 ×5), and `wrote submission.csv rows=3`. None of the
+trainers' own `checkpoint_foldall.pt`, which were also mounted, was counted,
+so the unique glob works as designed. The cell in the dataset's README is
+ready for the user's copy of the public notebook.

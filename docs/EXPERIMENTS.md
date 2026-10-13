@@ -10132,3 +10132,12 @@ E153):
 
 The prior from the reader's own author is +0.001 over a 0.943 stack at 15–30%
 weight. Our 1/4 sits inside that range.
+
+**E154 BUILD VERIFIED, 2026-10-13 03:23 UTC.** `knee-infer-raptor4-cnx` v1 ran
+clean on the 3-study visible stub in 1,093 s. Log lines: `[cnxt] series decoded
+13/13 (failed 0.0%)`, `[mattiaangeli] 1/4 of the vote`, `[cnxt] 1/4 of the
+vote`, `[blend] 4 pipelines, prior blend at 2/4`, and `wrote submission.csv
+rows=3`. Ready to submit. **E152:** eight of ten twins verified (regnet's
+"stuck" RUNNING was a slow start; it completed and was not re-run). s6 and s7
+are running, and `knee-infer-raptor4-sev` is pushed automatically once both
+verify.

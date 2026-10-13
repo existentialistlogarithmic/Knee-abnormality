@@ -4079,6 +4079,31 @@ EXTRAS.append(_vote_twin(
     "Everything else identical. PRE-REGISTERED against v7's 0.945 (E154)."))
 
 
+# E155: OUR v1 ARM AS A PORTABLE ADD-ON. The public field moved to ~0.957 with
+# notebooks we may not integrate ourselves. Our ten-member v1 arm was worth
+# +0.005 in our own blend (E153) and nothing in those notebooks resembles it.
+# This kernel runs exactly v7's ten members alone, from ONE dataset that also
+# carries this script and `kaggle/_runners/v1arm_blend.py`, so a copied public
+# notebook can run it as a final cell and rank-blend it in. The glob is unique
+# to our files, so another notebook's weights can never be picked up, and the
+# 10-member guard refuses anything else.
+V1ARM_DATASET = f"{ACCOUNT}/knee-v1arm-addon"
+EXTRAS.append(replace(
+    _BY_SLUG["knee-infer-v1pubfull5"],
+    slug="knee-infer-v1arm10-addon", directory="118_infer_v1arm10_addon",
+    # The ten trainers stay declared: provenance, and check()'s agreement test
+    # on what each member was fed. Their files are `checkpoint_foldall.pt`,
+    # which the unique glob below never matches, so the stub run exercises the
+    # dataset copies exactly as a notebook mounting only the dataset would.
+    depends=list(SEV_SOURCES), datasets=[V1ARM_DATASET],
+    constants={**_BY_SLUG["knee-infer-v1pubfull5"].constants,
+               "MEMBERS_EXPECTED": 10, "CHECKPOINT_GLOB": "knee_v1arm_member*.pt"},
+    note="E155: v7's ten v1 members (resnet34 x5, r50, rx50, regnet, wrn50,\n"
+         "r101; original labels) alone, from the self-contained add-on\n"
+         "dataset. Writes submission.csv = our v1 arm. Run inside a copied\n"
+         "public notebook, then blended in by v1arm_blend.py."))
+
+
 def caches() -> list[Cache]:
     seen, out = set(), []
     for lineage in LINEAGES:

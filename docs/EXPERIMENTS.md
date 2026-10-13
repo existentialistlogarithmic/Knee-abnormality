@@ -10141,3 +10141,13 @@ rows=3`. Ready to submit. **E152:** eight of ten twins verified (regnet's
 "stuck" RUNNING was a slow start; it completed and was not re-run). s6 and s7
 are running, and `knee-infer-raptor4-sev` is pushed automatically once both
 verify.
+
+**E152 BUILD VERIFIED, 2026-10-13 05:56 UTC.** All ten twins were verified from
+their logs: `labels:` names `knee-phase1-public-sev`, the epoch-20 export was
+taken, and `checkpoint_foldall.pt` is present. `knee-infer-raptor4-sev` v1 ran
+clean on the stub. Its log shows `v1 members 10 | distinct weight fingerprints
+10`, and every member path is a `-sev` kernel: r101, r50, regnet, rx50, the
+resnet34 seeds 3/4/5/6/7, and wrn50. It also logged `fallbacks 0/3` on every arm,
+`[mattiaangeli] 1/3 of the vote`, `[blend] 3 pipelines, prior blend at 2/3`,
+and `wrote submission.csv rows=3`. So the shape is identical to v7's and the
+label dataset is the only difference. Ready to submit alongside E154.

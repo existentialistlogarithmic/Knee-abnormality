@@ -10230,3 +10230,34 @@ effect is below the 0.0005 display rounding. **E152's ~29 GPU-h label
 correction and E154's extra vote are both closed at the board.** The
 remaining lever is the public ~0.957 pipeline (E155), which the user must
 commit and submit from their own copy.
+
+### E157 — the public pipeline lands at 0.956 for us; 886 teams share that score
+- **date**: 2026-10-14. Submission 57183712 (13:26 UTC): the user's committed,
+  unchanged copy of `heliosli/0-957-latest-dataset-score-in-one-click`.
+
+**PUBLIC 0.956** against our own best of 0.945: **+0.011, the largest single
+step in this project.** It is the "≈0.957" notebook rounding down on our
+draw, and the same notebook submitted by others reads 0.956–0.957.
+
+Leaderboard on 2026-10-14 (6,010 teams):
+
+| score | rank | teams tied |
+|---:|---:|---:|
+| 0.967 | 1 | — |
+| 0.960 | 43 | 17 |
+| 0.958 | 78 | 36 |
+| 0.957 | 114 | 118 |
+| **0.956 (ours)** | **232** (listed 1,036) | **886** |
+
+**886 teams tied at 0.956 are the same public pipeline.** Any gain from here
+has to come from something those teams do not run. Three candidates, cheapest
+first:
+1. **Our v1 arm as an add-on vote** (E155): built, verified on the stub, and
+   needing only one notebook cell. It is the one component with board evidence
+   of its own (+0.005 in our blend) and it shares nothing with the public
+   pipeline (2.5D resnets, 192 px, report-derived labels).
+2. **Newer public bases.** `heliosli/0-9573-latest-public-dataset-score-in-one-click`
+   and `bliverrigpdoge/r7-raptor-knee-centred-convnext` were both published on
+   Oct 14.
+3. **Blending two different public pipelines.** The goodpjw2008 CoAtNet + 2.5D
+   ConvNeXt MIL (0.954) is a different family from heliosli's R7 + Raptor.

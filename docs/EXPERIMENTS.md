@@ -10311,3 +10311,18 @@ first:
   - `knee-pub9576-s6-v1arm` (D): C plus the same v1 add-on cell as B.
   - **bands, C against A:** ≥ +0.001 adopt C as the base; 0 tie (keep A,
     the cheaper run); ≤ −0.001 drop S6. D is read against C with B's bands.
+- **addendum, 23:52 UTC: both first runs died in cell 6, before any
+  prediction.** `AssertionError: ('8c7b666e27dc0e8f', 'fe055406fad6a12f')`.
+  The notebook's own guard did its job: `heliosli/rsna-knee-r6-frozen-fe055406`,
+  "frozen" by name, now holds the **R7** bundle (manifest sha256
+  `c4bb0f73…`, built 2026-10-12, tag `cnx_r7`). A copy pushed through
+  the API mounts a dataset's *latest* version, not the version the author
+  scored. `rostigor/rsna-knee-r6-fe055406` holds a manifest with sha256
+  `6508ce6921eda986…c648`, the exact hash the notebook's comment names as
+  the scored bundle's (submission 57068142), and the notebook then checks
+  every model file against that manifest. All four copies now mount it,
+  with one added assert pinning the manifest hash. A and B were re-pushed
+  as version 2 at 23:55. No submission was spent.
+  **Rule:** before pushing a copy of someone's notebook, read each mounted
+  dataset's manifest or receipt against the hashes the notebook pins. The
+  name of a dataset is not its version.

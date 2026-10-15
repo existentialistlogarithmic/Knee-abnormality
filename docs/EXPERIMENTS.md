@@ -10261,3 +10261,31 @@ first:
    Oct 14.
 3. **Blending two different public pipelines.** The goodpjw2008 CoAtNet + 2.5D
    ConvNeXt MIL (0.954) is a different family from heliosli's R7 + Raptor.
+
+### E158 — PRE-REGISTRATION: the newer public base, with and without our v1 arm
+- **date**: 2026-10-15, ~23:30 UTC, before either run finished.
+- **base**: `heliosli/this-is-new-public-dataset-version-0-9576` (it was
+  `0-9573-latest-public-dataset-score-in-one-click` on Oct 14). It changes
+  E157's base in two places: the R6 frozen bundle `fe055406` replaces R7, and
+  a second Raptor model (the 224-pixel centre crop, 0.35 of the Raptor half)
+  joins the 384 one. Its author's public board reads 0.9576.
+- **two private copies, pushed together** (the notebook, its code and
+  datasets are not in this repository; the copies live only on Kaggle):
+  - `knee-pub9576`: unchanged, apart from the private flag and title.
+  - `knee-pub9576-v1arm`: the same notebook plus one final cell. It
+    rank-blends E155's ten-member v1 arm (`knee-v1arm-addon`, unchanged
+    since E155) into the base's submission: per finding,
+    `0.75 rank(base) + 0.25 rank(v1)`. W = 0.25 was fixed before any run.
+- **time guard, because this base can run long.** Its stage-2 deadline is
+  8.3 h after notebook start, so stage 2 alone may use most of the 9 h cap.
+  The add-on starts only with at least 1.1 h left before a hard stop at
+  8.6 h; E129 measured the ten-member arm at 0.70 h on 1,300 studies. It
+  runs under a subprocess timeout of the time left. **On any failure the
+  base submission is restored**, and the log prints `V1ARM_ADDON_SKIPPED`.
+  The cost is that a skipped add-on scores exactly like the base. A tie
+  between the two copies therefore cannot separate "no effect" from "never
+  ran". The commit-run log shows only the stub, so only the board can tell.
+- **bands, for the v1arm copy against the plain copy's own score:**
+  ≥ +0.002 the arm pays, so W = 0.35 is next; +0.001 hold, re-test at W = 0.35;
+  0 a tie (closed unless W = 0.35 is tried once); ≤ −0.001 the arm hurts this
+  base, so drop it.

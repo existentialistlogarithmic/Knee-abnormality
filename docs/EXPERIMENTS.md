@@ -10289,3 +10289,25 @@ first:
   ≥ +0.002 the arm pays, so W = 0.35 is next; +0.001 hold, re-test at W = 0.35;
   0 a tie (closed unless W = 0.35 is tried once); ≤ −0.001 the arm hurts this
   base, so drop it.
+- **addendum, same night, before any result: a fourth public model.**
+  AlekseiProvorov's public four-model notebook (carried as
+  `laimerbotrolenk/rsna-four-model-ensemble`, reported 0.957) adds nartaa's
+  all-data S6 ConvNeXt (`nartaa/rsna-knee-s6fall-weights`, 0.950 in
+  nartaa's own 0.7/0.3 blend with Raptor) to R7 and the two Raptors. The
+  0.9576 base has R6 with flip TTA in R7's place and no S6. Nobody public
+  runs the cross, so two more private copies are built and queued behind
+  A/B (two GPU sessions):
+  - `knee-pub9576-s6` (C): the base plus that notebook's S6 stage, its
+    embedded script used byte for byte. The script reuses the base's own
+    `raptor_raw.csv` as its component A, so only S6 is computed. The final
+    blend is Aleksei's formula with R6 in R7's place: Raptor half
+    (0.65 rank 384 + 0.35 rank 224) at 0.5, compact half
+    (0.6 rank R6 + 0.4 rank S6) at 0.5. That gives R6 30 %, S6 20 % and
+    Raptor 50 %, fixed before any run. As in that notebook, R6's
+    deadline is cut by 120 min to reserve S6's time. S6 missing, failed,
+    out of time or rejected by its original sanity gate (Spearman against
+    R6: mean ≥ 0.6, min ≥ 0.3) leaves the base's own three-model file in
+    place.
+  - `knee-pub9576-s6-v1arm` (D): C plus the same v1 add-on cell as B.
+  - **bands, C against A:** ≥ +0.001 adopt C as the base; 0 tie (keep A,
+    the cheaper run); ≤ −0.001 drop S6. D is read against C with B's bands.

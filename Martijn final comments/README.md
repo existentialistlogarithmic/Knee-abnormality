@@ -39,11 +39,14 @@ public notebook (*"This is new public dataset version = 0.9576"*):
 | **B** | `knee-pub9576-v1arm` v2 | A + our ten-model v1 ensemble as a 25 % rank vote | COMPLETE | **57256817**: **0.956**, so our vote hurts this base and is dropped |
 | **C** | `knee-pub9576-s6` v1 | A + nartaa's public **S6** ConvNeXt as a fourth model (R6 30 %, S6 20 %, Raptor 50 %) | COMPLETE | not yet |
 | **D** | `knee-pub9576-s6-v1arm` v1 | C + our v1 vote at 25 % | COMPLETE | not submitted (B says the vote hurts) |
+| **E** | `knee-pub9576-rw` v1 | A + the four per-finding Raptor weights behind the public 0.958 (Lateral OA 0.2, PF OA 0.6, Synovitis 0.8, Baker's 0.35; E159) | COMPLETE | not yet |
 
 Decision bands, written **before** any score (E158):
 - **B vs A:** +0.002 or more means our vote pays, so try W = 0.35. +0.001 means hold and re-test. A tie means close it. −0.001 or less means drop it.
 - **C vs A:** +0.001 or more means C becomes the base. A tie means keep A. −0.001 or less means drop S6.
 - **D vs C:** read with B's bands.
+- **E vs A:** 0.958 or more means the reweight carries to our draw. It may be fitted to the public board,
+  so E is a final pick only **alongside** an unweighted one (A, or C).
 
 Every appended stage **fails safe**: if S6 or our vote errors, times out or is
 rejected, the notebook writes exactly the file from the stage before. A hard

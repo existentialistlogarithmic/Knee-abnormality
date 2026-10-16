@@ -10326,3 +10326,24 @@ first:
   **Rule:** before pushing a copy of someone's notebook, read each mounted
   dataset's manifest or receipt against the hashes the notebook pins. The
   name of a dataset is not its version.
+- **addendum, 2026-10-16.** A and B v2 both COMPLETE on the stub at
+  00:05/00:10: no fallbacks; B's log prints `checkpoints mounted: 10` and
+  `V1ARM_ADDON_APPLIED weight 0.25`. R6's measured cost is 16.5–19.5 s of
+  GPU per study per T4 (4 folds × flip TTA), after a one-off ~225 s compile
+  check, so ~3.0–3.6 h on the hidden test. **Submitted 05:42 UTC by the
+  user: 57256809 and 57256817** (A and B, in that order as far as the
+  click order tells; the board must not be read as confirming the mapping).
+- **C/D review before pushing** (five independent lenses plus a skeptic per
+  lens; the cells were simulated on synthetic files at N = 3 and N = 300).
+  The blend matches the reference formula to float32 rounding. Every
+  failure path (S6 hard error, its watchdog `_exit`, hang, timeout,
+  rejection, v1 failure mid-write) restores the right file. No path
+  passes 9 h: the worst case is 8.61 h. Two reviewers found the same defect
+  independently: **the 120-min cut to R6's deadline broke the fail-safe**.
+  If R6 were slow, a failed S6 would leave a *truncated* R6 file, not the
+  base's. The cut is removed. R6 keeps its published 8.3 h deadline and S6
+  uses only what R6 leaves: about 3.5 h in the normal case. It still skips
+  below 100 min, so a skipped S6 now leaves exactly the base file. A
+  second, accepted difference from Aleksei's notebook: the 224 member here
+  is the base's one-view model, not his mirror-TTA one. C and D were
+  pushed at 05:43 with cells 0–8 byte-identical to A v2.

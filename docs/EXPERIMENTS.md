@@ -10347,3 +10347,13 @@ first:
   second, accepted difference from Aleksei's notebook: the 224 member here
   is the base's one-view model, not his mirror-TTA one. C and D were
   pushed at 05:43 with cells 0–8 byte-identical to A v2.
+- **C and D v1 COMPLETE on the stub (05:53 / 06:03).** Both print
+  `S6_STAGE_DONE True`, `K1_DONE` with `[B] ok: 3 studies … failed after
+  retry 0` and `S6_BLEND_APPLIED`. D also prints
+  `V1ARM_ADDON_APPLIED weight 0.25` and `failed studies (kept prior): 0`.
+  S6's steady state on the stub: study 2 finished 7.3 s after study 1 on
+  the same T4 (gpu_s ≈ 8 s/study, decode overlapped across two loaders). That
+  projects to **~1.5–2.2 h on 1,284 studies** against ~3.5 h left after R6
+  in the normal case, so S6 is expected to run on the hidden test, and D's
+  add-on to start before its 7.5 h cut-off. Both remain unproven until
+  the board, because no hidden-run log exists.

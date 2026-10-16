@@ -36,9 +36,9 @@ public notebook (*"This is new public dataset version = 0.9576"*):
 | | notebook | what it is | stub run | submission |
 |---|---|---|---|---|
 | **A** | `knee-pub9576` v2 | the 0.9576 notebook, unchanged except one dataset swap (§3.3) | COMPLETE | **57256809**: **0.957** |
-| **B** | `knee-pub9576-v1arm` v2 | A + our ten-model v1 ensemble as a 25 % rank vote | COMPLETE | **57256817**, pending |
+| **B** | `knee-pub9576-v1arm` v2 | A + our ten-model v1 ensemble as a 25 % rank vote | COMPLETE | **57256817**: **0.956**, so our vote hurts this base and is dropped |
 | **C** | `knee-pub9576-s6` v1 | A + nartaa's public **S6** ConvNeXt as a fourth model (R6 30 %, S6 20 %, Raptor 50 %) | COMPLETE | not yet |
-| **D** | `knee-pub9576-s6-v1arm` v1 | C + our v1 vote at 25 % | COMPLETE | not yet |
+| **D** | `knee-pub9576-s6-v1arm` v1 | C + our v1 vote at 25 % | COMPLETE | not submitted (B says the vote hurts) |
 
 Decision bands, written **before** any score (E158):
 - **B vs A:** +0.002 or more means our vote pays, so try W = 0.35. +0.001 means hold and re-test. A tie means close it. −0.001 or less means drop it.

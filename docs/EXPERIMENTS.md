@@ -10362,3 +10362,14 @@ first:
   rounding down on our draw. It is now the banked best. The board on 16
   Oct puts 0.957 at rank ~209, with 393 teams tied. B (57256817) is still
   pending: it carries the extra ~0.8 h v1 stage.
+- **B scored PUBLIC 0.956** (57256817, COMPLETE ~11:05 UTC), against A's
+  0.957. **The mapping is supported twice.** By click order, 57256809 was
+  first and 57256817 eighteen seconds later. By completion time, 57256817
+  finished ~25 min after 57256809, which fits B's extra v1 stage and
+  nothing in A. **−0.001 is the pre-registered "drop" band: on the 0.9576
+  base, a 25 % rank vote from our v1 arm hurts.** That reverses E155's
+  +0.005 on our own 0.940 base. A 0.92-class arm helps a weak blend and
+  dilutes a strong one. **D (C + the same vote) is therefore not
+  submitted**; the slot goes to C alone. W = 0.35 is closed with it.
+  Smaller weights such as 0.10 were not pre-registered and stay closed: on
+  a deterministic board, a band hunt on public would be fitting 390 studies.

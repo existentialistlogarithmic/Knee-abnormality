@@ -10373,3 +10373,38 @@ first:
   submitted**; the slot goes to C alone. W = 0.35 is closed with it.
   Smaller weights such as 0.10 were not pre-registered and stay closed: on
   a deterministic board, a band hunt on public would be fitting 390 studies.
+
+### E159 — PRE-REGISTRATION: the public 0.958 is A plus four per-finding weights
+- **date**: 2026-10-16, ~14:00 UTC, before any run.
+- **scout** (a workflow: one lister plus one deep reader for each of the top
+  3; 20 public notebooks run since 13 Oct; 23 Kaggle calls, no 429s). Two
+  public notebooks claim 0.958: `heliosli/blend-mine-in-private-lb-luck-to-all-upvoters`
+  and `goodpjw2008/rsna-knee-coatnet-r6-2-5d-mil-lb-0-958` v25–27. A line
+  diff of heliosli's notebook against our A (E158) finds **exactly one
+  scoring change**:
+  `W_RAPTOR_C = {'Medial OA': 0.5, 'Lateral OA': 0.2, 'PF OA': 0.6, 'Synovitis': 0.8, "Baker's": 0.35}`,
+  where A has 0.5 for all twelve. That is the Raptor half's weight; R6 gets
+  1 − w. goodpjw's version history agrees: v21–24 (224 mirror plus a 2.5D
+  reader at ≤ 0.035) = 0.957, and only v25+ (adding these weights) = 0.958.
+  Rejected leads: the 2.5D reader (0.929 alone, ≤ 0.035 weight, no
+  timeout, unpinned); bliverrigpdoge's public `rsna-knee-leg-r9all` (CC0,
+  pinnable, ~0.5 h, but a Raptor-family 0.942 model, below A's weakest
+  member); kiza123123's "quad" (its fourth model is computed but never
+  blended; it submits R7, a step back). The 224 mirror is a claim of
+  < 0.001 and is left for a spare slot.
+- **the run, E = `knee-pub9576-rw`**: A v2 plus two lines in the stage-3
+  cell. One is heliosli's `W_RAPTOR_C` line, copied verbatim. The other is
+  an assert that every key is a real column, so a typo cannot silently fall
+  back to 0.5. Simulated on synthetic data, the other 8 columns come out
+  bit-identical to A. There is no runtime cost, and the mount and hashes
+  are the same as A. Pushed 14:03.
+- **the caveat that decides how E may be used.** The weights are hand-set
+  ("user decision 10-16") with no labelled set behind them. The notebook
+  also carries a single-class public probe (`PROBE_CLASS`), so they were
+  plausibly chosen from public-board feedback. A public gain may then not
+  carry to private: 390 public studies against 910 private. **E may be one
+  of the two final picks only alongside a pick without these weights** (A,
+  or C if C pays).
+- **bands, E against A (0.957):** ≥ 0.958 means the reweight transfers to our
+  draw. 0.957 is a tie: keep A as the unweighted pick and take E only as the
+  second. ≤ 0.956 means drop it.

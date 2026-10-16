@@ -15,7 +15,7 @@ exact code we added to the public notebooks is in
 
 | | |
 |---|---|
-| **Our best public score** | **0.956** (14 Oct): an unchanged copy of `heliosli`'s public "≈0.957" notebook |
+| **Our best public score** | **0.957** (16 Oct, A below); 0.956 on 14 Oct from the older public notebook |
 | Our own pipeline's best | 0.945 (our resnets + public CoAtNets); closed as a base |
 | Top of the board | 0.968 (6,065 teams) |
 | 0.960 / 0.958 / 0.957 / 0.956 | rank ~51 / ~106 / ~209 / ~602 (0.957 has 393 teams tied; 0.956 has 797) |
@@ -35,7 +35,7 @@ public notebook (*"This is new public dataset version = 0.9576"*):
 
 | | notebook | what it is | stub run | submission |
 |---|---|---|---|---|
-| **A** | `knee-pub9576` v2 | the 0.9576 notebook, unchanged except one dataset swap (§3.3) | COMPLETE | **57256809**, pending |
+| **A** | `knee-pub9576` v2 | the 0.9576 notebook, unchanged except one dataset swap (§3.3) | COMPLETE | **57256809**: **0.957** |
 | **B** | `knee-pub9576-v1arm` v2 | A + our ten-model v1 ensemble as a 25 % rank vote | COMPLETE | **57256817**, pending |
 | **C** | `knee-pub9576-s6` v1 | A + nartaa's public **S6** ConvNeXt as a fourth model (R6 30 %, S6 20 %, Raptor 50 %) | COMPLETE | not yet |
 | **D** | `knee-pub9576-s6-v1arm` v1 | C + our v1 vote at 25 % | COMPLETE | not yet |

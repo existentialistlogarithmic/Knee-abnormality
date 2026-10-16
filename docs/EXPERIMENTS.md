@@ -10357,3 +10357,8 @@ first:
   in the normal case, so S6 is expected to run on the hidden test, and D's
   add-on to start before its 7.5 h cut-off. Both remain unproven until
   the board, because no hidden-run log exists.
+- **A scored PUBLIC 0.957** (57256809, COMPLETE ~10:40 UTC, ~5 h after
+  the click). That is +0.001 on E157's 0.956, the copy of the 0.9576 notebook
+  rounding down on our draw. It is now the banked best. The board on 16
+  Oct puts 0.957 at rank ~209, with 393 teams tied. B (57256817) is still
+  pending: it carries the extra ~0.8 h v1 stage.

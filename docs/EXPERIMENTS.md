@@ -10415,3 +10415,40 @@ first:
   morning: 0.958 is rank ~224 with **1,464 teams tied**, because the public
   reweight spread; 0.959 is rank ~146; 0.960 is ~98. We are at 0.957,
   listed at rank 1,827. Deadline 2026-10-22 23:59 UTC.
+
+### E160 — PRE-REGISTRATION: the 0.959 public recipe (F) and its weights alone (G)
+- **date**: 2026-10-21, 06:15 UTC, before any run. Deadline 2026-10-22 23:59.
+- **scout #2** (one lister plus two deep readers; 28 public notebooks run
+  since 16 Oct, out of 149 listed). One candidate has credible ≥ 0.959
+  evidence: `heliosli/this-is-best-public-dataset-new-version-0-9586`, run 17
+  Oct. The claim is in the title, and heliosli's team moved from 0.958 (16
+  Oct) to 0.959 (rank 205) in the same window. That is inferred: 26
+  submissions in the window are unattributed. A per-cell diff against our E
+  finds two scoring changes and nothing else:
+  1. **W_RAPTOR_C nudged further:** Lateral OA 0.15, PF OA 0.65,
+     Synovitis 0.85, Baker's 0.30. E has 0.2 / 0.6 / 0.8 / 0.35.
+  2. **goodpjw2008's public 2.5D ConvNeXt reader** (Apache-2.0, 3 folds)
+     as an end-of-notebook rank vote at 0.003–0.035 per finding. Its runner
+     is byte-identical to goodpjw's 0.958 notebook.
+  heliosli's notebook also mounts its own R6 dataset (now R7, see E158) and
+  deletes the manifest assert. Neither change is copied.
+- **evidence against C** (indirect): `goodpjw2008/rsna-knee-does-s6-help-next-to-r6-lb-0-957`
+  reports on the board that adding heliosli's S6 next to R6 cost 0.001
+  (0.958 → 0.957). Weights tuned on gold-58 also lost: 0.957 and 0.955. C
+  uses a different S6 (nartaa's S6fall at 40 % of the compact half), so
+  this is a warning, not a verdict.
+- **two runs**, both E plus one line of weights, copied verbatim from heliosli:
+  - `knee-pub9576-f` (F): adds heliosli's reader cell with three [F] edits.
+    Checkpoints are sha256-pinned to our 6 Oct download, whose pickles
+    were inspected in E150. The reader subprocess gets a timeout of
+    min(1.5 h, 9 h − 40 min − elapsed). A loud `PARTB_FALLBACK` marker
+    prints on failure. Every failure restores the stage-3 file.
+  - `knee-pub9576-g` (G): the weights only, at zero extra runtime. It
+    separates the weights from the reader.
+  Pushed 06:13.
+- **bands against E** (pending, expected 0.958): F or G at 0.959 means it pays
+  on our draw. 0.958 is a tie. 0.957 or below means the nudge hurts.
+- **final-selection rule, fixed now:** pick 1 = the best public score among
+  A/C/E/F/G. **Pick 2 = the best of the others with a *different* weight
+  vector**, so a public-board-fitted nudge cannot sink both picks. If F
+  or G wins, pick 2 is E. If E wins, pick 2 is A.

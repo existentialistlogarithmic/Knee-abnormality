@@ -10452,3 +10452,8 @@ first:
   A/C/E/F/G. **Pick 2 = the best of the others with a *different* weight
   vector**, so a public-board-fitted nudge cannot sink both picks. If F
   or G wins, pick 2 is E. If E wins, pick 2 is A.
+- **E scored PUBLIC 0.958** (57468070, COMPLETE ~11:00 UTC, ~5.2 h). That
+  is +0.001 on A: the public reweight carries to our draw, as E159's top
+  band asked. C (57468079) is still pending, which fits its later expected
+  finish. **F and G submitted 10:09 UTC** as 57476951 and 57476961, F
+  first by click order.

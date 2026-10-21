@@ -15,7 +15,7 @@ exact code we added to the public notebooks is in
 
 | | |
 |---|---|
-| **Our best public score** | **0.957** (16 Oct, A below); 0.956 on 14 Oct from the older public notebook |
+| **Our best public score** | **0.958** (21 Oct, E below); A 0.957; 0.956 on 14 Oct |
 | Our own pipeline's best | 0.945 (our resnets + public CoAtNets); closed as a base |
 | Top of the board | 0.968 (6,065 teams) |
 | 0.960 / 0.958 / 0.957 / 0.956 | rank ~51 / ~106 / ~209 / ~602 (0.957 has 393 teams tied; 0.956 has 797) |
@@ -37,9 +37,11 @@ public notebook (*"This is new public dataset version = 0.9576"*):
 |---|---|---|---|---|
 | **A** | `knee-pub9576` v2 | the 0.9576 notebook, unchanged except one dataset swap (§3.3) | COMPLETE | **57256809**: **0.957** |
 | **B** | `knee-pub9576-v1arm` v2 | A + our ten-model v1 ensemble as a 25 % rank vote | COMPLETE | **57256817**: **0.956**, so our vote hurts this base and is dropped |
-| **C** | `knee-pub9576-s6` v1 | A + nartaa's public **S6** ConvNeXt as a fourth model (R6 30 %, S6 20 %, Raptor 50 %) | COMPLETE | not yet |
+| **C** | `knee-pub9576-s6` v1 | A + nartaa's public **S6** ConvNeXt as a fourth model (R6 30 %, S6 20 %, Raptor 50 %) | COMPLETE | 57468079, pending |
 | **D** | `knee-pub9576-s6-v1arm` v1 | C + our v1 vote at 25 % | COMPLETE | not submitted (B says the vote hurts) |
-| **E** | `knee-pub9576-rw` v1 | A + the four per-finding Raptor weights behind the public 0.958 (Lateral OA 0.2, PF OA 0.6, Synovitis 0.8, Baker's 0.35; E159) | COMPLETE | not yet |
+| **E** | `knee-pub9576-rw` v1 | A + the four per-finding Raptor weights behind the public 0.958 (Lateral OA 0.2, PF OA 0.6, Synovitis 0.8, Baker's 0.35; E159) | COMPLETE | **57468070**: **0.958** |
+| **F** | `knee-pub9576-f` v1 | E with heliosli's 0.959 weights + goodpjw's 2.5D reader at 0.3–3.5 % (E160) | COMPLETE | 57476951, pending |
+| **G** | `knee-pub9576-g` v1 | E with heliosli's 0.959 weights only (E160) | COMPLETE | 57476961, pending |
 
 Decision bands, written **before** any score (E158):
 - **B vs A:** +0.002 or more means our vote pays, so try W = 0.35. +0.001 means hold and re-test. A tie means close it. −0.001 or less means drop it.
@@ -62,7 +64,7 @@ This is the decision with the most leverage left, and it is a judgment call.
   re-running with only the seed changed moved the score by up to 0.0012
   (E146). So public gaps of 0.001 between A–D are **not** evidence that one will
   win on private.
-- A sensible pair: **(1)** the best public scorer among A–D, and **(2)** the best
+- The rule we fixed before the F/G scores (E160): **(1)** the best public scorer among A–G, and **(2)** the best
   candidate that differs most from (1). For example, if (1) is plain A, (2)
   should carry S6 or our vote, so that one bad bet cannot sink both picks.
 - If we select nothing, Kaggle auto-selects. Please say what you'd pick once

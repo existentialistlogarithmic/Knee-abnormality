@@ -10408,3 +10408,10 @@ first:
 - **bands, E against A (0.957):** ≥ 0.958 means the reweight transfers to our
   draw. 0.957 is a tie: keep A as the unweighted pick and take E only as the
   second. ≤ 0.956 means drop it.
+- **2026-10-21, 05:45 UTC: E and C submitted** by the user as 57468070 and
+  57468079, in that order by the click times (E was asked for first). C
+  carries the extra ~1.5–2 h S6 stage, so it should also *finish* later.
+  That gives a second check on the mapping, as with A/B. The board this
+  morning: 0.958 is rank ~224 with **1,464 teams tied**, because the public
+  reweight spread; 0.959 is rank ~146; 0.960 is ~98. We are at 0.957,
+  listed at rank 1,827. Deadline 2026-10-22 23:59 UTC.

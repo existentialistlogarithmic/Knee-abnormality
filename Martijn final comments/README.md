@@ -40,7 +40,8 @@ public notebook (*"This is new public dataset version = 0.9576"*):
 | **C** | `knee-pub9576-s6` v1 | A + nartaa's public **S6** ConvNeXt as a fourth model (R6 30 %, S6 20 %, Raptor 50 %) | COMPLETE | **57468079**: **0.957** = A, so S6 is closed |
 | **D** | `knee-pub9576-s6-v1arm` v1 | C + our v1 vote at 25 % | COMPLETE | not submitted (B says the vote hurts) |
 | **E** | `knee-pub9576-rw` v1 | A + the four per-finding Raptor weights behind the public 0.958 (Lateral OA 0.2, PF OA 0.6, Synovitis 0.8, Baker's 0.35; E159) | COMPLETE | **57468070**: **0.958** |
-| **F** | `knee-pub9576-f` v1 | E with heliosli's 0.959 weights + goodpjw's 2.5D reader at 0.3–3.5 % (E160) | COMPLETE | 57476951, pending |
+| **F** | `knee-pub9576-f` v1 | E with heliosli's 0.959 weights + goodpjw's 2.5D reader at 0.3–3.5 % (E160) | COMPLETE | **57476951**: **0.958**; reader +0.001 over G |
+| **H** | `knee-pub9576-h` v1 | E's weights + F's reader (E161) | COMPLETE | 57492647, pending |
 | **G** | `knee-pub9576-g` v1 | E with heliosli's 0.959 weights only (E160) | COMPLETE | **57476961**: **0.957**, so the further nudge hurts |
 
 Decision bands, written **before** any score (E158):

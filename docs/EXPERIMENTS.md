@@ -10493,3 +10493,6 @@ first:
   hedge: A differs from E only in four weights. F adds a different model
   family (the 2.5D reader), so E + F covers more ways the private set can
   differ.
+- **H submitted 18:01 UTC as 57492647**, described "H: E's per-finding Raptor
+  weights + F's 2.5D reader (Marty)". It is the first submission in this
+  run with a description, and the first apparently made by Martijn.

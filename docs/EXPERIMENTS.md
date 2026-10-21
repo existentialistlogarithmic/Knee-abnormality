@@ -10496,3 +10496,26 @@ first:
 - **H submitted 18:01 UTC as 57492647**, described "H: E's per-finding Raptor
   weights + F's 2.5D reader (Marty)". It is the first submission in this
   run with a description, and the first apparently made by Martijn.
+- **H scored PUBLIC 0.958** (57492647, COMPLETE ~23:35 UTC). That is a
+  three-way tie with E and F, so the reader does not add a further tick on
+  top of E's weights. It sits in E161's middle band.
+
+### FINAL SELECTION (2026-10-21, 23:40 UTC), by E160/E161's pre-registered rule
+**E (57468070) + F (57476951)**, both public 0.958.
+
+| | public | weights (Lat OA / PF OA / Syn / Baker's) | 2.5D reader |
+|---|---:|---|---|
+| A | 0.957 | 0.5 / 0.5 / 0.5 / 0.5 | no |
+| **E** ✔ | **0.958** | 0.2 / 0.6 / 0.8 / 0.35 | no |
+| G | 0.957 | 0.15 / 0.65 / 0.85 / 0.30 | no |
+| **F** ✔ | **0.958** | 0.15 / 0.65 / 0.85 / 0.30 | yes |
+| H | 0.958 | 0.2 / 0.6 / 0.8 / 0.35 | yes |
+| C | 0.957 | A's + nartaa S6 | no |
+| B | 0.956 | A's + our v1 vote | no |
+
+E and F are the only 0.958 pair that differs on **both** axes. H differs
+from each of them on one axis only, so E + F covers the most ways the
+910 private studies can differ from the 390 public ones. The 0.001 gaps
+are inside our own reseed floor (E146), so no pick here is a
+measurement-backed winner. The pair is chosen for coverage, not for an
+edge.

@@ -41,7 +41,7 @@ public notebook (*"This is new public dataset version = 0.9576"*):
 | **D** | `knee-pub9576-s6-v1arm` v1 | C + our v1 vote at 25 % | COMPLETE | not submitted (B says the vote hurts) |
 | **E** | `knee-pub9576-rw` v1 | A + the four per-finding Raptor weights behind the public 0.958 (Lateral OA 0.2, PF OA 0.6, Synovitis 0.8, Baker's 0.35; E159) | COMPLETE | **57468070**: **0.958** |
 | **F** | `knee-pub9576-f` v1 | E with heliosli's 0.959 weights + goodpjw's 2.5D reader at 0.3–3.5 % (E160) | COMPLETE | **57476951**: **0.958**; reader +0.001 over G |
-| **H** | `knee-pub9576-h` v1 | E's weights + F's reader (E161) | COMPLETE | 57492647, pending |
+| **H** | `knee-pub9576-h` v1 | E's weights + F's reader (E161) | COMPLETE | **57492647**: **0.958** (tie) |
 | **G** | `knee-pub9576-g` v1 | E with heliosli's 0.959 weights only (E160) | COMPLETE | **57476961**: **0.957**, so the further nudge hurts |
 
 Decision bands, written **before** any score (E158):
@@ -55,6 +55,12 @@ Every appended stage **fails safe**: if S6 or our vote errors, times out or is
 rejected, the notebook writes exactly the file from the stage before. A hard
 time guard keeps the run under Kaggle's 9 h cap. Five independent reviewers checked
 this before C/D were pushed (E158). They found one real defect, now fixed.
+
+## FINAL PICKS (21 Oct, 23:40 UTC): **E (57468070) + F (57476951)**, both 0.958
+
+E, F and H all scored 0.958. By the rule fixed beforehand (E160/E161), the pair is the two that differ
+on both axes: weights and the reader. Select them on Kaggle → Submissions before 22 Oct 23:59 UTC.
+Full table in `docs/EXPERIMENTS.md`, under "FINAL SELECTION".
 
 ## 3. What I would most like you to check (highest value first)
 

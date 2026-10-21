@@ -10463,3 +10463,12 @@ first:
   vs A is a tie (0.957 = 0.957), so S6 is closed under E158's bands.** The
   result agrees with goodpjw2008's public A/B (heliosli's S6 next to R6:
   −0.001). Two different S6 checkpoints, two bases, no gain.
+- **G scored PUBLIC 0.957** (57476961, COMPLETE ~15:25 UTC). That is
+  −0.001 against E's 0.958. **The further nudge (Lateral OA 0.15, PF OA 0.65,
+  Synovitis 0.85, Baker's 0.30) hurts on our draw**, which is E160's bottom
+  band. G was submitted 14 s *after* F but finished first, as a run without
+  F's reader stage should, so the mapping holds. heliosli's 0.959 is
+  therefore not reproduced by its weights alone: the nudge was most likely
+  fitted to heliosli's own public submissions (E160's stated risk), or the
+  0.959 came from another of heliosli's 26 unattributed submissions. F
+  (the same weights plus the reader) is pending.

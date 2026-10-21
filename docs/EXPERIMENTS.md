@@ -10457,3 +10457,9 @@ first:
   band asked. C (57468079) is still pending, which fits its later expected
   finish. **F and G submitted 10:09 UTC** as 57476951 and 57476961, F
   first by click order.
+- **C scored PUBLIC 0.957** (57468079, COMPLETE ~13:20 UTC, ~7.6 h after the
+  click, against E's ~5.2 h). The extra ~2.4 h fits C's S6 stage, so the
+  E/C mapping is confirmed by completion time as well as click order. **C
+  vs A is a tie (0.957 = 0.957), so S6 is closed under E158's bands.** The
+  result agrees with goodpjw2008's public A/B (heliosli's S6 next to R6:
+  −0.001). Two different S6 checkpoints, two bases, no gain.

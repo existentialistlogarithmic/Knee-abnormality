@@ -10472,3 +10472,24 @@ first:
   fitted to heliosli's own public submissions (E160's stated risk), or the
   0.959 came from another of heliosli's 26 unattributed submissions. F
   (the same weights plus the reader) is pending.
+- **F scored PUBLIC 0.958** (57476951, COMPLETE ~17:10 UTC, ~7 h; the reader
+  stage ran on the hidden test). It ties E. **F − G = +0.001: on our draw,
+  the reader at 0.003–0.035 per finding is worth one tick**, and it
+  recovers what G's further nudge lost.
+
+### E161 — PRE-REGISTRATION: H = E's weights + the reader
+- **date**: 2026-10-21, 17:15 UTC, before the run. Deadline 2026-10-22 23:59.
+- The two pieces that each paid on our draw were never run together: E's
+  weights (+0.001 over A) and the reader (+0.001 over G). `knee-pub9576-h`
+  is E's cells 0–8 exactly plus F's Part B cell exactly (sha256
+  `e62ebe63…`), with the same reader mount. Both pieces have already run on
+  the hidden test (E and F), so H carries no new code. goodpjw2008's v25
+  (E's weights + reader + 224 mirror) claims 0.958. Pushed 17:15.
+- **bands:** 0.959 → H is pick 1. 0.958 → tie with E and F. ≤ 0.957 → H is not
+  picked.
+- **final selection, resolving E160's tie case.** E and F tie at 0.958 and
+  have different weight vectors. By E160's rule, then, the pair is **E + F**
+  unless H scores 0.959, in which case it is **H + E**. Why not A as the
+  hedge: A differs from E only in four weights. F adds a different model
+  family (the 2.5D reader), so E + F covers more ways the private set can
+  differ.

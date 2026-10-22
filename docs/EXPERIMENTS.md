@@ -10588,3 +10588,14 @@ edge.
   pick 2. 0.958 is a tie. ≤ 0.957 means drop it. If IJ ties but I or J alone
   reaches 0.959, the single one wins: the combination was not better.
 - **IJ submitted 02:38 UTC as 57506416.** Two slots remain today.
+- **IJ (57506416) FAILED on the hidden rerun, ~2 h after the click**: status
+  COMPLETE with no score, and `error_description` "Your notebook hit an
+  unhandled error while rerunning your code". No hidden-run log exists. What
+  the timing allows: IJ's cells 0–8 are byte-identical to H (scored 0.958),
+  and the two appended cells only start after ~5 h, since every exception
+  inside them is caught. So the failure is in the public base's early
+  stages. The most likely trigger is a Raptor stage hitting its own 2 h
+  `subprocess.run(timeout=2*3600)` on a slow deadline-day machine; the
+  stage normally takes 0.3–0.7 h. That is inferred and unproven. I and J
+  (submitted 80 min earlier) are still pending at 3.4 h. If they finish,
+  the failure was the machine, not the recipe.

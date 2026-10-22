@@ -10612,3 +10612,11 @@ edge.
   nothing left has evidence of upside, a rerun of a scored notebook is
   deterministic (E153), and a new submission now would be finishing near or
   after the deadline.
+- **Last check, 2026-10-22 20:51 UTC (3 h before the deadline):** no
+  submissions after IJ. 13 submissions this campaign, and all are final.
+  The board lists us at **0.958, rank 1,056 of 6,412**. 1,627 teams tie at
+  0.958, and within a tie Kaggle orders by submission time. 0.959 starts at
+  rank 159, 0.960 at rank 108, and the top is 0.970. H (57492647) was
+  submitted from `martijnlustig`'s own copy, so Martijn is on the team.
+  Selection of the final two cannot be read or set through the API; it is
+  a click on the Submissions page.

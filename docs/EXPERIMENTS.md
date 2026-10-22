@@ -10558,3 +10558,23 @@ edge.
   reproduced by the skeptic, leak-free, and **not reversing on any gold
   transfer testbed**. A winner becomes K = H + a final CPU-only cell. If
   nothing passes, no slot is spent.
+- **E163 RESULT: no cross-finding post-processing passes the gate, so no
+  slot is spent.** All four families were reproduced independently by
+  their skeptics, with no material leakage. One near-leak was caught and
+  handled: the 58 gold studies sit inside the OOF set with labels identical
+  to gold, and the transfer fits were redone without them.
+
+| family | OOF macro Δ [95 % CI] | gold-58 transfer Δ (coat4 / coat10 / cnxt) | verdict |
+|---|---|---|---|
+| anchored L2 stacker ×0.5 | **+0.0017 [+0.0011, +0.0023]** | −0.0020 / −0.0014 / −0.0028 | no: reverses on every bed |
+| label-correlation smoother | 0 (CV picks α = 0 in 5/5 folds) | 0, and negative at any forced α | no |
+| global severity factor | +0.0004 [+0.0001, +0.0008] | +0.0006 / +0.0011 / −0.0003 | no: family-dependent, 5–20× too small |
+| clinical pairs | −0.0001 (CV picks α = 0) | 0, and −0.0015 to −0.0027 at α = 0.1 | no |
+
+  **Why it fails.** The multi-task models already put correlated findings
+  into each column. The OOF gain lives where the *report labeler* is
+  uncertain: +0.0056 on uncertain rows against +0.0006 on confident ones.
+  It reverses on radiologist labels: MCL, the stacker's biggest OOF gainer,
+  is its biggest gold loser. It is a lesson about the instrument as much as
+  the method: a gain against report labels that comes from rows the labeler
+  was unsure of is a gain against the labeler.

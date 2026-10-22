@@ -42,6 +42,9 @@ public notebook (*"This is new public dataset version = 0.9576"*):
 | **E** | `knee-pub9576-rw` v1 | A + the four per-finding Raptor weights behind the public 0.958 (Lateral OA 0.2, PF OA 0.6, Synovitis 0.8, Baker's 0.35; E159) | COMPLETE | **57468070**: **0.958** |
 | **F** | `knee-pub9576-f` v1 | E with heliosli's 0.959 weights + goodpjw's 2.5D reader at 0.3–3.5 % (E160) | COMPLETE | **57476951**: **0.958**; reader +0.001 over G |
 | **H** | `knee-pub9576-h` v1 | E's weights + F's reader (E161) | COMPLETE | **57492647**: **0.958** (tie) |
+| **I** | `knee-pub9576-i` v1 | H + our v1 arm at 3 % (E162) | COMPLETE | **57504261**: **0.957**, so our arm hurts at any weight |
+| **J** | `knee-pub9576-j` v1 | H with the reader weights ×2 (E162) | COMPLETE | **57504271**: **0.958** (tie) |
+| **IJ** | `knee-pub9576-ij` v1 | I + J together | COMPLETE | **57506416**: error on the hidden rerun |
 | **G** | `knee-pub9576-g` v1 | E with heliosli's 0.959 weights only (E160) | COMPLETE | **57476961**: **0.957**, so the further nudge hurts |
 
 Decision bands, written **before** any score (E158):

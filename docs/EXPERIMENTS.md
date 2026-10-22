@@ -10599,3 +10599,16 @@ edge.
   stage normally takes 0.3–0.7 h. That is inferred and unproven. I and J
   (submitted 80 min earlier) are still pending at 3.4 h. If they finish,
   the failure was the machine, not the recipe.
+- **E162 RESULT** (read 16:58 UTC; the container was down from ~06:45, so
+  the completion times are unknown and the mapping rests on click order
+  only): **I (57504261) = 0.957, J (57504271) = 0.958.** Our v1 arm at 3 %
+  costs 0.001 on top of H, the same sign as at 25 % (B). It is closed at
+  every weight we tried. Doubling the reader ties H. IJ errored (above). **No
+  variant reached 0.959.** Six notebooks now sit at 0.958 or 0.957 around
+  the same recipe (E, F, H, J at 0.958), which is the ceiling of this family
+  on our draw.
+- **FINAL SELECTION UNCHANGED: E (57468070) + F (57476951).** Nothing met
+  E160/E161/E162's ≥ 0.959 band. The two remaining slots are not used:
+  nothing left has evidence of upside, a rerun of a scored notebook is
+  deterministic (E153), and a new submission now would be finishing near or
+  after the deadline.

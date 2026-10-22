@@ -10587,3 +10587,4 @@ edge.
   before the deadline. **Bands vs H:** 0.959 or above, and IJ is pick 1 with E as
   pick 2. 0.958 is a tie. ≤ 0.957 means drop it. If IJ ties but I or J alone
   reaches 0.959, the single one wins: the combination was not better.
+- **IJ submitted 02:38 UTC as 57506416.** Two slots remain today.

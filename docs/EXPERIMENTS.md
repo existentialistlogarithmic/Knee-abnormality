@@ -10578,3 +10578,12 @@ edge.
   is its biggest gold loser. It is a lesson about the instrument as much as
   the method: a gain against report labels that comes from rows the labeler
   was unsure of is a gain against the labeler.
+- **I and J submitted 01:18 UTC** as 57504261 and 57504271, I first by
+  click order. I carries the extra ~0.7–0.9 h v1 stage, so it should
+  also finish later. That is the usual second check on the mapping.
+- **IJ = `knee-pub9576-ij`**, pushed 01:43: H's cells 0–8, J's reader cell
+  (weights ×2) and I's add-on cell (v1 at 0.03). Every cell has already run
+  on the stub. It goes in now rather than after round 1 to save a round
+  before the deadline. **Bands vs H:** 0.959 or above, and IJ is pick 1 with E as
+  pick 2. 0.958 is a tie. ≤ 0.957 means drop it. If IJ ties but I or J alone
+  reaches 0.959, the single one wins: the combination was not better.

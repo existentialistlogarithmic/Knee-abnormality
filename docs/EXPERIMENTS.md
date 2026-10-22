@@ -10538,3 +10538,23 @@ edge.
 - **bands vs H (0.958):** 0.959 means it pays, and it becomes pick 1 with E as
   pick 2. 0.958 is a tie, so E + F stands. ≤ 0.957 means drop it. If both I and
   J pay, round 2 is I + J together.
+
+### E163 — PRE-REGISTRATION: cross-finding post-processing, measured offline first
+- **date**: 2026-10-22, ~00:55 UTC, before any number.
+- **idea.** AUC reads only the order within each column, so the only
+  post-processing that can move the score borrows information *across*
+  columns. The 12 findings are strongly linked: effusion, synovitis and
+  Baker's; the three OA compartments; ACL tear and pivot-shift bone
+  contusion; meniscus and same-compartment OA. A study's other columns can
+  re-order it within a column.
+- **instrument.** Our 5-fold pooled OOF (`oof_s3`, 4,407 studies, report
+  labels > 0.5) with fold-CV fitting, then a *transfer* test. Coefficients
+  fitted on the full OOF are applied unchanged to gold-58 predictions from
+  public CoAtNet (coat4, coat10) and ConvNeXt-reader models: radiologist
+  labels, closer to the stack we submit. A workflow runs four families
+  (per-finding stacker, label-correlation smoother, global severity factor,
+  clinical pairs), each followed by an independent skeptic who re-runs it.
+- **gate for a board slot:** an OOF macro gain with a 95 % CI above 0,
+  reproduced by the skeptic, leak-free, and **not reversing on any gold
+  transfer testbed**. A winner becomes K = H + a final CPU-only cell. If
+  nothing passes, no slot is spent.

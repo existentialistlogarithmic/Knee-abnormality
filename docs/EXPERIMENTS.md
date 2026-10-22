@@ -10519,3 +10519,22 @@ from each of them on one axis only, so E + F covers the most ways the
 are inside our own reseed floor (E146), so no pick here is a
 measurement-backed winner. The pair is chosen for coverage, not for an
 edge.
+
+### E162 — PRE-REGISTRATION, deadline day: small diverse votes on top of H
+- **date**: 2026-10-22, 00:40 UTC. Deadline 23:59 UTC. 5 submissions today,
+  5–7.5 h each, so two rounds at most.
+- **the pattern the board has shown us.** A different-family model helps
+  at a small weight and hurts at a large one. The 2.5D reader at
+  0.003–0.035 gave +0.001 (F vs G). Our v1 arm at 0.25 gave −0.001 (B vs A).
+- **I = `knee-pub9576-i`**: H plus E155's v1 add-on cell, unchanged except
+  `W = 0.03`. That is a flat 3 %, the reader's top weight, chosen without
+  labels or a board read. It keeps the same fail-safe and time guard as B
+  (start by 7.5 h after NB_T0, killed at 8.6 h, restore on any failure).
+- **J = `knee-pub9576-j`**: H with goodpjw's per-finding reader weights ×2
+  (0.006–0.07). It tests whether more of the vote that paid pays more. No
+  extra runtime.
+- Both pushed 00:40. A public scout (the same workflow as E160) is running
+  in parallel.
+- **bands vs H (0.958):** 0.959 means it pays, and it becomes pick 1 with E as
+  pick 2. 0.958 is a tie, so E + F stands. ≤ 0.957 means drop it. If both I and
+  J pay, round 2 is I + J together.
